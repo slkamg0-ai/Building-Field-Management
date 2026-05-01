@@ -5,7 +5,7 @@ import { getDailyLog, addLabor, addEquipment, addMaterial, addOutsourcing, addEx
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid, PieChart, Pie, Cell } from 'recharts'
 import { exportMonthlyReport } from '@/lib/exportExcel'
 import { useRouter } from 'next/navigation'
-import { Users, LogOut, Shield, Trash2, UserPlus, Power } from 'lucide-react'
+import { Users, User, LogOut, Shield, Trash2, UserPlus, Power } from 'lucide-react'
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState('dashboard') // dashboard, labor, equipment, material, outsourcing
