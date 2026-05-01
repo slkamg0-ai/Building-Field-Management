@@ -726,7 +726,7 @@ export default function Home() {
                             <Tooltip 
                               contentStyle={{ backgroundColor: '#111316', borderColor: '#2D343D', borderRadius: '8px' }}
                               itemStyle={{ fontSize: '14px' }}
-                              formatter={(value: number) => [`₩${value.toLocaleString()}`, undefined]}
+                              formatter={(value: unknown) => [`₩${Number(value).toLocaleString()}`, undefined]}
                             />
                             <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
                             <Bar dataKey="노무비" stackId="a" fill="#FF6B00" radius={[0, 0, 4, 4]} />
