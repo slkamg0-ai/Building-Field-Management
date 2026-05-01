@@ -340,6 +340,16 @@ export default function Home() {
     });
   };
 
+  function dataURLtoBlob(dataURL: string): Blob {
+    const arr = dataURL.split(',')
+    const mime = arr[0].match(/:(.*?);/)![1]
+    const bstr = atob(arr[1])
+    let n = bstr.length
+    const u8arr = new Uint8Array(n)
+    while (n--) u8arr[n] = bstr.charCodeAt(n)
+    return new Blob([u8arr], { type: mime })
+  }
+
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !logData) return;
@@ -348,25 +358,27 @@ export default function Home() {
     try {
       const optimizedBase64 = await optimizeImage(file);
       const fileName = `${logData.id}_${Date.now()}.jpg`;
-      const blob = await (await fetch(optimizedBase64)).blob();
-      
-      const { data, error } = await supabase.storage
+      const blob = dataURLtoBlob(optimizedBase64);
+
+      const { error: uploadError } = await supabase.storage
         .from('site-photos')
-        .upload(fileName, blob);
-        
-      if (error) throw error;
-      
+        .upload(fileName, blob, { contentType: 'image/jpeg' });
+
+      if (uploadError) throw new Error(`스토리지 업로드 실패: ${uploadError.message}`);
+
       const { data: { publicUrl } } = supabase.storage
         .from('site-photos')
         .getPublicUrl(fileName);
-        
+
       await addPhotoRecord(logData.id, publicUrl, currentUser.name);
       loadData();
-    } catch (e: any) {
-      console.error("Upload failed", e);
-      alert("이미지 업로드에 실패했습니다. 'site-photos' 버킷이 생성되어 있고 공개 권한이 있는지 확인해주세요.");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err)
+      console.error("Upload failed", msg);
+      alert(`업로드 실패: ${msg}`);
     } finally {
       setIsUploading(false);
+      e.target.value = '';
     }
   };
 
