@@ -1,11 +1,11 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { getDailyLog, addLabor, addEquipment, addMaterial, addOutsourcing, addExpense, searchLabors, searchEquipments, searchMaterials, searchOutsourcings, getSites, createSite, updateSite, resetSiteData, getMonthlyStats, getSiteTotalStats, getUsers, createUser, deleteUser, toggleUserActive } from '@/lib/actions'
+import { getDailyLog, addLabor, addEquipment, addMaterial, addOutsourcing, addExpense, searchLabors, searchEquipments, searchMaterials, searchOutsourcings, getSites, createSite, updateSite, resetSiteData, getMonthlyStats, getSiteTotalStats, getUsers, createUser, deleteUser, toggleUserActive, updateUserPin } from '@/lib/actions'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid, PieChart, Pie, Cell } from 'recharts'
 import { exportMonthlyReport } from '@/lib/exportExcel'
 import { useRouter } from 'next/navigation'
-import { Users, User, LogOut, Shield, Trash2, UserPlus, Power } from 'lucide-react'
+import { Users, User, LogOut, Shield, Trash2, UserPlus, Power, KeyRound, Check, X } from 'lucide-react'
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState('dashboard') // dashboard, labor, equipment, material, outsourcing
@@ -37,6 +37,8 @@ export default function Home() {
   const [allUsers, setAllUsers] = useState<any[]>([])
   const [showUserManagement, setShowUserManagement] = useState(false)
   const [newUserForm, setNewUserForm] = useState({ name: '', pin: '', role: 'WORKER' })
+  const [changingPinId, setChangingPinId] = useState<string | null>(null)
+  const [newPinInput, setNewPinInput] = useState('')
   const router = useRouter()
 
   // 폼 표시 상태
@@ -534,7 +536,48 @@ export default function Home() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <button 
+                      {changingPinId === u.id ? (
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="password"
+                            maxLength={4}
+                            placeholder="새 PIN"
+                            value={newPinInput}
+                            onChange={e => setNewPinInput(e.target.value.replace(/\D/g, ''))}
+                            className="w-20 bg-[#1e2023] border border-[#FF6B00] rounded px-2 py-1 text-white text-sm outline-none text-center tracking-widest"
+                            autoFocus
+                          />
+                          <button
+                            onClick={async () => {
+                              if (newPinInput.length !== 4) return
+                              await updateUserPin(u.id, newPinInput)
+                              setChangingPinId(null)
+                              setNewPinInput('')
+                              loadAllUsers()
+                            }}
+                            className="p-1.5 rounded bg-[#4ae176]/10 text-[#4ae176] hover:bg-[#4ae176]/20 transition-colors"
+                            title="저장"
+                          >
+                            <Check className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => { setChangingPinId(null); setNewPinInput('') }}
+                            className="p-1.5 rounded hover:bg-slate-800 text-slate-500 transition-colors"
+                            title="취소"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => { setChangingPinId(u.id); setNewPinInput('') }}
+                          className="p-2 rounded hover:bg-slate-800 text-slate-500 hover:text-[#FF6B00] transition-colors"
+                          title="PIN 변경"
+                        >
+                          <KeyRound className="w-4 h-4" />
+                        </button>
+                      )}
+                      <button
                         onClick={async () => {
                           await toggleUserActive(u.id, !u.isActive)
                           loadAllUsers()
@@ -545,7 +588,7 @@ export default function Home() {
                         <Power className="w-4 h-4" />
                       </button>
                       {u.name !== '관리자' && (
-                        <button 
+                        <button
                           onClick={async () => {
                             if (confirm('정말로 이 사용자를 삭제하시겠습니까?')) {
                               await deleteUser(u.id)
