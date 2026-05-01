@@ -370,7 +370,14 @@ export default function Home() {
         .from('site-photos')
         .getPublicUrl(fileName);
 
-      await addPhotoRecord(logData.id, publicUrl, currentUser.name);
+      const { error: dbError } = await supabase.from('Photo').insert({
+        id: crypto.randomUUID(),
+        logId: logData.id,
+        url: publicUrl,
+        createdBy: currentUser?.name ?? null,
+      });
+      if (dbError) throw new Error(`DB 저장 실패: ${dbError.message}`);
+
       loadData();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err)
