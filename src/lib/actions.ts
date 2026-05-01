@@ -118,6 +118,15 @@ export async function deleteUser(id: string) {
   revalidatePath('/')
 }
 
+export async function updateUserRole(id: string, role: string) {
+  const { error } = await supabase
+    .from('User')
+    .update({ role })
+    .eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/')
+}
+
 export async function updateUserPin(id: string, newPin: string) {
   const { error } = await supabase
     .from('User')

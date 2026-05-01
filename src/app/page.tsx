@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { getDailyLog, addLabor, addEquipment, addMaterial, addOutsourcing, addExpense, searchLabors, searchEquipments, searchMaterials, searchOutsourcings, getSites, createSite, updateSite, resetSiteData, getMonthlyStats, getSiteTotalStats, getUsers, createUser, deleteUser, toggleUserActive, updateUserPin } from '@/lib/actions'
+import { getDailyLog, addLabor, addEquipment, addMaterial, addOutsourcing, addExpense, searchLabors, searchEquipments, searchMaterials, searchOutsourcings, getSites, createSite, updateSite, resetSiteData, getMonthlyStats, getSiteTotalStats, getUsers, createUser, deleteUser, toggleUserActive, updateUserPin, updateUserRole } from '@/lib/actions'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid, PieChart, Pie, Cell } from 'recharts'
 import { exportMonthlyReport } from '@/lib/exportExcel'
 import { useRouter } from 'next/navigation'
@@ -532,7 +532,24 @@ export default function Home() {
                       </div>
                       <div>
                         <div className="text-white font-bold text-sm">{u.name}</div>
-                        <div className="text-[10px] text-slate-500 font-bold tracking-widest">{u.role} • PIN: {u.pin}</div>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          {u.name !== '관리자' ? (
+                            <button
+                              onClick={async () => {
+                                const newRole = u.role === 'ADMIN' ? 'WORKER' : 'ADMIN'
+                                await updateUserRole(u.id, newRole)
+                                loadAllUsers()
+                              }}
+                              className={`text-[10px] font-bold tracking-widest px-1.5 py-0.5 rounded transition-colors ${u.role === 'ADMIN' ? 'bg-[#FF6B00]/20 text-[#FF6B00] hover:bg-[#FF6B00]/30' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}
+                              title="클릭하여 역할 변경"
+                            >
+                              {u.role}
+                            </button>
+                          ) : (
+                            <span className="text-[10px] font-bold tracking-widest px-1.5 py-0.5 rounded bg-[#FF6B00]/20 text-[#FF6B00]">{u.role}</span>
+                          )}
+                          <span className="text-[10px] text-slate-500">PIN: {u.pin}</span>
+                        </div>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
