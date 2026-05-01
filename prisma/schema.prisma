@@ -1,0 +1,117 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  pin       String   // Simple PIN based login for ease of use
+  role      String   @default("WORKER") // ADMIN, WORKER
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model Site {
+  id             String      @id @default(cuid())
+  name           String
+  location       String?
+  contractAmount Float       @default(0) // 도급액
+  startDate      DateTime    @default(now()) // 공사 시작일
+  endDate        DateTime    @default(now()) // 공사 종료일
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  logs           DailyLog[]
+}
+
+model DailyLog {
+  id          String   @id @default(cuid())
+  date        DateTime @default(now())
+  siteId      String
+  site        Site     @relation(fields: [siteId], references: [id])
+  weather     String?
+  description String?  // 오늘의 작업내용
+  
+  labors      Labor[]
+  equipments  Equipment[]
+  materials   Material[]
+  expenses    Expense[]
+  outsourcings Outsourcing[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([date, siteId])
+}
+
+// 노무
+model Labor {
+  id          String   @id @default(cuid())
+  logId       String
+  log         DailyLog @relation(fields: [logId], references: [id], onDelete: Cascade)
+  name        String   // 노무자 이름
+  jobType     String   // 공종
+  unitPrice   Int      // 단가
+  amount      Float    // 투입공수
+  totalPrice  Int      // 총 금액
+  note        String?  // 비고
+  createdBy   String?  // 작성자 이름 기록
+}
+
+// 장비
+model Equipment {
+  id          String   @id @default(cuid())
+  logId       String
+  log         DailyLog @relation(fields: [logId], references: [id], onDelete: Cascade)
+  name        String   // 장비명
+  spec        String?  // 규격
+  unitPrice   Int      // 단가
+  amount      Float    // 투입시간/일
+  totalPrice  Int      // 총 금액
+  note        String?
+  createdBy   String?
+}
+
+// 자재
+model Material {
+  id          String   @id @default(cuid())
+  logId       String
+  log         DailyLog @relation(fields: [logId], references: [id], onDelete: Cascade)
+  name        String   // 자재명
+  spec        String?  // 규격
+  unit        String   // 단위
+  quantity    Float    // 수량
+  note        String?
+  createdBy   String?
+}
+
+// 경비
+model Expense {
+  id          String   @id @default(cuid())
+  logId       String
+  log         DailyLog @relation(fields: [logId], references: [id], onDelete: Cascade)
+  category    String   // 항목
+  amount      Int      // 금액
+  note        String?  // 비고
+  createdBy   String?
+}
+
+// 외주
+model Outsourcing {
+  id          String   @id @default(cuid())
+  logId       String
+  log         DailyLog @relation(fields: [logId], references: [id], onDelete: Cascade)
+  companyName String   // 외주업체명
+  task        String   // 작업내용
+  amount      Int      // 기성/투입 금액
+  note        String?
+  createdBy   String?
+}
