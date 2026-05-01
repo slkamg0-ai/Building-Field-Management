@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { getDailyLog, addLabor, addEquipment, addMaterial, addOutsourcing, addExpense, searchLabors, searchEquipments, searchMaterials, searchOutsourcings, getSites, createSite, updateSite, resetSiteData, getMonthlyStats, getSiteTotalStats, getUsers, createUser, deleteUser, toggleUserActive, updateUserPin, updateUserRole } from '@/lib/actions'
+import { getDailyLog, addLabor, addEquipment, addMaterial, addOutsourcing, addExpense, searchLabors, searchEquipments, searchMaterials, searchOutsourcings, getSites, createSite, updateSite, resetSiteData, getMonthlyStats, getSiteTotalStats, getUsers, createUser, deleteUser, toggleUserActive, updateUserPin, updateUserRole, updateDailyLogDescription, addPhotoRecord, deletePhoto } from '@/lib/actions'
+import { supabase } from '@/lib/supabase'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid, PieChart, Pie, Cell } from 'recharts'
 import { exportMonthlyReport } from '@/lib/exportExcel'
 import { useRouter } from 'next/navigation'
@@ -51,6 +52,10 @@ export default function Home() {
   const [outsourcingForm, setOutsourcingForm] = useState({ company: '', task: '', amount: '', note: '' })
   const [expenseForm, setExpenseForm] = useState({ category: '', amount: '', note: '' })
   const [suggestions, setSuggestions] = useState<any[]>([])
+  
+  // 작업 내용 및 사진 관련 상태
+  const [workDescription, setWorkDescription] = useState('')
+  const [isUploading, setIsUploading] = useState(false)
 
   useEffect(() => {
     // 로그인 체크
@@ -163,6 +168,7 @@ export default function Home() {
     try {
       const data = await getDailyLog(currentDate, selectedSiteId)
       setLogData(data)
+      setWorkDescription(data.description || '')
     } catch (e) {
       console.error(e)
     } finally {
@@ -298,112 +304,237 @@ export default function Home() {
  
   const monthName = `${selectedMonth}월`
   const isOverBudgetToday = siteTotalStats && grandTotal > (siteTotalStats.dailyLimit || 0)
+  
+  const optimizeImage = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target?.result as string;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          const max_size = 1024;
+
+          if (width > height) {
+            if (width > max_size) {
+              height *= max_size / width;
+              width = max_size;
+            }
+          } else {
+            if (height > max_size) {
+              width *= max_size / height;
+              height = max_size;
+            }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', 0.6));
+        };
+      };
+      reader.onerror = error => reject(error);
+    });
+  };
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !logData) return;
+
+    setIsUploading(true);
+    try {
+      const optimizedBase64 = await optimizeImage(file);
+      const fileName = `${logData.id}_${Date.now()}.jpg`;
+      const blob = await (await fetch(optimizedBase64)).blob();
+      
+      const { data, error } = await supabase.storage
+        .from('site-photos')
+        .upload(fileName, blob);
+        
+      if (error) throw error;
+      
+      const { data: { publicUrl } } = supabase.storage
+        .from('site-photos')
+        .getPublicUrl(fileName);
+        
+      await addPhotoRecord(logData.id, publicUrl, currentUser.name);
+      loadData();
+    } catch (e: any) {
+      console.error("Upload failed", e);
+      alert("이미지 업로드에 실패했습니다. 'site-photos' 버킷이 생성되어 있고 공개 권한이 있는지 확인해주세요.");
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   return (
     <>
-      <header className="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-4 md:px-8 h-20 bg-[#121417] border-b border-[#2D343D] transition-all">
-        <div className="flex items-center gap-3 md:gap-4">
-          <div className="w-10 h-10 rounded-full overflow-hidden border border-[#FF6B00] hidden sm:block shrink-0">
-            <img alt="Profile" className="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAVRaBrtKh_z4Q7vJTKk4JINJs8Ij5SI9UofZu7tdp1mM3Tz-k2n0gXdfY1Db0GdG2UC-EB9EIqR6bpy6Yho0MAdFgMs0Q4FjAhLIxIPztwIis_lvFBDeAIaxBNeg7OsyeDd8RR1xLw4YwBZ7N1NqPO_g0cjKeGT1YVV6ssygQWdU9uhSdf1rq-_lMDVpG7vFicN6bG72DHUiMoiTfQSfLtVoHwUsJ-Xk3_Bp6vmx4Z_DBHYBhLZJYj5C7TLLmqpQvwUSWdrKwwFkKQ"/>
-          </div>
-          
-          <div className="flex flex-col">
-            <h1 className="font-['Space_Grotesk'] tracking-tight text-[#FF6B00] text-sm md:text-xl font-bold uppercase leading-none">
-              현장 관리
+      {/* Desktop Sidebar */}
+      <aside className="fixed inset-y-0 left-0 z-40 hidden xl:flex flex-col h-full w-72 border-r border-[#2D343D] bg-[#1E2228] transition-all">
+        <div className="p-8 flex flex-col gap-6">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded bg-[#ff6b00] flex items-center justify-center">
+              <span className="material-symbols-outlined text-black">construction</span>
+            </div>
+            <h1 className="text-xl font-black text-white font-['Space_Grotesk'] tracking-widest uppercase truncate">
+              {sites.find(s => s.id === selectedSiteId)?.name || 'SITE ALPHA'}
             </h1>
-            {sites.length > 0 ? (
-              <select 
-                value={selectedSiteId} 
-                onChange={(e) => {
-                  if (e.target.value === 'NEW') setShowNewSiteForm(true)
-                  else setSelectedSiteId(e.target.value)
-                }}
-                className="bg-transparent text-white font-bold text-lg md:text-2xl outline-none appearance-none cursor-pointer hover:opacity-80 truncate max-w-[150px] md:max-w-xs mt-1"
-              >
-                {sites.map(s => <option key={s.id} value={s.id} className="bg-[#121417] text-base">{s.name}</option>)}
-                <option value="NEW" className="bg-[#121417] text-[#FF6B00] font-bold">+ 새 현장 추가</option>
-              </select>
-            ) : (
-              <span className="text-white font-bold text-lg mt-1">현장 없음</span>
-            )}
           </div>
           
-          {selectedSiteId && (
-            <button 
-              onClick={openEditSiteModal}
-              className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[#2D343D] transition-colors ml-1 mt-4"
-              title="현장 정보 수정"
-            >
-              <span className="material-symbols-outlined text-slate-500 text-lg">edit</span>
-            </button>
-          )}
+          <div className="pt-6 flex flex-col gap-2">
+            {[
+              { id: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
+              { id: 'labor', label: 'Labour', icon: 'groups' },
+              { id: 'equipment', label: 'Equipment', icon: 'precision_manufacturing' },
+              { id: 'material', label: 'Materials', icon: 'inventory_2' },
+              { id: 'outsourcing', label: 'Outsourcing', icon: 'assignment' },
+              { id: 'expense', label: 'Expense', icon: 'payments' },
+            ].map(item => (
+              <div 
+                key={item.id}
+                onClick={() => setActiveTab(item.id)}
+                className={`flex items-center gap-4 px-4 py-3 rounded cursor-pointer transition-all ${activeTab === item.id ? 'bg-[#2D343D] text-[#FF6B00] border-l-4 border-[#FF6B00]' : 'text-slate-400 hover:text-white hover:bg-[#2D343D]'}`}
+              >
+                <span className="material-symbols-outlined">{item.icon}</span>
+                <span className="font-['Space_Grotesk'] uppercase text-xs font-semibold">{item.label}</span>
+              </div>
+            ))}
+          </div>
         </div>
         
-        <div className="flex items-center gap-2 md:gap-3">
-          <div className="hidden md:flex flex-col items-end mr-2">
-            <span className="text-white text-sm font-bold">{currentUser?.name}</span>
-            <span className="text-slate-500 text-[10px] font-bold uppercase tracking-widest">{currentUser?.role}</span>
+        <div className="mt-auto p-8 border-t border-[#2D343D]">
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 rounded-full overflow-hidden border border-[#FF6B00] shrink-0">
+              <img alt="Profile" className="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAVRaBrtKh_z4Q7vJTKk4JINJs8Ij5SI9UofZu7tdp1mM3Tz-k2n0gXdfY1Db0GdG2UC-EB9EIqR6bpy6Yho0MAdFgMs0Q4FjAhLIxIPztwIis_lvFBDeAIaxBNeg7OsyeDd8RR1xLw4YwBZ7N1NqPO_g0cjKeGT1YVV6ssygQWdU9uhSdf1rq-_lMDVpG7vFicN6bG72DHUiMoiTfQSfLtVoHwUsJ-Xk3_Bp6vmx4Z_DBHYBhLZJYj5C7TLLmqpQvwUSWdrKwwFkKQ"/>
+            </div>
+            <div className="flex flex-col overflow-hidden">
+              <span className="text-white font-bold text-sm truncate">{currentUser?.name}</span>
+              <span className="text-slate-500 text-[10px] font-bold uppercase tracking-widest">{currentUser?.role}</span>
+            </div>
           </div>
-
-          <div className="flex items-center gap-1 bg-[#1e2023] border border-[#2D343D] rounded-lg px-2 py-1">
-            <select 
-              value={selectedYear} 
-              onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-              className="bg-transparent text-white text-sm font-bold outline-none cursor-pointer p-1"
-            >
-              {[2024, 2025, 2026].map(y => <option key={y} value={y} className="bg-[#121417]">{y}년</option>)}
-            </select>
-            <select 
-              value={selectedMonth} 
-              onChange={(e) => {
-                const m = parseInt(e.target.value)
-                setSelectedMonth(m)
-                // 시차 문제 없는 날짜 설정
-                const newDate = `${selectedYear}-${String(m).padStart(2, '0')}-01`
-                setCurrentDate(newDate)
-              }}
-              className="bg-transparent text-[#FF6B00] text-sm font-bold outline-none cursor-pointer p-1"
-            >
-              {Array.from({ length: 12 }, (_, i) => i + 1).map(m => <option key={m} value={m} className="bg-[#121417]">{m}월</option>)}
-            </select>
-          </div>
-          
-          <input 
-            type="date" 
-            className="bg-[#1e2023] border border-[#2D343D] text-white px-2 py-2 md:px-3 rounded-lg text-[10px] md:text-xs outline-none focus:border-[#FF6B00] w-28 md:w-auto"
-            value={currentDate}
-            onChange={(e) => {
-              const d = new Date(e.target.value)
-              setCurrentDate(e.target.value)
-              setSelectedYear(d.getFullYear())
-              setSelectedMonth(d.getMonth() + 1)
-            }}
-          />
-          
-          {currentUser?.role === 'ADMIN' && (
-            <button 
-              onClick={() => {
-                loadAllUsers()
-                setShowUserManagement(true)
-              }}
-              className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-[#2D343D] transition-colors active:opacity-80 group"
-              title="사용자 관리"
-            >
-              <Users className="text-slate-400 group-hover:text-[#FF6B00] w-5 h-5" />
-            </button>
-          )}
-
-          <button 
-            onClick={handleLogout}
-            className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-[#2D343D] transition-colors active:opacity-80 group"
-            title="로그아웃"
-          >
-            <LogOut className="text-slate-400 group-hover:text-red-400 w-5 h-5" />
-          </button>
         </div>
-      </header>
+      </aside>
 
-      <main className="mt-20 px-4 md:px-8 space-y-6 pb-24 max-w-7xl mx-auto pt-6">
+      <div className="xl:ml-72 flex flex-col min-h-screen">
+        <header className="fixed top-0 left-0 xl:left-72 right-0 z-30 flex flex-col bg-[#121417] border-b border-[#2D343D] transition-all">
+          {/* 1행: 타이틀 / 현장 선택 + 버튼 */}
+          <div className="flex justify-between items-center px-4 md:px-8 h-16">
+            <div className="flex items-center gap-3 md:gap-4">
+              <div className="flex flex-col">
+                <h1 className="font-['Space_Grotesk'] tracking-tight text-[#FF6B00] text-sm md:text-xl font-bold uppercase leading-none">
+                  현장 분석 대시보드
+                </h1>
+                {sites.length > 0 && (
+                  <div className="flex items-center gap-2 mt-1">
+                    <select
+                      value={selectedSiteId}
+                      onChange={(e) => {
+                        if (e.target.value === 'NEW') setShowNewSiteForm(true)
+                        else setSelectedSiteId(e.target.value)
+                      }}
+                      className="bg-transparent text-white font-bold text-xs md:text-lg outline-none appearance-none cursor-pointer hover:opacity-80 truncate max-w-[120px] md:max-w-xs"
+                    >
+                      {sites.map(s => <option key={s.id} value={s.id} className="bg-[#121417] text-base">{s.name}</option>)}
+                      <option value="NEW" className="bg-[#121417] text-[#FF6B00] font-bold">+ 새 현장 추가</option>
+                    </select>
+                    {selectedSiteId && (
+                      <button onClick={openEditSiteModal} className="text-slate-500 hover:text-white transition-colors">
+                        <span className="material-symbols-outlined text-sm md:text-lg">edit</span>
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center gap-1">
+              {currentUser?.role === 'ADMIN' && (
+                <button onClick={() => { loadAllUsers(); setShowUserManagement(true) }} className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-[#2D343D] transition-colors text-slate-400 hover:text-[#FF6B00]" title="사용자 관리">
+                  <Users className="w-5 h-5" />
+                </button>
+              )}
+              <button onClick={handleLogout} className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-[#2D343D] transition-colors text-slate-400 hover:text-red-400" title="로그아웃">
+                <LogOut className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+          {/* 2행: 날짜 선택 (데스크톱 전용) */}
+          <div className="hidden md:flex items-center gap-2 px-4 md:px-8 py-2 border-t border-[#2D343D]">
+            <div className="flex items-center gap-1 bg-[#1e2023] border border-[#2D343D] rounded-lg px-2 py-1">
+              <select
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                className="bg-transparent text-white text-xs font-bold outline-none cursor-pointer p-1"
+              >
+                {[2024, 2025, 2026].map(y => <option key={y} value={y} className="bg-[#121417]">{y}년</option>)}
+              </select>
+              <select
+                value={selectedMonth}
+                onChange={(e) => {
+                  const m = parseInt(e.target.value)
+                  setSelectedMonth(m)
+                  const newDate = `${selectedYear}-${String(m).padStart(2, '0')}-01`
+                  setCurrentDate(newDate)
+                }}
+                className="bg-transparent text-[#FF6B00] text-xs font-bold outline-none cursor-pointer p-1"
+              >
+                {Array.from({ length: 12 }, (_, i) => i + 1).map(m => <option key={m} value={m} className="bg-[#121417]">{m}월</option>)}
+              </select>
+            </div>
+            <input
+              type="date"
+              className="bg-[#1e2023] border border-[#2D343D] text-white px-3 py-2 rounded-lg text-xs outline-none focus:border-[#FF6B00]"
+              value={currentDate}
+              onChange={(e) => {
+                const d = new Date(e.target.value)
+                setCurrentDate(e.target.value)
+                setSelectedYear(d.getFullYear())
+                setSelectedMonth(d.getMonth() + 1)
+              }}
+            />
+          </div>
+        </header>
+
+        <main className="mt-16 md:mt-[104px] px-4 md:px-8 space-y-6 pb-24 xl:pb-8 max-w-7xl mx-auto pt-6 w-full">
+          {/* Mobile Project & Date Selector */}
+          <section className="md:hidden flex flex-col gap-3 pb-4 border-b border-[#2D343D]">
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-[#FF6B00] text-sm">location_on</span>
+              <span className="text-on-surface font-bold">현장: {sites.find(s => s.id === selectedSiteId)?.name || '선택된 현장 없음'}</span>
+            </div>
+            <div className="flex gap-2">
+              <div className="flex-1 relative">
+                <select 
+                  value={selectedMonth}
+                  onChange={(e) => {
+                    const m = parseInt(e.target.value)
+                    setSelectedMonth(m)
+                    const newDate = `${selectedYear}-${String(m).padStart(2, '0')}-01`
+                    setCurrentDate(newDate)
+                  }}
+                  className="w-full bg-[#1e2023] border border-[#2D343D] text-white rounded-lg px-3 py-2 appearance-none outline-none focus:border-[#FF6B00] text-sm"
+                >
+                  {Array.from({ length: 12 }, (_, i) => i + 1).map(m => <option key={m} value={m} className="bg-[#121417]">{m}월</option>)}
+                </select>
+                <span className="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none text-lg">expand_more</span>
+              </div>
+              <div className="flex-1 relative">
+                <input 
+                  type="date" 
+                  value={currentDate}
+                  onChange={(e) => {
+                    const d = new Date(e.target.value)
+                    setCurrentDate(e.target.value)
+                    setSelectedYear(d.getFullYear())
+                    setSelectedMonth(d.getMonth() + 1)
+                  }}
+                  className="w-full bg-[#1e2023] border border-[#2D343D] text-white rounded-lg px-3 py-2 outline-none focus:border-[#FF6B00] text-sm"
+                />
+              </div>
+            </div>
+          </section>
         
         {/* 새 현장 추가 모달 */}
         {showNewSiteForm && (
@@ -1198,10 +1329,72 @@ export default function Home() {
             </section>
           </>
         )}
-      </main>
+            {/* Bottom Row: Work Log & Photos */}
+            <section className="grid grid-cols-1 xl:grid-cols-2 gap-6 pt-10 pb-10">
+              <div className="bg-[#1e2023] border border-[#2D343D] p-6 rounded-xl flex flex-col gap-4">
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[#FF6B00]">edit_note</span>
+                  <h4 className="font-['Space_Grotesk'] font-bold text-white uppercase text-xs tracking-widest">오늘의 주요 작업 내용 (WORK LOG)</h4>
+                </div>
+                <textarea 
+                  className="bg-[#121417] border border-[#2D343D] text-sm text-white p-4 h-40 focus:ring-1 focus:ring-[#FF6B00] focus:border-[#FF6B00] transition-all resize-none outline-none rounded-lg" 
+                  placeholder="오늘의 주요 작업 내용을 입력하세요..."
+                  value={workDescription}
+                  onChange={(e) => setWorkDescription(e.target.value)}
+                  onBlur={async () => {
+                    if (logData) await updateDailyLogDescription(logData.id, workDescription);
+                  }}
+                />
+                <div className="flex justify-end">
+                  <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">포커스를 벗어나면 자동 저장됩니다.</span>
+                </div>
+              </div>
+
+              <div className="bg-[#1e2023] border border-[#2D343D] p-6 rounded-xl flex flex-col gap-4">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[#FF6B00]">photo_library</span>
+                    <h4 className="font-['Space_Grotesk'] font-bold text-white uppercase text-xs tracking-widest">현장 사진 첨부 (SITE PHOTOS)</h4>
+                  </div>
+                  <span className="text-[10px] text-slate-400 font-label-caps uppercase">{logData?.photos?.length || 0} ATTACHMENTS</span>
+                </div>
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                  {logData?.photos?.map((photo: any) => (
+                    <div key={photo.id} className="aspect-square bg-surface-container-high relative group cursor-pointer overflow-hidden rounded-lg border border-[#2D343D]">
+                      <img className="w-full h-full object-cover group-hover:scale-110 transition-transform" src={photo.url} alt="Site Photo" />
+                      <button 
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          if (confirm('사진을 삭제하시겠습니까?')) {
+                            await deletePhoto(photo.id);
+                            loadData();
+                          }
+                        }}
+                        className="absolute top-1 right-1 bg-black/60 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <span className="material-symbols-outlined text-xs">close</span>
+                      </button>
+                    </div>
+                  ))}
+                  <label className={`aspect-square border-2 border-dashed border-[#2D343D] rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-[#FF6B00] hover:bg-[#2D343D]/30 transition-all ${isUploading ? 'opacity-50 pointer-events-none' : ''}`}>
+                    <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
+                    {isUploading ? (
+                      <span className="material-symbols-outlined text-slate-500 animate-spin">sync</span>
+                    ) : (
+                      <>
+                        <span className="material-symbols-outlined text-slate-500 mb-1">add_a_photo</span>
+                        <span className="text-[10px] text-slate-500 font-bold">ADD</span>
+                      </>
+                    )}
+                  </label>
+                </div>
+              </div>
+            </section>
+          </main>
+        </div>
 
       {/* BottomNavBar */}
-      <nav className="fixed bottom-0 left-0 w-full z-40 flex justify-around items-center bg-[#121417] border-t border-[#2D343D] pb-safe h-16">
+      <nav className="xl:hidden fixed bottom-0 left-0 w-full z-40 flex justify-around items-center bg-[#121417] border-t border-[#2D343D] pb-safe h-16">
         <button onClick={() => setActiveTab('dashboard')} className={`flex flex-col items-center justify-center py-2 transition-transform active:scale-90 ${activeTab === 'dashboard' ? 'text-[#FF6B00]' : 'text-slate-500 hover:text-white'}`}>
           <span className="material-symbols-outlined" style={{ fontVariationSettings: activeTab === 'dashboard' ? "'FILL' 1" : "'FILL' 0" }}>dashboard</span>
           <span className="font-['Space_Grotesk'] text-[10px] uppercase font-bold mt-1">대시보드</span>

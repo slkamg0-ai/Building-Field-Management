@@ -154,7 +154,7 @@ export async function getDailyLog(dateString: string, siteId: string) {
 
   const { data: log, error } = await supabase
     .from('DailyLog')
-    .select('*, Labor(*), Equipment(*), Material(*), Expense(*), Outsourcing(*)')
+    .select('*, Labor(*), Equipment(*), Material(*), Expense(*), Outsourcing(*), Photo(*)')
     .eq('siteId', siteId)
     .gte('date', startOfDay.toISOString())
     .lte('date', endOfDay.toISOString())
@@ -174,7 +174,7 @@ export async function getDailyLog(dateString: string, siteId: string) {
     .single()
   if (createError) throw new Error(createError.message)
 
-  return { ...newLog, labors: [], equipments: [], materials: [], expenses: [], outsourcings: [] }
+  return { ...newLog, labors: [], equipments: [], materials: [], expenses: [], outsourcings: [], photos: [] }
 }
 
 function normalizeLog(log: any) {
@@ -185,6 +185,7 @@ function normalizeLog(log: any) {
     materials: log.Material || [],
     expenses: log.Expense || [],
     outsourcings: log.Outsourcing || [],
+    photos: log.Photo || [],
   }
 }
 
@@ -263,6 +264,38 @@ export async function addOutsourcing(logId: string, data: any, creatorName: stri
     note: data.note || null,
     createdBy: creatorName,
   })
+  if (error) throw new Error(error.message)
+  revalidatePath('/')
+}
+
+// 작업 내용 업데이트
+export async function updateDailyLogDescription(logId: string, description: string) {
+  const { error } = await supabase
+    .from('DailyLog')
+    .update({ description, updatedAt: new Date().toISOString() })
+    .eq('id', logId)
+  if (error) throw new Error(error.message)
+  revalidatePath('/')
+}
+
+// 사진 추가
+export async function addPhotoRecord(logId: string, url: string, creatorName: string) {
+  const { error } = await supabase.from('Photo').insert({
+    id: newId(),
+    logId,
+    url,
+    createdBy: creatorName,
+  })
+  if (error) throw new Error(error.message)
+  revalidatePath('/')
+}
+
+// 사진 삭제
+export async function deletePhoto(photoId: string) {
+  const { error } = await supabase
+    .from('Photo')
+    .delete()
+    .eq('id', photoId)
   if (error) throw new Error(error.message)
   revalidatePath('/')
 }
