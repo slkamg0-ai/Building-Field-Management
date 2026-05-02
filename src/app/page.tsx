@@ -56,6 +56,7 @@ export default function Home() {
   // 작업 내용 및 사진 관련 상태
   const [workDescription, setWorkDescription] = useState('')
   const [isUploading, setIsUploading] = useState(false)
+  const [isAnalyzing, setIsAnalyzing] = useState(false)
 
   useEffect(() => {
     // 로그인 체크
@@ -339,6 +340,27 @@ export default function Home() {
       reader.onerror = error => reject(error);
     });
   };
+
+  async function analyzeDocument(file: File, formType: string): Promise<Record<string, string> | null> {
+    setIsAnalyzing(true)
+    try {
+      const base64 = await optimizeImage(file)
+      const res = await fetch('/api/analyze-document', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageBase64: base64, formType }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error)
+      return json.data
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e)
+      alert(`문서 분석 실패: ${msg}`)
+      return null
+    } finally {
+      setIsAnalyzing(false)
+    }
+  }
 
   function dataURLtoBlob(dataURL: string): Blob {
     const arr = dataURL.split(',')
@@ -1074,8 +1096,22 @@ export default function Home() {
               {/* ===================== LABOR TAB ===================== */}
               {showAddForm && activeTab === 'labor' && (
                 <div className="bg-[#282a2d] border border-[#FF6B00] p-4 rounded-xl mb-4 relative animate-fade-in shadow-xl shadow-black/50">
-                  <h4 className="font-bold text-[#FF6B00] mb-3 flex items-center gap-2"><span className="material-symbols-outlined text-sm">person_add</span> 새 노무 인력 추가</h4>
-                  <button onClick={() => setShowAddForm(false)} className="absolute top-4 right-4 text-slate-400 hover:text-white"><span className="material-symbols-outlined">close</span></button>
+                  <div className="flex justify-between items-center mb-3">
+                    <h4 className="font-bold text-[#FF6B00] flex items-center gap-2"><span className="material-symbols-outlined text-sm">person_add</span> 새 노무 인력 추가</h4>
+                    <div className="flex items-center gap-2">
+                      <label className={`flex items-center gap-1 cursor-pointer text-xs font-bold px-2 py-1 rounded border transition-colors ${isAnalyzing ? 'text-slate-600 border-[#2D343D] pointer-events-none' : 'text-slate-400 border-[#2D343D] hover:text-[#FF6B00] hover:border-[#FF6B00]'}`}>
+                        <span className="material-symbols-outlined text-sm">document_scanner</span>
+                        {isAnalyzing ? '분석 중...' : '문서 스캔'}
+                        <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
+                          const file = e.target.files?.[0]; if (!file) return
+                          const data = await analyzeDocument(file, 'labor')
+                          if (data) setLaborForm(prev => ({ ...prev, name: data.name || prev.name, jobType: data.jobType || prev.jobType, unitPrice: data.unitPrice || prev.unitPrice, amount: data.amount || prev.amount, note: data.note || prev.note }))
+                          e.target.value = ''
+                        }} />
+                      </label>
+                      <button onClick={() => setShowAddForm(false)} className="text-slate-400 hover:text-white"><span className="material-symbols-outlined">close</span></button>
+                    </div>
+                  </div>
                   <form onSubmit={handleLaborSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-3 relative">
                     <div className="relative">
                       <label className="text-xs text-slate-400 mb-1 block">작업자 이름</label>
@@ -1133,8 +1169,22 @@ export default function Home() {
               {/* ===================== EQUIPMENT TAB ===================== */}
               {showAddForm && activeTab === 'equipment' && (
                 <div className="bg-[#282a2d] border border-[#FF6B00] p-4 rounded-xl mb-4 relative animate-fade-in shadow-xl shadow-black/50">
-                  <h4 className="font-bold text-[#FF6B00] mb-3 flex items-center gap-2"><span className="material-symbols-outlined text-sm">precision_manufacturing</span> 새 장비 추가</h4>
-                  <button onClick={() => setShowAddForm(false)} className="absolute top-4 right-4 text-slate-400 hover:text-white"><span className="material-symbols-outlined">close</span></button>
+                  <div className="flex justify-between items-center mb-3">
+                    <h4 className="font-bold text-[#FF6B00] flex items-center gap-2"><span className="material-symbols-outlined text-sm">precision_manufacturing</span> 새 장비 추가</h4>
+                    <div className="flex items-center gap-2">
+                      <label className={`flex items-center gap-1 cursor-pointer text-xs font-bold px-2 py-1 rounded border transition-colors ${isAnalyzing ? 'text-slate-600 border-[#2D343D] pointer-events-none' : 'text-slate-400 border-[#2D343D] hover:text-[#FF6B00] hover:border-[#FF6B00]'}`}>
+                        <span className="material-symbols-outlined text-sm">document_scanner</span>
+                        {isAnalyzing ? '분석 중...' : '문서 스캔'}
+                        <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
+                          const file = e.target.files?.[0]; if (!file) return
+                          const data = await analyzeDocument(file, 'equipment')
+                          if (data) setEquipmentForm(prev => ({ ...prev, name: data.name || prev.name, spec: data.spec || prev.spec, unitPrice: data.unitPrice || prev.unitPrice, amount: data.amount || prev.amount, note: data.note || prev.note }))
+                          e.target.value = ''
+                        }} />
+                      </label>
+                      <button onClick={() => setShowAddForm(false)} className="text-slate-400 hover:text-white"><span className="material-symbols-outlined">close</span></button>
+                    </div>
+                  </div>
                   <form onSubmit={handleEquipmentSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-3 relative">
                     <div className="relative">
                       <label className="text-xs text-slate-400 mb-1 block">장비명</label>
@@ -1191,8 +1241,22 @@ export default function Home() {
               {/* ===================== OUTSOURCING TAB ===================== */}
               {showAddForm && activeTab === 'outsourcing' && (
                 <div className="bg-[#282a2d] border border-[#FF6B00] p-4 rounded-xl mb-4 relative animate-fade-in shadow-xl shadow-black/50">
-                  <h4 className="font-bold text-[#FF6B00] mb-3 flex items-center gap-2"><span className="material-symbols-outlined text-sm">handshake</span> 새 외주 항목 추가</h4>
-                  <button onClick={() => setShowAddForm(false)} className="absolute top-4 right-4 text-slate-400 hover:text-white"><span className="material-symbols-outlined">close</span></button>
+                  <div className="flex justify-between items-center mb-3">
+                    <h4 className="font-bold text-[#FF6B00] flex items-center gap-2"><span className="material-symbols-outlined text-sm">handshake</span> 새 외주 항목 추가</h4>
+                    <div className="flex items-center gap-2">
+                      <label className={`flex items-center gap-1 cursor-pointer text-xs font-bold px-2 py-1 rounded border transition-colors ${isAnalyzing ? 'text-slate-600 border-[#2D343D] pointer-events-none' : 'text-slate-400 border-[#2D343D] hover:text-[#FF6B00] hover:border-[#FF6B00]'}`}>
+                        <span className="material-symbols-outlined text-sm">document_scanner</span>
+                        {isAnalyzing ? '분석 중...' : '문서 스캔'}
+                        <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
+                          const file = e.target.files?.[0]; if (!file) return
+                          const data = await analyzeDocument(file, 'outsourcing')
+                          if (data) setOutsourcingForm(prev => ({ ...prev, company: data.company || prev.company, task: data.task || prev.task, amount: data.amount || prev.amount, note: data.note || prev.note }))
+                          e.target.value = ''
+                        }} />
+                      </label>
+                      <button onClick={() => setShowAddForm(false)} className="text-slate-400 hover:text-white"><span className="material-symbols-outlined">close</span></button>
+                    </div>
+                  </div>
                   <form onSubmit={handleOutsourcingSubmit} className="grid grid-cols-1 gap-3 relative">
                     <div className="relative">
                       <label className="text-xs text-slate-400 mb-1 block">외주 업체명</label>
@@ -1247,8 +1311,22 @@ export default function Home() {
               {/* ===================== MATERIAL TAB ===================== */}
               {showAddForm && activeTab === 'material' && (
                 <div className="bg-[#282a2d] border border-[#FF6B00] p-4 rounded-xl mb-4 relative animate-fade-in shadow-xl shadow-black/50">
-                  <h4 className="font-bold text-[#FF6B00] mb-3 flex items-center gap-2"><span className="material-symbols-outlined text-sm">inventory_2</span> 새 자재 추가</h4>
-                  <button onClick={() => setShowAddForm(false)} className="absolute top-4 right-4 text-slate-400 hover:text-white"><span className="material-symbols-outlined">close</span></button>
+                  <div className="flex justify-between items-center mb-3">
+                    <h4 className="font-bold text-[#FF6B00] flex items-center gap-2"><span className="material-symbols-outlined text-sm">inventory_2</span> 새 자재 추가</h4>
+                    <div className="flex items-center gap-2">
+                      <label className={`flex items-center gap-1 cursor-pointer text-xs font-bold px-2 py-1 rounded border transition-colors ${isAnalyzing ? 'text-slate-600 border-[#2D343D] pointer-events-none' : 'text-slate-400 border-[#2D343D] hover:text-[#FF6B00] hover:border-[#FF6B00]'}`}>
+                        <span className="material-symbols-outlined text-sm">document_scanner</span>
+                        {isAnalyzing ? '분석 중...' : '문서 스캔'}
+                        <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
+                          const file = e.target.files?.[0]; if (!file) return
+                          const data = await analyzeDocument(file, 'material')
+                          if (data) setMaterialForm(prev => ({ ...prev, name: data.name || prev.name, spec: data.spec || prev.spec, unit: data.unit || prev.unit, quantity: data.quantity || prev.quantity, note: data.note || prev.note }))
+                          e.target.value = ''
+                        }} />
+                      </label>
+                      <button onClick={() => setShowAddForm(false)} className="text-slate-400 hover:text-white"><span className="material-symbols-outlined">close</span></button>
+                    </div>
+                  </div>
                   <form onSubmit={handleMaterialSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-3 relative">
                     <div className="relative">
                       <label className="text-xs text-slate-400 mb-1 block">자재명</label>
@@ -1305,8 +1383,22 @@ export default function Home() {
               {/* ===================== EXPENSE TAB ===================== */}
               {showAddForm && activeTab === 'expense' && (
                 <div className="bg-[#282a2d] border border-[#FF6B00] p-4 rounded-xl mb-4 relative animate-fade-in shadow-xl shadow-black/50">
-                  <h4 className="font-bold text-[#FF6B00] mb-3 flex items-center gap-2"><span className="material-symbols-outlined text-sm">receipt_long</span> 새 경비 추가</h4>
-                  <button onClick={() => setShowAddForm(false)} className="absolute top-4 right-4 text-slate-400 hover:text-white"><span className="material-symbols-outlined">close</span></button>
+                  <div className="flex justify-between items-center mb-3">
+                    <h4 className="font-bold text-[#FF6B00] flex items-center gap-2"><span className="material-symbols-outlined text-sm">receipt_long</span> 새 경비 추가</h4>
+                    <div className="flex items-center gap-2">
+                      <label className={`flex items-center gap-1 cursor-pointer text-xs font-bold px-2 py-1 rounded border transition-colors ${isAnalyzing ? 'text-slate-600 border-[#2D343D] pointer-events-none' : 'text-slate-400 border-[#2D343D] hover:text-[#FF6B00] hover:border-[#FF6B00]'}`}>
+                        <span className="material-symbols-outlined text-sm">document_scanner</span>
+                        {isAnalyzing ? '분석 중...' : '문서 스캔'}
+                        <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
+                          const file = e.target.files?.[0]; if (!file) return
+                          const data = await analyzeDocument(file, 'expense')
+                          if (data) setExpenseForm(prev => ({ ...prev, category: data.category || prev.category, amount: data.amount || prev.amount, note: data.note || prev.note }))
+                          e.target.value = ''
+                        }} />
+                      </label>
+                      <button onClick={() => setShowAddForm(false)} className="text-slate-400 hover:text-white"><span className="material-symbols-outlined">close</span></button>
+                    </div>
+                  </div>
                   <form onSubmit={handleExpenseSubmit} className="grid grid-cols-1 gap-3">
                     <div><label className="text-xs text-slate-400 mb-1 block">항목 (식대, 주유비, 소모품 등)</label><input type="text" required className="w-full bg-[#111316] border border-[#2D343D] rounded px-3 py-2 text-white outline-none focus:border-[#FF6B00]" value={expenseForm.category} onChange={e => setExpenseForm({...expenseForm, category: e.target.value})} /></div>
                     <div><label className="text-xs text-slate-400 mb-1 block">금액 (원)</label><input type="number" required className="w-full bg-[#111316] border border-[#2D343D] rounded px-3 py-2 text-white outline-none focus:border-[#FF6B00]" value={expenseForm.amount} onChange={e => setExpenseForm({...expenseForm, amount: e.target.value})} /></div>

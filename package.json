@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.92.0",
     "@prisma/client": "^5.13.0",
     "@supabase/supabase-js": "^2.105.1",
     "@types/file-saver": "^2.0.7",
