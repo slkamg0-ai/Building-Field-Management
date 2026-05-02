@@ -248,7 +248,55 @@ export async function addExpense(logId: string, data: any, creatorName: string) 
     amount: parseInt(data.amount),
     note: data.note || null,
     createdBy: creatorName,
+    assignedTo: data.assignedTo || creatorName,
   })
+  if (error) throw new Error(error.message)
+  revalidatePath('/')
+}
+
+// 월별 담당자별 경비 조회 (정산용)
+export async function getMonthlyExpensesByPerson(siteId: string, year: number, month: number) {
+  const startOfMonth = new Date(year, month - 1, 1)
+  const endOfMonth = new Date(year, month, 0, 23, 59, 59)
+
+  const { data: logs } = await supabase
+    .from('DailyLog')
+    .select('id')
+    .eq('siteId', siteId)
+    .gte('date', startOfMonth.toISOString())
+    .lte('date', endOfMonth.toISOString())
+
+  if (!logs || logs.length === 0) return []
+  const logIds = logs.map((l: any) => l.id)
+
+  const { data: expenses, error } = await supabase
+    .from('Expense')
+    .select('*')
+    .in('logId', logIds)
+    .order('createdAt', { ascending: false })
+
+  if (error) throw new Error(error.message)
+  if (!expenses || expenses.length === 0) return []
+
+  const byPerson: Record<string, { total: number, unsettledTotal: number, settledTotal: number, items: any[] }> = {}
+  for (const exp of expenses) {
+    const person = exp.assignedTo || exp.createdBy || '미지정'
+    if (!byPerson[person]) byPerson[person] = { total: 0, unsettledTotal: 0, settledTotal: 0, items: [] }
+    byPerson[person].total += exp.amount
+    if (exp.isSettled) byPerson[person].settledTotal += exp.amount
+    else byPerson[person].unsettledTotal += exp.amount
+    byPerson[person].items.push(exp)
+  }
+
+  return Object.entries(byPerson).map(([person, data]) => ({ person, ...data }))
+}
+
+// 경비 정산 처리
+export async function settleExpenses(expenseIds: string[]) {
+  const { error } = await supabase
+    .from('Expense')
+    .update({ isSettled: true, settledAt: new Date().toISOString() })
+    .in('id', expenseIds)
   if (error) throw new Error(error.message)
   revalidatePath('/')
 }

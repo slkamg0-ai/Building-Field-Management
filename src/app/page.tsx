@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { getDailyLog, addLabor, addEquipment, addMaterial, addOutsourcing, addExpense, searchLabors, searchEquipments, searchMaterials, searchOutsourcings, getSites, createSite, updateSite, resetSiteData, getMonthlyStats, getSiteTotalStats, getUsers, createUser, deleteUser, toggleUserActive, updateUserPin, updateUserRole, updateDailyLogDescription, addPhotoRecord, deletePhoto } from '@/lib/actions'
+import { getDailyLog, addLabor, addEquipment, addMaterial, addOutsourcing, addExpense, searchLabors, searchEquipments, searchMaterials, searchOutsourcings, getSites, createSite, updateSite, resetSiteData, getMonthlyStats, getSiteTotalStats, getUsers, createUser, deleteUser, toggleUserActive, updateUserPin, updateUserRole, updateDailyLogDescription, addPhotoRecord, deletePhoto, getMonthlyExpensesByPerson, settleExpenses } from '@/lib/actions'
 import { supabase } from '@/lib/supabase'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid, PieChart, Pie, Cell } from 'recharts'
 import { exportMonthlyReport } from '@/lib/exportExcel'
@@ -50,7 +50,9 @@ export default function Home() {
   const [equipmentForm, setEquipmentForm] = useState({ name: '', spec: '', unitPrice: '', amount: '1', note: '' })
   const [materialForm, setMaterialForm] = useState({ name: '', spec: '', unit: '', quantity: '1', note: '' })
   const [outsourcingForm, setOutsourcingForm] = useState({ company: '', task: '', amount: '', note: '' })
-  const [expenseForm, setExpenseForm] = useState({ category: '', amount: '', note: '' })
+  const [expenseForm, setExpenseForm] = useState({ category: '', amount: '', note: '', assignedTo: '' })
+  const [settlementData, setSettlementData] = useState<any[]>([])
+  const [settlementLoading, setSettlementLoading] = useState(false)
   const [suggestions, setSuggestions] = useState<any[]>([])
   
   // 작업 내용 및 사진 관련 상태
@@ -69,6 +71,7 @@ export default function Home() {
     setCurrentUser(user)
     
     loadSites()
+    loadAllUsers()
   }, [])
 
   async function handleLogout() {
@@ -87,8 +90,19 @@ export default function Home() {
       loadMonthlyData()
       loadSiteTotalStats()
       setShowAddForm(false)
+      if (activeTab === 'settlement') loadSettlementData()
     }
   }, [currentDate, selectedSiteId, activeTab, selectedYear, selectedMonth])
+
+  async function loadSettlementData() {
+    if (!selectedSiteId) return
+    setSettlementLoading(true)
+    try {
+      const data = await getMonthlyExpensesByPerson(selectedSiteId, selectedYear, selectedMonth)
+      setSettlementData(data)
+    } catch (e) { console.error(e) }
+    finally { setSettlementLoading(false) }
+  }
 
   async function loadSites() {
     try {
@@ -283,7 +297,7 @@ export default function Home() {
     e.preventDefault()
     if (!logData || !currentUser) return
     await addExpense(logData.id, expenseForm, currentUser.name)
-    setExpenseForm({ category: '', amount: '', note: '' })
+    setExpenseForm({ category: '', amount: '', note: '', assignedTo: '' })
     setShowAddForm(false)
     loadData()
     loadMonthlyData()
@@ -877,6 +891,9 @@ export default function Home() {
                 <button onClick={() => setActiveTab('outsourcing')} className={`flex-1 py-4 px-3 whitespace-nowrap text-center text-xs md:text-sm font-bold tracking-wider transition-all ${activeTab === 'outsourcing' ? 'border-b-2 border-[#FF6B00] text-[#FF6B00]' : 'text-slate-500 hover:text-white'}`}>외주</button>
                 <button onClick={() => setActiveTab('expense')} className={`flex-1 py-4 px-3 whitespace-nowrap text-center text-xs md:text-sm font-bold tracking-wider transition-all ${activeTab === 'expense' ? 'border-b-2 border-[#FF6B00] text-[#FF6B00]' : 'text-slate-500 hover:text-white'}`}>경비</button>
                 <button onClick={() => setActiveTab('material')} className={`flex-1 py-4 px-3 whitespace-nowrap text-center text-xs md:text-sm font-bold tracking-wider transition-all ${activeTab === 'material' ? 'border-b-2 border-[#FF6B00] text-[#FF6B00]' : 'text-slate-500 hover:text-white'}`}>자재</button>
+                {currentUser?.role === 'ADMIN' && (
+                  <button onClick={() => setActiveTab('settlement')} className={`flex-1 py-4 px-3 whitespace-nowrap text-center text-xs md:text-sm font-bold tracking-wider transition-all ${activeTab === 'settlement' ? 'border-b-2 border-[#4ae176] text-[#4ae176]' : 'text-slate-500 hover:text-white'}`}>정산</button>
+                )}
               </nav>
 
               {/* ===================== DASHBOARD TAB ===================== */}
@@ -1400,6 +1417,12 @@ export default function Home() {
                     </div>
                   </div>
                   <form onSubmit={handleExpenseSubmit} className="grid grid-cols-1 gap-3">
+                    <div>
+                      <label className="text-xs text-slate-400 mb-1 block">담당자</label>
+                      <select required className="w-full bg-[#111316] border border-[#2D343D] rounded px-3 py-2 text-white outline-none focus:border-[#FF6B00]" value={expenseForm.assignedTo || currentUser?.name || ''} onChange={e => setExpenseForm({...expenseForm, assignedTo: e.target.value})}>
+                        {allUsers.filter(u => u.isActive !== false).map(u => <option key={u.id} value={u.name}>{u.name}</option>)}
+                      </select>
+                    </div>
                     <div><label className="text-xs text-slate-400 mb-1 block">항목 (식대, 주유비, 소모품 등)</label><input type="text" required className="w-full bg-[#111316] border border-[#2D343D] rounded px-3 py-2 text-white outline-none focus:border-[#FF6B00]" value={expenseForm.category} onChange={e => setExpenseForm({...expenseForm, category: e.target.value})} /></div>
                     <div><label className="text-xs text-slate-400 mb-1 block">금액 (원)</label><input type="number" required className="w-full bg-[#111316] border border-[#2D343D] rounded px-3 py-2 text-white outline-none focus:border-[#FF6B00]" value={expenseForm.amount} onChange={e => setExpenseForm({...expenseForm, amount: e.target.value})} /></div>
                     <div><label className="text-xs text-slate-400 mb-1 block">비고</label><input type="text" className="w-full bg-[#111316] border border-[#2D343D] rounded px-3 py-2 text-white outline-none focus:border-[#FF6B00]" value={expenseForm.note} onChange={e => setExpenseForm({...expenseForm, note: e.target.value})} /></div>
@@ -1437,6 +1460,89 @@ export default function Home() {
                   </div>
                 </div>
               )}
+              {/* ===================== SETTLEMENT TAB ===================== */}
+              {activeTab === 'settlement' && currentUser?.role === 'ADMIN' && (
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center px-2">
+                    <h3 className="font-bold text-lg text-white flex items-center gap-2">
+                      <span className="material-symbols-outlined text-[#4ae176]">account_balance_wallet</span>
+                      {selectedMonth}월 경비 정산
+                    </h3>
+                    <button onClick={loadSettlementData} className="text-xs text-slate-400 hover:text-white flex items-center gap-1">
+                      <span className="material-symbols-outlined text-sm">refresh</span> 새로고침
+                    </button>
+                  </div>
+
+                  {settlementLoading ? (
+                    <div className="text-center py-12 text-slate-500">데이터를 불러오는 중...</div>
+                  ) : settlementData.length === 0 ? (
+                    <div className="bg-[#1a1c1f] border border-[#2D343D] rounded-xl p-8 text-center text-slate-500">이달 경비 내역이 없습니다.</div>
+                  ) : (
+                    <div className="space-y-4">
+                      {settlementData.map((person) => (
+                        <div key={person.person} className="bg-[#1e2023] border border-[#2D343D] rounded-xl overflow-hidden">
+                          {/* 담당자 헤더 */}
+                          <div className="flex items-center justify-between px-5 py-4 border-b border-[#2D343D]">
+                            <div className="flex items-center gap-3">
+                              <div className="w-9 h-9 rounded-full bg-[#2D343D] flex items-center justify-center">
+                                <span className="material-symbols-outlined text-slate-400 text-sm">person</span>
+                              </div>
+                              <div>
+                                <p className="font-bold text-white">{person.person}</p>
+                                <p className="text-[10px] text-slate-500 mt-0.5">총 {person.items.length}건 · ₩{person.total.toLocaleString()}</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <div className="text-right">
+                                {person.unsettledTotal > 0 && (
+                                  <p className="text-sm font-bold text-red-400">미정산 ₩{person.unsettledTotal.toLocaleString()}</p>
+                                )}
+                                {person.settledTotal > 0 && (
+                                  <p className="text-xs text-[#4ae176]">정산완료 ₩{person.settledTotal.toLocaleString()}</p>
+                                )}
+                              </div>
+                              {person.unsettledTotal > 0 && (
+                                <button
+                                  onClick={async () => {
+                                    if (!confirm(`${person.person}의 미정산 경비 ₩${person.unsettledTotal.toLocaleString()}을 정산 처리하시겠습니까?`)) return
+                                    const ids = person.items.filter((i: any) => !i.isSettled).map((i: any) => i.id)
+                                    await settleExpenses(ids)
+                                    loadSettlementData()
+                                  }}
+                                  className="px-3 py-1.5 rounded bg-[#4ae176]/10 text-[#4ae176] border border-[#4ae176]/30 text-xs font-bold hover:bg-[#4ae176]/20 transition-colors whitespace-nowrap"
+                                >
+                                  정산 처리
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                          {/* 경비 상세 목록 */}
+                          <div className="divide-y divide-[#2D343D]">
+                            {person.items.map((item: any) => (
+                              <div key={item.id} className="flex items-center justify-between px-5 py-3">
+                                <div className="flex items-center gap-3">
+                                  <span className={`w-2 h-2 rounded-full shrink-0 ${item.isSettled ? 'bg-[#4ae176]' : 'bg-red-400'}`}></span>
+                                  <div>
+                                    <p className="text-sm text-white">{item.category}</p>
+                                    <p className="text-[10px] text-slate-500">{item.note || ''}</p>
+                                  </div>
+                                </div>
+                                <div className="text-right shrink-0">
+                                  <p className="text-sm font-bold text-white">₩{item.amount.toLocaleString()}</p>
+                                  <p className={`text-[10px] font-bold ${item.isSettled ? 'text-[#4ae176]' : 'text-red-400'}`}>
+                                    {item.isSettled ? '정산완료' : '미정산'}
+                                  </p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
             </section>
           </>
         )}
