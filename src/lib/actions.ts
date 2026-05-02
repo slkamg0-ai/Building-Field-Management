@@ -259,13 +259,14 @@ export async function getMonthlyExpensesByPerson(siteId: string, year: number, m
   const startOfMonth = new Date(year, month - 1, 1)
   const endOfMonth = new Date(year, month, 0, 23, 59, 59)
 
-  const { data: logs } = await supabase
+  const { data: logs, error: logsError } = await supabase
     .from('DailyLog')
     .select('id')
     .eq('siteId', siteId)
     .gte('date', startOfMonth.toISOString())
     .lte('date', endOfMonth.toISOString())
 
+  if (logsError) throw new Error(logsError.message)
   if (!logs || logs.length === 0) return []
   const logIds = logs.map((l: any) => l.id)
 
@@ -273,7 +274,6 @@ export async function getMonthlyExpensesByPerson(siteId: string, year: number, m
     .from('Expense')
     .select('*')
     .in('logId', logIds)
-    .order('createdAt', { ascending: false })
 
   if (error) throw new Error(error.message)
   if (!expenses || expenses.length === 0) return []

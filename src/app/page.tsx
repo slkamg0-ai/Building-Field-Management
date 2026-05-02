@@ -53,6 +53,7 @@ export default function Home() {
   const [expenseForm, setExpenseForm] = useState({ category: '', amount: '', note: '', assignedTo: '' })
   const [settlementData, setSettlementData] = useState<any[]>([])
   const [settlementLoading, setSettlementLoading] = useState(false)
+  const [settlementError, setSettlementError] = useState<string | null>(null)
   const [suggestions, setSuggestions] = useState<any[]>([])
   
   // 작업 내용 및 사진 관련 상태
@@ -97,11 +98,14 @@ export default function Home() {
   async function loadSettlementData() {
     if (!selectedSiteId) return
     setSettlementLoading(true)
+    setSettlementError(null)
     try {
       const data = await getMonthlyExpensesByPerson(selectedSiteId, selectedYear, selectedMonth)
       setSettlementData(data)
-    } catch (e) { console.error(e) }
-    finally { setSettlementLoading(false) }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      setSettlementError(msg)
+    } finally { setSettlementLoading(false) }
   }
 
   async function loadSites() {
@@ -1475,6 +1479,11 @@ export default function Home() {
 
                   {settlementLoading ? (
                     <div className="text-center py-12 text-slate-500">데이터를 불러오는 중...</div>
+                  ) : settlementError ? (
+                    <div className="bg-red-900/20 border border-red-500/30 rounded-xl p-6 text-center">
+                      <p className="text-red-400 text-sm font-bold mb-1">오류가 발생했습니다</p>
+                      <p className="text-red-300 text-xs">{settlementError}</p>
+                    </div>
                   ) : settlementData.length === 0 ? (
                     <div className="bg-[#1a1c1f] border border-[#2D343D] rounded-xl p-8 text-center text-slate-500">이달 경비 내역이 없습니다.</div>
                   ) : (
@@ -1506,8 +1515,12 @@ export default function Home() {
                                   onClick={async () => {
                                     if (!confirm(`${person.person}의 미정산 경비 ₩${person.unsettledTotal.toLocaleString()}을 정산 처리하시겠습니까?`)) return
                                     const ids = person.items.filter((i: any) => !i.isSettled).map((i: any) => i.id)
-                                    await settleExpenses(ids)
-                                    loadSettlementData()
+                                    try {
+                                      await settleExpenses(ids)
+                                      loadSettlementData()
+                                    } catch (e) {
+                                      alert('정산 처리 실패: ' + (e instanceof Error ? e.message : String(e)))
+                                    }
                                   }}
                                   className="px-3 py-1.5 rounded bg-[#4ae176]/10 text-[#4ae176] border border-[#4ae176]/30 text-xs font-bold hover:bg-[#4ae176]/20 transition-colors whitespace-nowrap"
                                 >
