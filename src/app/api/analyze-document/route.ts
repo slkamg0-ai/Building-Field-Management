@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
     const base64Data = imageBase64.includes(',') ? imageBase64.split(',')[1] : imageBase64
     const mimeType = imageBase64.startsWith('data:image/png') ? 'image/png' : 'image/jpeg'
 
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' })
 
     const result = await model.generateContent([
       { inlineData: { data: base64Data, mimeType } },
