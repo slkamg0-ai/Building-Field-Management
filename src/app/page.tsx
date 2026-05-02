@@ -1440,8 +1440,8 @@ export default function Home() {
             </section>
           </>
         )}
-            {/* Bottom Row: Work Log & Photos */}
-            <section className="grid grid-cols-1 xl:grid-cols-2 gap-6 pt-10 pb-10">
+            {/* Bottom Row: Work Log & Photos - 대시보드 탭에서만 표시 */}
+            {activeTab === 'dashboard' && <section className="grid grid-cols-1 xl:grid-cols-2 gap-6 pt-10 pb-10">
               <div className="bg-[#1e2023] border border-[#2D343D] p-6 rounded-xl flex flex-col gap-4">
                 <div className="flex items-center gap-2">
                   <span className="material-symbols-outlined text-[#FF6B00]">edit_note</span>
@@ -1500,7 +1500,7 @@ export default function Home() {
                   </label>
                 </div>
               </div>
-            </section>
+            </section>}
           </main>
         </div>
 
