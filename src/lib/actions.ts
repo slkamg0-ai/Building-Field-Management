@@ -454,6 +454,14 @@ export async function getMonthlyStats(siteId: string, dateString: string) {
     dailyData,
   }
 }
+dailyData,
+    monthlyLogs: (logs || []).map((log: any) => ({
+      date: log.date,
+      labors: log.Labor || [],
+      equipments: log.Equipment || [],
+      expenses: log.Expense || [],
+      outsourcings: log.Outsourcing || [],
+    })),
 
 // 현장 전체 통계
 export async function getSiteTotalStats(siteId: string) {
