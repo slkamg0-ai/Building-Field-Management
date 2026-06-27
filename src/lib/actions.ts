@@ -506,3 +506,235 @@ export async function getSiteTotalStats(siteId: string) {
     progressPercent: site.contractAmount > 0 ? (grandTotal / site.contractAmount) * 100 : 0,
   }
 }
+
+// ════════════════════════════════════════════════════════════════
+//  근로자(인적사항/신원) + 출퇴근
+// ════════════════════════════════════════════════════════════════
+
+export async function getWorkers(includeInactive: boolean = false) {
+  let q = supabase.from('Worker').select('*').order('name', { ascending: true })
+  if (!includeInactive) q = q.eq('isActive', true)
+  const { data, error } = await q
+  if (error) throw new Error(error.message)
+  return data || []
+}
+
+export async function createWorker(data: any) {
+  const now = new Date().toISOString()
+  const { data: row, error } = await supabase
+    .from('Worker')
+    .insert({
+      id: newId(),
+      name: data.name,
+      phone: data.phone || null,
+      company: data.company || null,
+      jobType: data.jobType || null,
+      birthDate: data.birthDate || null,
+      gender: data.gender || null,
+      safetyEduDate: data.safetyEduDate || null,
+      basicSafetyEdu: !!data.basicSafetyEdu,
+      photoUrl: data.photoUrl || null,
+      faceDescriptor: data.faceDescriptor || null,
+      isActive: true,
+      updatedAt: now,
+    })
+    .select()
+    .single()
+  if (error) throw new Error(error.message)
+  revalidatePath('/workers')
+  return row
+}
+
+export async function updateWorker(id: string, data: any) {
+  const patch: any = { updatedAt: new Date().toISOString() }
+  const fields = ['name', 'phone', 'company', 'jobType', 'birthDate', 'gender', 'safetyEduDate', 'basicSafetyEdu', 'photoUrl', 'faceDescriptor', 'isActive']
+  for (const f of fields) {
+    if (data[f] !== undefined) patch[f] = data[f]
+  }
+  const { error } = await supabase.from('Worker').update(patch).eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/workers')
+}
+
+export async function deleteWorker(id: string) {
+  const { error } = await supabase.from('Worker').delete().eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/workers')
+}
+
+// 출근 처리: 하루 1행. 이미 있으면 그대로 반환.
+export async function checkIn(data: {
+  workerId: string
+  date: string // YYYY-MM-DD
+  siteId?: string | null
+  siteName?: string | null
+  photoUrl?: string | null
+  lat?: number | null
+  lng?: number | null
+  score?: number | null
+  verifyStatus?: string
+}) {
+  // 같은 날 기존 기록 확인
+  const { data: existing } = await supabase
+    .from('Attendance')
+    .select('*')
+    .eq('workerId', data.workerId)
+    .eq('date', data.date)
+    .maybeSingle()
+
+  if (existing && existing.checkInAt) {
+    return { record: existing, already: true as const }
+  }
+
+  const now = new Date().toISOString()
+  if (existing) {
+    const { data: row, error } = await supabase
+      .from('Attendance')
+      .update({
+        siteId: data.siteId ?? existing.siteId,
+        siteName: data.siteName ?? existing.siteName,
+        checkInAt: now,
+        checkInPhotoUrl: data.photoUrl ?? null,
+        checkInLat: data.lat ?? null,
+        checkInLng: data.lng ?? null,
+        checkInScore: data.score ?? null,
+        verifyStatus: data.verifyStatus || 'REVIEW',
+        updatedAt: now,
+      })
+      .eq('id', existing.id)
+      .select()
+      .single()
+    if (error) throw new Error(error.message)
+    return { record: row, already: false as const }
+  }
+
+  const { data: row, error } = await supabase
+    .from('Attendance')
+    .insert({
+      id: newId(),
+      workerId: data.workerId,
+      siteId: data.siteId ?? null,
+      siteName: data.siteName ?? null,
+      date: data.date,
+      checkInAt: now,
+      checkInPhotoUrl: data.photoUrl ?? null,
+      checkInLat: data.lat ?? null,
+      checkInLng: data.lng ?? null,
+      checkInScore: data.score ?? null,
+      verifyStatus: data.verifyStatus || 'REVIEW',
+      updatedAt: now,
+    })
+    .select()
+    .single()
+  if (error) throw new Error(error.message)
+  return { record: row, already: false as const }
+}
+
+// 퇴근 처리: 당일 기록에 퇴근 정보 + 근무시간(분) 자동계산.
+export async function checkOut(data: {
+  workerId: string
+  date: string
+  photoUrl?: string | null
+  lat?: number | null
+  lng?: number | null
+  score?: number | null
+}) {
+  const { data: existing, error: findErr } = await supabase
+    .from('Attendance')
+    .select('*')
+    .eq('workerId', data.workerId)
+    .eq('date', data.date)
+    .maybeSingle()
+  if (findErr) throw new Error(findErr.message)
+  if (!existing || !existing.checkInAt) {
+    throw new Error('출근 기록이 없습니다. 먼저 출근 체크를 해주세요.')
+  }
+  if (existing.checkOutAt) {
+    return { record: existing, already: true as const }
+  }
+
+  const now = new Date()
+  const inAt = new Date(existing.checkInAt)
+  const workMinutes = Math.max(0, Math.round((now.getTime() - inAt.getTime()) / 60000))
+
+  const { data: row, error } = await supabase
+    .from('Attendance')
+    .update({
+      checkOutAt: now.toISOString(),
+      checkOutPhotoUrl: data.photoUrl ?? null,
+      checkOutLat: data.lat ?? null,
+      checkOutLng: data.lng ?? null,
+      checkOutScore: data.score ?? null,
+      workMinutes,
+      updatedAt: now.toISOString(),
+    })
+    .eq('id', existing.id)
+    .select()
+    .single()
+  if (error) throw new Error(error.message)
+  return { record: row, already: false as const }
+}
+
+// 관리자: 출퇴근 검증 상태 변경 (CONFIRMED/REJECTED 등)
+export async function setAttendanceVerify(id: string, verifyStatus: string, note?: string) {
+  const patch: any = { verifyStatus, updatedAt: new Date().toISOString() }
+  if (note !== undefined) patch.note = note
+  const { error } = await supabase.from('Attendance').update(patch).eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/workers')
+}
+
+// 특정 근로자의 당일 기록
+export async function getTodayAttendance(workerId: string, date: string) {
+  const { data, error } = await supabase
+    .from('Attendance')
+    .select('*')
+    .eq('workerId', workerId)
+    .eq('date', date)
+    .maybeSingle()
+  if (error) throw new Error(error.message)
+  return data
+}
+
+// 날짜별 전체 출퇴근 (근로자 정보 조인)
+export async function getAttendanceByDate(date: string) {
+  const { data, error } = await supabase
+    .from('Attendance')
+    .select('*, Worker(*)')
+    .eq('date', date)
+    .order('checkInAt', { ascending: true })
+  if (error) throw new Error(error.message)
+  return data || []
+}
+
+// 웹 푸시 구독 저장 (endpoint 중복 시 갱신)
+export async function savePushSub(sub: { endpoint: string; p256dh: string; auth: string }, label?: string, userName?: string) {
+  const { data: existing } = await supabase.from('PushSub').select('id').eq('endpoint', sub.endpoint).maybeSingle()
+  if (existing) {
+    const { error } = await supabase.from('PushSub').update({ p256dh: sub.p256dh, auth: sub.auth, label: label ?? null, userName: userName ?? null }).eq('id', existing.id)
+    if (error) throw new Error(error.message)
+    return existing.id
+  }
+  const { data, error } = await supabase.from('PushSub').insert({
+    id: newId(), endpoint: sub.endpoint, p256dh: sub.p256dh, auth: sub.auth, label: label ?? null, userName: userName ?? null,
+  }).select('id').single()
+  if (error) throw new Error(error.message)
+  return data.id
+}
+
+// 월별 출퇴근 (정산/집계용)
+export async function getAttendanceByMonth(year: number, month: number, siteId?: string) {
+  const start = `${year}-${String(month).padStart(2, '0')}-01`
+  const endDate = new Date(year, month, 0).getDate()
+  const end = `${year}-${String(month).padStart(2, '0')}-${String(endDate).padStart(2, '0')}`
+  let q = supabase
+    .from('Attendance')
+    .select('*, Worker(*)')
+    .gte('date', start)
+    .lte('date', end)
+    .order('date', { ascending: true })
+  if (siteId) q = q.eq('siteId', siteId)
+  const { data, error } = await q
+  if (error) throw new Error(error.message)
+  return data || []
+}

@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  # ── PostgreSQL DB ────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: field-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: fieldmanagement
+      POSTGRES_USER: fielduser
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fielduser -d fieldmanagement"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Next.js 앱 (Docker Hub에서 pull) ─────────────
+  building-field-management:
+    image: prince211/field-management:latest
+    container_name: building-field-management
+    restart: unless-stopped
+    ports:
+      - "3100:3000"
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://fielduser:${POSTGRES_PASSWORD}@postgres:5432/fieldmanagement
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./uploads:/app/uploads
+
+volumes:
+  postgres_data:
+
+networks:
+  default:
+    name: nas-services
+    external: false

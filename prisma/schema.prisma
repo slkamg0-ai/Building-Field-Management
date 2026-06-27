@@ -20,6 +20,55 @@ model User {
   createdAt DateTime @default(now())
 }
 
+// 근로자(인적사항 + 등록 얼굴) — 신원확인/출퇴근용
+model Worker {
+  id             String       @id @default(cuid())
+  name           String
+  phone          String?
+  company        String?      // 소속 업체
+  jobType        String?      // 직종/공종
+  birthDate      DateTime?    // 생년월일
+  gender         String?      // 성별
+  safetyEduDate  DateTime?    // 안전교육 이수일
+  basicSafetyEdu Boolean      @default(false) // 기초안전보건교육 이수
+  photoUrl       String?      // 등록 기준 얼굴 사진
+  faceDescriptor Json?        // 얼굴 특징벡터(128차원)
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  attendances    Attendance[]
+}
+
+// 출퇴근 기록 (하루 1행 / 근로자)
+model Attendance {
+  id               String    @id @default(cuid())
+  workerId         String
+  worker           Worker    @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  siteId           String?
+  siteName         String?
+  date             DateTime  // 근무일
+
+  checkInAt        DateTime?
+  checkInPhotoUrl  String?
+  checkInLat       Float?
+  checkInLng       Float?
+  checkInScore     Float?    // 얼굴 유사도 0~1
+
+  checkOutAt       DateTime?
+  checkOutPhotoUrl String?
+  checkOutLat      Float?
+  checkOutLng      Float?
+  checkOutScore    Float?
+
+  workMinutes      Int?      // 근무시간(분)
+  verifyStatus     String    @default("REVIEW") // AUTO/REVIEW/CONFIRMED/REJECTED
+  note             String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@unique([workerId, date])
+}
+
 model Site {
   id             String      @id @default(cuid())
   name           String
