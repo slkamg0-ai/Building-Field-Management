@@ -33,8 +33,8 @@ ENV PORT=3000
 RUN groupadd --system --gid 1001 nodejs && \
     useradd --system --uid 1001 nextjs
 
-# 빌드 결과물 복사
-RUN mkdir -p ./public
+# 빌드 결과물 복사 (public 폴더 포함 — manifest/아이콘)
+COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./package.json

@@ -96,8 +96,8 @@ export default function WorkersPage() {
     setEditId(w.id)
     setForm({
       name: w.name || '', phone: w.phone || '', company: w.company || '', jobType: w.jobType || '',
-      birthDate: w.birthDate ? w.birthDate.slice(0, 10) : '', gender: w.gender || '',
-      safetyEduDate: w.safetyEduDate ? w.safetyEduDate.slice(0, 10) : '', basicSafetyEdu: !!w.basicSafetyEdu,
+      birthDate: w.birthDate ? new Date(w.birthDate).toISOString().slice(0, 10) : '', gender: w.gender || '',
+      safetyEduDate: w.safetyEduDate ? new Date(w.safetyEduDate).toISOString().slice(0, 10) : '', basicSafetyEdu: !!w.basicSafetyEdu,
     })
     setFacePhoto(w.photoUrl || null)
     setFaceDesc(Array.isArray(w.faceDescriptor) ? w.faceDescriptor : null)
