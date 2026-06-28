@@ -1,8 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { getDailyLog, addLabor, addEquipment, addMaterial, addOutsourcing, addExpense, searchLabors, searchEquipments, searchMaterials, searchOutsourcings, getSites, createSite, updateSite, resetSiteData, getMonthlyStats, getSiteTotalStats, getUsers, createUser, deleteUser, toggleUserActive, updateUserPin, updateUserRole, updateDailyLogDescription, addPhotoRecord, deletePhoto, getMonthlyExpensesByPerson, settleExpenses } from '@/lib/actions'
-import { supabase } from '@/lib/supabase'
+import { getDailyLog, addLabor, addEquipment, addMaterial, addOutsourcing, addExpense, searchLabors, searchEquipments, searchMaterials, searchOutsourcings, getSites, createSite, updateSite, resetSiteData, getMonthlyStats, getSiteTotalStats, getUsers, createUser, deleteUser, toggleUserActive, updateUserPin, updateUserRole, updateDailyLogDescription, addPhotoRecord, deletePhoto, getMonthlyExpensesByPerson, settleExpenses, uploadPhoto } from '@/lib/actions'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid, PieChart, Pie, Cell } from 'recharts'
 import { exportMonthlyReport } from '@/lib/exportExcel'
 import { useRouter } from 'next/navigation'
@@ -398,26 +397,7 @@ export default function Home() {
     setIsUploading(true);
     try {
       const optimizedBase64 = await optimizeImage(file);
-      const fileName = `${logData.id}_${Date.now()}.jpg`;
-      const blob = dataURLtoBlob(optimizedBase64);
-
-      const { error: uploadError } = await supabase.storage
-        .from('site-photos')
-        .upload(fileName, blob, { contentType: 'image/jpeg' });
-
-      if (uploadError) throw new Error(`스토리지 업로드 실패: ${uploadError.message}`);
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('site-photos')
-        .getPublicUrl(fileName);
-
-      const { error: dbError } = await supabase.from('Photo').insert({
-        id: crypto.randomUUID(),
-        logId: logData.id,
-        url: publicUrl,
-        createdBy: currentUser?.name ?? null,
-      });
-      if (dbError) throw new Error(`DB 저장 실패: ${dbError.message}`);
+      await uploadPhoto(logData.id, optimizedBase64, currentUser?.name ?? null);
 
       loadData();
     } catch (err: unknown) {

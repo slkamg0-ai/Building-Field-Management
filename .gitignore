@@ -30,3 +30,4 @@ prisma/dev.db-journal
 .DS_Store
 *.pem
 Thumbs.db
+src/lib/supabase.ts

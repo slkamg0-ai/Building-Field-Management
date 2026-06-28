@@ -40,4 +40,5 @@ COPY --from=builder /app/prisma ./prisma
 USER nextjs
 EXPOSE 3000
 
-CMD ["npm", "start"]
+# 시작 시 스키마를 로컬 Postgres에 동기화 후 실행
+CMD ["sh", "-c", "npx prisma db push --skip-generate --accept-data-loss && npm start"]

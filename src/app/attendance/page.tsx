@@ -2,8 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { getSites, getWorkers, checkIn, checkOut } from '@/lib/actions'
-import { supabase } from '@/lib/supabase'
+import { getSites, getWorkers, checkIn, checkOut, uploadImage } from '@/lib/actions'
 import { preloadFaceModels, getDescriptor, bestMatch, MATCH_DISTANCE_THRESHOLD } from '@/lib/face'
 import { Camera, MapPin, CheckCircle2, LogIn, LogOut, ChevronLeft, UserCheck, AlertTriangle, Loader2 } from 'lucide-react'
 
@@ -125,11 +124,7 @@ export default function AttendancePage() {
       const worker = workers.find(w => w.id === matchedId)
       const site = sites.find(s => s.id === siteId)
       // 사진 업로드
-      const fileName = `attendance/${matchedId}_${mode}_${Date.now()}.jpg`
-      const blob = dataURLtoBlob(photo)
-      const { error: upErr } = await supabase.storage.from('site-photos').upload(fileName, blob, { contentType: 'image/jpeg' })
-      if (upErr) throw new Error(`사진 업로드 실패: ${upErr.message}`)
-      const { data: { publicUrl } } = supabase.storage.from('site-photos').getPublicUrl(fileName)
+      const publicUrl = await uploadImage(photo, `att_${matchedId}_${mode}`)
 
       const date = todayStr()
       if (mode === 'in') {

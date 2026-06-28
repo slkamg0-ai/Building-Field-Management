@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation'
 import {
   getWorkers, createWorker, updateWorker, deleteWorker,
   getAttendanceByDate, setAttendanceVerify,
+  uploadImage,
 } from '@/lib/actions'
-import { supabase } from '@/lib/supabase'
 import { preloadFaceModels, getDescriptor } from '@/lib/face'
 import {
   ChevronLeft, UserPlus, Camera, Trash2, Pencil, Check, X, ShieldCheck,
@@ -122,11 +122,7 @@ export default function WorkersPage() {
       let photoUrl: string | null = facePhoto
       // 새로 찍은 사진(dataURL)이면 업로드
       if (facePhoto && facePhoto.startsWith('data:')) {
-        const fileName = `worker-face/${Date.now()}.jpg`
-        const blob = dataURLtoBlob(facePhoto)
-        const { error: upErr } = await supabase.storage.from('site-photos').upload(fileName, blob, { contentType: 'image/jpeg' })
-        if (upErr) throw new Error(`사진 업로드 실패: ${upErr.message}`)
-        photoUrl = supabase.storage.from('site-photos').getPublicUrl(fileName).data.publicUrl
+        photoUrl = await uploadImage(facePhoto, 'worker')
       }
       const payload: any = {
         name: form.name.trim(), phone: form.phone, company: form.company, jobType: form.jobType,

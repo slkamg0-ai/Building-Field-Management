@@ -161,6 +161,9 @@ model Expense {
   amount      Int      // 금액
   note        String?  // 비고
   createdBy   String?
+  assignedTo  String?    // 정산 담당자
+  isSettled   Boolean   @default(false)  // 정산 완료 여부
+  settledAt   DateTime?  // 정산 시각
 }
 
 // 외주
@@ -173,4 +176,15 @@ model Outsourcing {
   amount      Int      // 기성/투입 금액
   note        String?
   createdBy   String?
+}
+
+// 웹 푸시 구독
+model PushSub {
+  id        String   @id @default(cuid())
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  label     String?
+  userName  String?
+  createdAt DateTime @default(now())
 }

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import webpush from 'web-push'
-import { supabase } from '@/lib/supabase'
+import prisma from '@/lib/prisma'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -34,8 +34,7 @@ export async function POST(req: NextRequest) {
     if (j?.url) url = j.url
   } catch {}
 
-  const { data: subs, error } = await supabase.from('PushSub').select('*')
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  const subs = await prisma.pushSub.findMany()
 
   const payload = JSON.stringify({ title, body, url })
   let sent = 0, removed = 0, failed = 0
@@ -48,7 +47,7 @@ export async function POST(req: NextRequest) {
     } catch (e: any) {
       const code = e?.statusCode
       if (code === 404 || code === 410) {
-        await supabase.from('PushSub').delete().eq('id', s.id)
+        await prisma.pushSub.delete({ where: { id: s.id } })
         removed++
       } else {
         failed++
