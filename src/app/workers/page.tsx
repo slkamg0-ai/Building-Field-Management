@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   getWorkers, createWorker, updateWorker, deleteWorker,
-  getAttendanceByDate, setAttendanceVerify,
+  getAttendanceByDate, setAttendanceVerify, getCurrentUser,
   uploadImage,
 } from '@/lib/actions'
 import { preloadFaceModels, getDescriptor } from '@/lib/face'
@@ -61,6 +61,7 @@ function VerifyBadge({ status }: { status: string }) {
 
 export default function WorkersPage() {
   const router = useRouter()
+  const [currentUser, setCurrentUser] = useState<any>(null)
   const [tab, setTab] = useState<'workers' | 'attendance'>('workers')
   const [workers, setWorkers] = useState<any[]>([])
   const [modelReady, setModelReady] = useState(false)
@@ -80,7 +81,18 @@ export default function WorkersPage() {
   const [records, setRecords] = useState<any[]>([])
   const [loadingAtt, setLoadingAtt] = useState(false)
 
-  useEffect(() => { loadWorkers(); preloadFaceModels().then(setModelReady) }, [])
+  useEffect(() => {
+    ;(async () => {
+      const user = await getCurrentUser()
+      if (!user || user.role !== 'ADMIN') {
+        router.push('/login')
+        return
+      }
+      setCurrentUser(user)
+      loadWorkers()
+      preloadFaceModels().then(setModelReady)
+    })()
+  }, [])
   useEffect(() => { if (tab === 'attendance') loadAttendance() }, [tab, attDate])
 
   async function loadWorkers() {
@@ -171,13 +183,13 @@ export default function WorkersPage() {
       <main className="max-w-3xl mx-auto p-4 space-y-3 pb-24">
         {tab === 'workers' && (
           <>
-            {!showForm && (
+            {currentUser?.role === 'ADMIN' && !showForm && (
               <button onClick={openCreate} className="w-full bg-[#556b2f] text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2">
                 <UserPlus className="w-5 h-5" /> 근로자 등록
               </button>
             )}
 
-            {showForm && (
+            {currentUser?.role === 'ADMIN' && showForm && (
               <div className="bg-white border border-[#e5e5e5] rounded-xl p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <h2 className="font-bold">{editId ? '근로자 수정' : '근로자 등록'}</h2>

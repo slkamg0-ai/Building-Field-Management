@@ -47,5 +47,5 @@ RUN chown -R nextjs:nodejs /app/node_modules/@prisma /app/node_modules/.prisma 2
 USER nextjs
 EXPOSE 3000
 
-# 시작 시 스키마를 로컬 Postgres에 동기화 후 실행
-CMD ["sh", "-c", "npx prisma db push --skip-generate --accept-data-loss && npm start"]
+# 시작 시 비파괴 스키마 동기화 후 실행. 파괴적 변경은 수동 백업 후 별도 적용.
+CMD ["sh", "-c", "npx prisma db push --skip-generate && npm start"]

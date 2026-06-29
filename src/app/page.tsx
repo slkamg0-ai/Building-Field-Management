@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { getDailyLog, addLabor, addEquipment, addMaterial, addOutsourcing, addExpense, searchLabors, searchEquipments, searchMaterials, searchOutsourcings, getSites, createSite, updateSite, resetSiteData, getMonthlyStats, getSiteTotalStats, getUsers, createUser, deleteUser, toggleUserActive, updateUserPin, updateUserRole, updateDailyLogDescription, addPhotoRecord, deletePhoto, getMonthlyExpensesByPerson, settleExpenses, uploadPhoto } from '@/lib/actions'
+import { getDailyLog, addLabor, addEquipment, addMaterial, addOutsourcing, addExpense, searchLabors, searchEquipments, searchMaterials, searchOutsourcings, getSites, createSite, updateSite, resetSiteData, getMonthlyStats, getSiteTotalStats, getUsers, createUser, deleteUser, toggleUserActive, updateUserPin, updateUserRole, updateDailyLogDescription, addPhotoRecord, deletePhoto, getMonthlyExpensesByPerson, settleExpenses, uploadPhoto, getCurrentUser, logout, syncWorkersFromConfiguredDriveMaster, processPendingWorkerDocuments, generateMonthlyLaborBilling, exportMonthlyLaborBillingToDrive } from '@/lib/actions'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid, PieChart, Pie, Cell } from 'recharts'
 import { exportMonthlyReport } from '@/lib/exportExcel'
 import { useRouter } from 'next/navigation'
@@ -54,6 +54,11 @@ export default function Home() {
   const [settlementData, setSettlementData] = useState<any[]>([])
   const [settlementLoading, setSettlementLoading] = useState(false)
   const [settlementError, setSettlementError] = useState<string | null>(null)
+  const [integrationLoading, setIntegrationLoading] = useState<string | null>(null)
+  const [integrationError, setIntegrationError] = useState<string | null>(null)
+  const [syncResult, setSyncResult] = useState<any>(null)
+  const [documentScanResult, setDocumentScanResult] = useState<any>(null)
+  const [billingResult, setBillingResult] = useState<any>(null)
   const [suggestions, setSuggestions] = useState<any[]>([])
   
   // 작업 내용 및 사진 관련 상태
@@ -62,21 +67,22 @@ export default function Home() {
   const [isAnalyzing, setIsAnalyzing] = useState(false)
 
   useEffect(() => {
-    // 로그인 체크
-    const userStr = localStorage.getItem('user')
-    if (!userStr) {
+    initialize()
+  }, [])
+
+  async function initialize() {
+    const user = await getCurrentUser()
+    if (!user) {
       router.push('/login')
       return
     }
-    const user = JSON.parse(userStr)
     setCurrentUser(user)
-    
-    loadSites()
-    loadAllUsers()
-  }, [])
+    await loadSites()
+    await loadAllUsers()
+  }
 
   async function handleLogout() {
-    localStorage.removeItem('user')
+    await logout()
     router.push('/login')
   }
 
@@ -106,6 +112,62 @@ export default function Home() {
       const msg = e instanceof Error ? e.message : String(e)
       setSettlementError(msg)
     } finally { setSettlementLoading(false) }
+  }
+
+  async function handleDriveWorkerSync() {
+    setIntegrationLoading('sync')
+    setIntegrationError(null)
+    try {
+      const result = await syncWorkersFromConfiguredDriveMaster()
+      setSyncResult(result)
+      await loadData()
+    } catch (e) {
+      setIntegrationError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setIntegrationLoading(null)
+    }
+  }
+
+  async function handleProcessWorkerDocuments() {
+    setIntegrationLoading('documents')
+    setIntegrationError(null)
+    try {
+      const result = await processPendingWorkerDocuments(10)
+      setDocumentScanResult(result)
+      await loadData()
+    } catch (e) {
+      setIntegrationError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setIntegrationLoading(null)
+    }
+  }
+
+  async function handleGenerateMonthlyBilling() {
+    if (!selectedSiteId) return
+    setIntegrationLoading('billing')
+    setIntegrationError(null)
+    try {
+      const result = await generateMonthlyLaborBilling(selectedSiteId, selectedYear, selectedMonth)
+      setBillingResult(result)
+    } catch (e) {
+      setIntegrationError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setIntegrationLoading(null)
+    }
+  }
+
+  async function handleExportMonthlyBilling() {
+    if (!selectedSiteId) return
+    setIntegrationLoading('export')
+    setIntegrationError(null)
+    try {
+      const result = await exportMonthlyLaborBillingToDrive(selectedSiteId, selectedYear, selectedMonth)
+      setBillingResult(result)
+    } catch (e) {
+      setIntegrationError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setIntegrationLoading(null)
+    }
   }
 
   async function loadSites() {
@@ -432,6 +494,7 @@ export default function Home() {
               { id: 'material', label: 'Materials', icon: 'inventory_2' },
               { id: 'outsourcing', label: 'Outsourcing', icon: 'assignment' },
               { id: 'expense', label: 'Expense', icon: 'payments' },
+              ...(currentUser?.role === 'ADMIN' ? [{ id: 'integration', label: 'Drive Link', icon: 'hub' }] : []),
             ].map(item => (
               <div 
                 key={item.id}
@@ -738,7 +801,7 @@ export default function Home() {
                           ) : (
                             <span className="text-[10px] font-bold tracking-widest px-1.5 py-0.5 rounded bg-[#556b2f]/20 text-[#556b2f]">{u.role}</span>
                           )}
-                          <span className="text-[10px] text-[#737373]">PIN: {u.pin}</span>
+                          <span className="text-[10px] text-[#737373]">PIN 보호됨</span>
                         </div>
                       </div>
                     </div>
@@ -897,6 +960,9 @@ export default function Home() {
                 <button onClick={() => setActiveTab('material')} className={`flex-1 py-4 px-3 whitespace-nowrap text-center text-xs md:text-sm font-bold tracking-wider transition-all ${activeTab === 'material' ? 'border-b-2 border-[#556b2f] text-[#556b2f]' : 'text-[#737373] hover:text-[#1a1c1c]'}`}>자재</button>
                 {currentUser?.role === 'ADMIN' && (
                   <button onClick={() => setActiveTab('settlement')} className={`flex-1 py-4 px-3 whitespace-nowrap text-center text-xs md:text-sm font-bold tracking-wider transition-all ${activeTab === 'settlement' ? 'border-b-2 border-[#16a34a] text-[#16a34a]' : 'text-[#737373] hover:text-[#1a1c1c]'}`}>정산</button>
+                )}
+                {currentUser?.role === 'ADMIN' && (
+                  <button onClick={() => setActiveTab('integration')} className={`flex-1 py-4 px-3 whitespace-nowrap text-center text-xs md:text-sm font-bold tracking-wider transition-all ${activeTab === 'integration' ? 'border-b-2 border-[#0284c7] text-[#0284c7]' : 'text-[#737373] hover:text-[#1a1c1c]'}`}>연계</button>
                 )}
               </nav>
 
@@ -1563,6 +1629,139 @@ export default function Home() {
                       ))}
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* ===================== INTEGRATION TAB ===================== */}
+              {activeTab === 'integration' && currentUser?.role === 'ADMIN' && (
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center px-2">
+                    <h3 className="font-bold text-lg text-[#1a1c1c] flex items-center gap-2">
+                      <span className="material-symbols-outlined text-[#0284c7]">hub</span>
+                      Drive 노무관리 연계
+                    </h3>
+                    <span className="text-xs text-[#737373]">{selectedYear}년 {selectedMonth}월</span>
+                  </div>
+
+                  {integrationError && (
+                    <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-sm text-red-600">
+                      {integrationError}
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div className="bg-[#ffffff] border border-[#e5e5e5] rounded-xl p-5 space-y-4">
+                      <div>
+                        <p className="text-xs font-bold tracking-widest text-[#0284c7] uppercase">Worker Master</p>
+                        <h4 className="font-bold text-[#1a1c1c] mt-1">근로자마스터 동기화</h4>
+                        <p className="text-sm text-[#6b6b6b] mt-2">Google Drive의 노무관리 마스터 시트에서 근로자 서류 상태, 계좌, 안전교육 정보를 앱 DB로 반영합니다.</p>
+                      </div>
+                      <button
+                        onClick={handleDriveWorkerSync}
+                        disabled={integrationLoading !== null}
+                        className="w-full bg-[#0284c7] text-white font-bold py-3 rounded-lg hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
+                      >
+                        <span className="material-symbols-outlined text-sm">{integrationLoading === 'sync' ? 'sync' : 'cloud_sync'}</span>
+                        {integrationLoading === 'sync' ? '동기화 중...' : 'Drive 근로자 동기화'}
+                      </button>
+                      <button
+                        onClick={handleProcessWorkerDocuments}
+                        disabled={integrationLoading !== null}
+                        className="w-full border border-[#0284c7] text-[#0284c7] font-bold py-3 rounded-lg hover:bg-[#0284c7]/10 disabled:opacity-50 flex items-center justify-center gap-2"
+                      >
+                        <span className="material-symbols-outlined text-sm">{integrationLoading === 'documents' ? 'sync' : 'document_scanner'}</span>
+                        {integrationLoading === 'documents' ? '서류 분석 중...' : '대기 서류 분석'}
+                      </button>
+                      {syncResult && (
+                        <div className="grid grid-cols-4 gap-2 text-center">
+                          <div className="bg-[#f3f3f3] rounded-lg p-3"><p className="text-[10px] text-[#737373]">신규</p><p className="font-bold">{syncResult.created}</p></div>
+                          <div className="bg-[#f3f3f3] rounded-lg p-3"><p className="text-[10px] text-[#737373]">갱신</p><p className="font-bold">{syncResult.updated}</p></div>
+                          <div className="bg-[#f3f3f3] rounded-lg p-3"><p className="text-[10px] text-[#737373]">건너뜀</p><p className="font-bold">{syncResult.skipped}</p></div>
+                          <div className="bg-[#f3f3f3] rounded-lg p-3"><p className="text-[10px] text-[#737373]">전체</p><p className="font-bold">{syncResult.total}</p></div>
+                        </div>
+                      )}
+                      {documentScanResult && (
+                        <div className="space-y-3">
+                          <div className="grid grid-cols-4 gap-2 text-center">
+                            <div className="bg-[#f3f3f3] rounded-lg p-3"><p className="text-[10px] text-[#737373]">처리</p><p className="font-bold">{documentScanResult.processed}</p></div>
+                            <div className="bg-[#f3f3f3] rounded-lg p-3"><p className="text-[10px] text-[#737373]">완료</p><p className="font-bold text-[#16a34a]">{documentScanResult.completed}</p></div>
+                            <div className="bg-[#f3f3f3] rounded-lg p-3"><p className="text-[10px] text-[#737373]">검토</p><p className="font-bold text-amber-600">{documentScanResult.review}</p></div>
+                            <div className="bg-[#f3f3f3] rounded-lg p-3"><p className="text-[10px] text-[#737373]">실패</p><p className="font-bold text-red-600">{documentScanResult.failed}</p></div>
+                          </div>
+                          <div className="border border-[#e5e5e5] rounded-lg overflow-hidden">
+                            <div className="max-h-40 overflow-auto divide-y divide-[#e5e5e5]">
+                              {documentScanResult.details?.slice(0, 10).map((item: any, idx: number) => (
+                                <div key={`${item.fileName}-${idx}`} className="px-3 py-2 text-xs">
+                                  <p className="font-bold text-[#1a1c1c]">{item.workerName || item.fileName}</p>
+                                  <p className="text-[#737373]">{item.status}{item.reason ? ` · ${item.reason}` : ''}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="bg-[#ffffff] border border-[#e5e5e5] rounded-xl p-5 space-y-4">
+                      <div>
+                        <p className="text-xs font-bold tracking-widest text-[#16a34a] uppercase">Monthly Billing</p>
+                        <h4 className="font-bold text-[#1a1c1c] mt-1">월별 노무 기성 초안</h4>
+                        <p className="text-sm text-[#6b6b6b] mt-2">앱에 입력된 일일 노무 투입 내역과 근로자 서류 상태를 합쳐 월별투입명세 초안을 생성합니다.</p>
+                      </div>
+                      <button
+                        onClick={handleGenerateMonthlyBilling}
+                        disabled={integrationLoading !== null || !selectedSiteId}
+                        className="w-full bg-[#16a34a] text-white font-bold py-3 rounded-lg hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
+                      >
+                        <span className="material-symbols-outlined text-sm">{integrationLoading === 'billing' ? 'sync' : 'request_quote'}</span>
+                        {integrationLoading === 'billing' ? '생성 중...' : '월별투입명세 생성'}
+                      </button>
+                      <button
+                        onClick={handleExportMonthlyBilling}
+                        disabled={integrationLoading !== null || !selectedSiteId}
+                        className="w-full border border-[#16a34a] text-[#16a34a] font-bold py-3 rounded-lg hover:bg-[#16a34a]/10 disabled:opacity-50 flex items-center justify-center gap-2"
+                      >
+                        <span className="material-symbols-outlined text-sm">{integrationLoading === 'export' ? 'sync' : 'drive_file_move'}</span>
+                        {integrationLoading === 'export' ? '출력 중...' : 'Google Sheets/PDF 출력'}
+                      </button>
+                      {billingResult && (
+                        <div className="space-y-3">
+                          <div className="grid grid-cols-3 gap-2 text-center">
+                            <div className="bg-[#f3f3f3] rounded-lg p-3"><p className="text-[10px] text-[#737373]">인원</p><p className="font-bold">{billingResult.billing.workerCount}</p></div>
+                            <div className="bg-[#f3f3f3] rounded-lg p-3"><p className="text-[10px] text-[#737373]">지급가능</p><p className="font-bold text-[#16a34a]">{billingResult.billing.readyWorkerCount}</p></div>
+                            <div className="bg-[#f3f3f3] rounded-lg p-3"><p className="text-[10px] text-[#737373]">보류</p><p className="font-bold text-red-600">{billingResult.billing.holdWorkerCount}</p></div>
+                          </div>
+                          <div className="border border-[#e5e5e5] rounded-lg overflow-hidden">
+                            <div className="max-h-64 overflow-auto divide-y divide-[#e5e5e5]">
+                              {billingResult.items.slice(0, 20).map((item: any, idx: number) => (
+                                <div key={`${item.name}-${idx}`} className="flex items-center justify-between px-3 py-2 text-sm">
+                                  <div>
+                                    <p className="font-bold text-[#1a1c1c]">{item.name}</p>
+                                    <p className="text-[10px] text-[#737373]">{item.jobType} · {item.amount}공수 · {item.documentStatus}</p>
+                                  </div>
+                                  <p className="font-bold">₩{item.totalPrice.toLocaleString()}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                          {(billingResult.spreadsheetUrl || billingResult.pdfUrl) && (
+                            <div className="flex flex-wrap gap-2">
+                              {billingResult.spreadsheetUrl && (
+                                <a href={billingResult.spreadsheetUrl} target="_blank" className="text-xs font-bold text-[#0284c7] border border-[#0284c7]/30 rounded px-3 py-2 hover:bg-[#0284c7]/10">
+                                  Google Sheets 열기
+                                </a>
+                              )}
+                              {billingResult.pdfUrl && (
+                                <a href={billingResult.pdfUrl} target="_blank" className="text-xs font-bold text-[#16a34a] border border-[#16a34a]/30 rounded px-3 py-2 hover:bg-[#16a34a]/10">
+                                  PDF 열기
+                                </a>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               )}
 

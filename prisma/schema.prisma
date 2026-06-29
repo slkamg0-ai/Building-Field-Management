@@ -15,7 +15,8 @@ datasource db {
 model User {
   id        String   @id @default(cuid())
   name      String   @unique
-  pin       String   // Simple PIN based login for ease of use
+  pin       String   @default("") // Legacy PIN storage; kept only for migration compatibility
+  pinHash   String   @default("")
   role      String   @default("WORKER") // ADMIN, WORKER
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
@@ -29,15 +30,22 @@ model Worker {
   company        String?      // 소속 업체
   jobType        String?      // 직종/공종
   birthDate      DateTime?    // 생년월일
+  birthYYMMDD     String?      // Drive 마스터/서류 인식용 생년월일 6자리
   gender         String?      // 성별
   safetyEduDate  DateTime?    // 안전교육 이수일
+  safetyEduNumber String?      // 기초안전보건교육 이수번호
   basicSafetyEdu Boolean      @default(false) // 기초안전보건교육 이수
+  bankName       String?
+  accountNumber  String?
+  documentStatus String       @default("UNKNOWN") // UNKNOWN/INCOMPLETE/COMPLETE/REVIEW
+  driveFolderUrl String?
   photoUrl       String?      // 등록 기준 얼굴 사진
   faceDescriptor Json?        // 얼굴 특징벡터(128차원)
   isActive       Boolean      @default(true)
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
   attendances    Attendance[]
+  documents      WorkerDocument[]
 }
 
 // 출퇴근 기록 (하루 1행 / 근로자)
@@ -80,6 +88,7 @@ model Site {
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
   logs           DailyLog[]
+  monthlyBillings MonthlyBilling[]
 }
 
 model DailyLog {
@@ -188,4 +197,68 @@ model PushSub {
   label     String?
   userName  String?
   createdAt DateTime @default(now())
+}
+
+model WorkerDocument {
+  id             String   @id @default(cuid())
+  workerId       String?
+  worker         Worker?  @relation(fields: [workerId], references: [id], onDelete: SetNull)
+  workerName     String?
+  birthYYMMDD    String?
+  documentType   String   // ID_CARD/BANKBOOK/SAFETY_EDU/OTHER
+  driveFileId    String?
+  driveFileUrl   String?
+  driveFolderUrl String?
+  sourceFileName String?
+  extractedData  Json?
+  confidence     Float?
+  status         String   @default("REVIEW") // SUCCESS/REVIEW/FAILED
+  note           String?
+  processedAt    DateTime @default(now())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([workerId])
+  @@index([workerName, birthYYMMDD])
+  @@index([status])
+}
+
+model DriveSyncJob {
+  id          String    @id @default(cuid())
+  type        String    // WORKER_MASTER_IMPORT/DOCUMENT_SCAN/BILLING_EXPORT
+  status      String    @default("PENDING") // PENDING/RUNNING/SUCCESS/FAILED
+  sourceUrl   String?
+  targetUrl   String?
+  startedAt   DateTime?
+  finishedAt  DateTime?
+  result      Json?
+  error       String?
+  createdBy   String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([type, status])
+}
+
+model MonthlyBilling {
+  id                 String   @id @default(cuid())
+  siteId             String
+  site               Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  year               Int
+  month              Int
+  totalLaborCost     Int      @default(0)
+  totalLaborAmount   Float    @default(0)
+  workerCount        Int      @default(0)
+  readyWorkerCount   Int      @default(0)
+  holdWorkerCount    Int      @default(0)
+  sheetUrl           String?
+  pdfUrl             String?
+  status             String   @default("DRAFT") // DRAFT/EXPORTED/CONFIRMED
+  summary            Json?
+  createdBy          String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@unique([siteId, year, month])
+  @@index([year, month])
 }

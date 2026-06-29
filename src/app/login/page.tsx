@@ -2,30 +2,30 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { login, getUsers } from '@/lib/actions'
+import { bootstrapAdmin, getCurrentUser, getLoginStatus, login } from '@/lib/actions'
 import { Lock, User, ChevronRight } from 'lucide-react'
 
 export default function LoginPage() {
-  const [users, setUsers] = useState<any[]>([])
-  const [selectedUser, setSelectedUser] = useState<string>('')
+  const [name, setName] = useState('')
   const [pin, setPin] = useState('')
   const [error, setError] = useState('')
+  const [needsBootstrap, setNeedsBootstrap] = useState(false)
   const [loading, setLoading] = useState(true)
   const router = useRouter()
 
   useEffect(() => {
-    loadUsers()
-    // 이미 로그인되어 있는지 확인
-    const savedUser = localStorage.getItem('user')
-    if (savedUser) {
-      router.push('/')
-    }
+    loadLoginState()
   }, [])
 
-  async function loadUsers() {
+  async function loadLoginState() {
     try {
-      const fetchedUsers = await getUsers()
-      setUsers(fetchedUsers)
+      const currentUser = await getCurrentUser()
+      if (currentUser) {
+        router.push('/')
+        return
+      }
+      const status = await getLoginStatus()
+      setNeedsBootstrap(status.needsBootstrap)
     } catch (e) {
       console.error(e)
     } finally {
@@ -35,14 +35,21 @@ export default function LoginPage() {
 
   async function handleLogin(e?: React.FormEvent) {
     if (e) e.preventDefault()
-    if (!selectedUser || pin.length < 4) return
+    if (!name.trim() || pin.length < 4) return
 
-    const user = await login(selectedUser, pin)
-    if (user) {
-      localStorage.setItem('user', JSON.stringify(user))
-      router.push('/')
-    } else {
-      setError('비밀번호가 일치하지 않거나 비활성화된 계정입니다.')
+    try {
+      const user = needsBootstrap
+        ? await bootstrapAdmin(name.trim(), pin)
+        : await login(name.trim(), pin)
+      if (user) {
+        router.push('/')
+      } else {
+        setError('비밀번호가 일치하지 않거나 비활성화된 계정입니다.')
+        setPin('')
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '로그인 처리 중 오류가 발생했습니다.'
+      setError(msg)
       setPin('')
     }
   }
@@ -69,27 +76,29 @@ export default function LoginPage() {
           <h1 className="text-2xl font-bold text-[#1a1c1c] mb-2 font-['Inter'] tracking-tight uppercase">
             현장 관리 시스템
           </h1>
-          <p className="text-[#6b6b6b] text-sm">접속자를 선택하고 PIN 번호를 입력하세요.</p>
+          <p className="text-[#6b6b6b] text-sm">
+            {needsBootstrap ? '최초 관리자 이름과 PIN을 등록하세요.' : '이름과 PIN 번호를 입력하세요.'}
+          </p>
         </div>
 
         <div className="space-y-6">
           <div className="space-y-2">
-            <label className="text-xs font-bold text-[#737373] uppercase tracking-widest ml-1">접속자 선택</label>
+            <label className="text-xs font-bold text-[#737373] uppercase tracking-widest ml-1">
+              {needsBootstrap ? '관리자 이름' : '접속자 이름'}
+            </label>
             <div className="relative">
-              <select
-                value={selectedUser}
+              <input
+                type="text"
+                value={name}
                 onChange={(e) => {
-                  setSelectedUser(e.target.value)
+                  setName(e.target.value)
                   setError('')
                   setPin('')
                 }}
                 className="w-full bg-[#f3f3f3] border border-[#e5e5e5] rounded-xl px-4 py-4 text-[#1a1c1c] outline-none focus:border-[#556b2f] appearance-none cursor-pointer"
-              >
-                <option value="">접속자를 선택해 주세요</option>
-                {users.map(u => (
-                  <option key={u.id} value={u.name}>{u.name}</option>
-                ))}
-              </select>
+                placeholder={needsBootstrap ? '예: 관리자' : '이름을 입력하세요'}
+                autoComplete="username"
+              />
               <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
                 <User className="text-[#737373] w-5 h-5" />
               </div>
@@ -132,10 +141,10 @@ export default function LoginPage() {
 
           <button
             onClick={() => handleLogin()}
-            disabled={!selectedUser || pin.length < 4}
+            disabled={!name.trim() || pin.length < 4}
             className="w-full bg-[#556b2f] text-[#ffffff] font-bold py-4 rounded-xl flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all disabled:opacity-30 disabled:grayscale"
           >
-            접속하기
+            {needsBootstrap ? '관리자 등록' : '접속하기'}
             <ChevronRight className="w-5 h-5" />
           </button>
         </div>
