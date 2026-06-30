@@ -18,6 +18,7 @@ import {
   moveDriveFileToFolder,
   readSheetValues,
   rowsToObjects,
+  trashDriveFile,
   uploadPdfToDrive,
   writeSheetValues,
 } from './googleSheets'
@@ -543,6 +544,143 @@ export async function deleteWorker(id: string) {
 }
 
 // 출근: 하루 1행. 이미 출근돼 있으면 그대로 반환.
+function driveFolderIdFromUrl(url?: string | null) {
+  if (!url) return null
+  const foldersMatch = url.match(/\/folders\/([a-zA-Z0-9_-]+)/)
+  if (foldersMatch?.[1]) return foldersMatch[1]
+  const idMatch = url.match(/[?&]id=([a-zA-Z0-9_-]+)/)
+  if (idMatch?.[1]) return idMatch[1]
+  return null
+}
+
+export async function mergeWorkers(targetWorkerId: string, sourceWorkerIds: string[]) {
+  await requireAdmin()
+  const sourceIds = Array.from(new Set(sourceWorkerIds.filter(id => id && id !== targetWorkerId)))
+  if (!targetWorkerId || sourceIds.length === 0) {
+    throw new Error('기준 근로자와 병합할 근로자를 선택하세요.')
+  }
+
+  const result = await prisma.$transaction(async tx => {
+    const target = await tx.worker.findUnique({ where: { id: targetWorkerId } })
+    if (!target) throw new Error('기준 근로자를 찾을 수 없습니다.')
+
+    const sources = await tx.worker.findMany({ where: { id: { in: sourceIds } } })
+    if (sources.length !== sourceIds.length) throw new Error('병합할 근로자 중 찾을 수 없는 항목이 있습니다.')
+
+    const targetDriveFolderUrl = target.driveFolderUrl || sources.find(source => source.driveFolderUrl)?.driveFolderUrl || null
+    const targetDriveFolderId = driveFolderIdFromUrl(targetDriveFolderUrl)
+    const targetPatch: any = {}
+    for (const source of sources) {
+      if (!targetPatch.phone && !target.phone && source.phone) targetPatch.phone = source.phone
+      if (!targetPatch.company && !target.company && source.company) targetPatch.company = source.company
+      if (!targetPatch.jobType && !target.jobType && source.jobType) targetPatch.jobType = source.jobType
+      if (!targetPatch.birthDate && !target.birthDate && source.birthDate) targetPatch.birthDate = source.birthDate
+      if (!targetPatch.birthYYMMDD && !target.birthYYMMDD && source.birthYYMMDD) targetPatch.birthYYMMDD = source.birthYYMMDD
+      if (!targetPatch.gender && !target.gender && source.gender) targetPatch.gender = source.gender
+      if (!targetPatch.safetyEduDate && !target.safetyEduDate && source.safetyEduDate) targetPatch.safetyEduDate = source.safetyEduDate
+      if (!targetPatch.safetyEduNumber && !target.safetyEduNumber && source.safetyEduNumber) targetPatch.safetyEduNumber = source.safetyEduNumber
+      if (!targetPatch.bankName && !target.bankName && source.bankName) targetPatch.bankName = source.bankName
+      if (!targetPatch.accountNumber && !target.accountNumber && source.accountNumber) targetPatch.accountNumber = source.accountNumber
+      if (!targetPatch.driveFolderUrl && !target.driveFolderUrl && source.driveFolderUrl) targetPatch.driveFolderUrl = source.driveFolderUrl
+      if (!targetPatch.photoUrl && !target.photoUrl && source.photoUrl) targetPatch.photoUrl = source.photoUrl
+      if (!targetPatch.faceDescriptor && !target.faceDescriptor && source.faceDescriptor) targetPatch.faceDescriptor = source.faceDescriptor
+      if (!target.basicSafetyEdu && source.basicSafetyEdu) targetPatch.basicSafetyEdu = true
+      if (target.documentStatus !== 'COMPLETE' && source.documentStatus === 'COMPLETE') targetPatch.documentStatus = 'COMPLETE'
+    }
+
+    if (Object.keys(targetPatch).length > 0) {
+      await tx.worker.update({ where: { id: targetWorkerId }, data: targetPatch })
+    }
+
+    for (const source of sources) {
+      const sourceAttendances = await tx.attendance.findMany({ where: { workerId: source.id } })
+      for (const sourceAttendance of sourceAttendances) {
+        const targetAttendance = await tx.attendance.findUnique({
+          where: { workerId_date: { workerId: targetWorkerId, date: sourceAttendance.date } },
+        })
+
+        if (!targetAttendance) {
+          await tx.attendance.update({ where: { id: sourceAttendance.id }, data: { workerId: targetWorkerId } })
+          continue
+        }
+
+        await tx.attendance.update({
+          where: { id: targetAttendance.id },
+          data: {
+            siteId: targetAttendance.siteId || sourceAttendance.siteId,
+            siteName: targetAttendance.siteName || sourceAttendance.siteName,
+            checkInAt: targetAttendance.checkInAt || sourceAttendance.checkInAt,
+            checkInPhotoUrl: targetAttendance.checkInPhotoUrl || sourceAttendance.checkInPhotoUrl,
+            checkInLat: targetAttendance.checkInLat ?? sourceAttendance.checkInLat,
+            checkInLng: targetAttendance.checkInLng ?? sourceAttendance.checkInLng,
+            checkInScore: targetAttendance.checkInScore ?? sourceAttendance.checkInScore,
+            checkOutAt: targetAttendance.checkOutAt || sourceAttendance.checkOutAt,
+            checkOutPhotoUrl: targetAttendance.checkOutPhotoUrl || sourceAttendance.checkOutPhotoUrl,
+            checkOutLat: targetAttendance.checkOutLat ?? sourceAttendance.checkOutLat,
+            checkOutLng: targetAttendance.checkOutLng ?? sourceAttendance.checkOutLng,
+            checkOutScore: targetAttendance.checkOutScore ?? sourceAttendance.checkOutScore,
+            workMinutes: targetAttendance.workMinutes ?? sourceAttendance.workMinutes,
+            verifyStatus: targetAttendance.verifyStatus === 'CONFIRMED' ? 'CONFIRMED' : sourceAttendance.verifyStatus,
+            note: [targetAttendance.note, sourceAttendance.note, `중복 근로자 ${source.name} 병합`].filter(Boolean).join(' / '),
+          },
+        })
+        await tx.attendance.delete({ where: { id: sourceAttendance.id } })
+      }
+
+      await tx.workerDocument.updateMany({
+        where: { workerId: source.id },
+        data: {
+          workerId: targetWorkerId,
+          workerName: target.name,
+          birthYYMMDD: target.birthYYMMDD || source.birthYYMMDD,
+          driveFolderUrl: targetDriveFolderUrl,
+          note: `관리자 병합: ${source.name} -> ${target.name}`,
+        },
+      })
+
+      await tx.labor.updateMany({ where: { name: source.name }, data: { name: target.name } })
+      await tx.worker.update({
+        where: { id: source.id },
+        data: { isActive: false, name: `${source.name} (병합됨)`, documentStatus: 'MERGED' },
+      })
+    }
+
+    revalidatePath('/workers')
+    revalidatePath('/')
+    const driveMoves = targetDriveFolderId
+      ? sources
+        .map(source => ({
+          sourceWorkerName: source.name,
+          sourceFolderId: driveFolderIdFromUrl(source.driveFolderUrl),
+          targetFolderId: targetDriveFolderId,
+        }))
+        .filter(move => move.sourceFolderId && move.sourceFolderId !== move.targetFolderId)
+      : []
+
+    return { targetWorkerId, mergedCount: sources.length, driveMoves }
+  })
+
+  let driveMovedCount = 0
+  let driveTrashedFolderCount = 0
+  const driveMoveErrors: string[] = []
+  for (const move of result.driveMoves) {
+    try {
+      const files = await listDriveFolderFiles(move.sourceFolderId!, 100)
+      for (const file of files) {
+        await moveDriveFileToFolder(file.id, move.targetFolderId, move.sourceFolderId)
+        driveMovedCount++
+      }
+      await trashDriveFile(move.sourceFolderId!)
+      driveTrashedFolderCount++
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      driveMoveErrors.push(`${move.sourceWorkerName}: ${message}`)
+    }
+  }
+
+  return { ...result, driveMovedCount, driveTrashedFolderCount, driveMoveErrors }
+}
+
 export async function checkIn(data: {
   workerId: string; date: string; siteId?: string | null; siteName?: string | null
   photoUrl?: string | null; lat?: number | null; lng?: number | null; score?: number | null; verifyStatus?: string
@@ -1033,6 +1171,119 @@ export async function getDriveSyncJobs(limit: number = 20) {
     orderBy: { createdAt: 'desc' },
     take: Math.min(Math.max(limit, 1), 100),
   })
+}
+
+export async function getWorkerDocumentReviews(limit: number = 30) {
+  await requireAdmin()
+  const docs = await prisma.workerDocument.findMany({
+    orderBy: { processedAt: 'desc' },
+    take: Math.min(Math.max(limit, 1), 100),
+    include: {
+      worker: {
+        select: {
+          id: true,
+          name: true,
+          birthYYMMDD: true,
+          bankName: true,
+          accountNumber: true,
+          safetyEduNumber: true,
+          documentStatus: true,
+        },
+      },
+    },
+  })
+
+  return docs.map(doc => ({
+    id: doc.id,
+    workerId: doc.workerId,
+    workerName: doc.workerName,
+    birthYYMMDD: doc.birthYYMMDD,
+    documentType: doc.documentType,
+    driveFileId: doc.driveFileId,
+    driveFileUrl: doc.driveFileUrl,
+    driveFolderUrl: doc.driveFolderUrl,
+    sourceFileName: doc.sourceFileName,
+    extractedData: doc.extractedData,
+    confidence: doc.confidence,
+    status: doc.status,
+    note: doc.note,
+    processedAt: doc.processedAt,
+    worker: doc.worker,
+  }))
+}
+
+export async function saveWorkerDocumentReview(documentId: string, data: any, approve: boolean = false) {
+  await requireAdmin()
+  const doc = await prisma.workerDocument.findUnique({ where: { id: documentId } })
+  if (!doc) throw new Error('검수할 서류를 찾을 수 없습니다.')
+
+  const workerName = String(data.workerName || doc.workerName || '').trim()
+  const birthYYMMDD = String(data.birthYYMMDD || doc.birthYYMMDD || '').replace(/[^\d]/g, '').slice(0, 6)
+  if (approve && !workerName) throw new Error('승인하려면 근로자 이름이 필요합니다.')
+
+  const extractedData = {
+    ...((doc.extractedData as any) || {}),
+    workerName,
+    birthYYMMDD,
+    bankName: data.bankName || '',
+    accountNumber: data.accountNumber || '',
+    safetyEduNumber: data.safetyEduNumber || '',
+    safetyEduComplete: !!data.safetyEduComplete,
+    reviewedByAdmin: true,
+  }
+
+  let workerId = data.workerId || doc.workerId || null
+  let driveFolderUrl = doc.driveFolderUrl
+
+  if (approve) {
+    const existing = workerId
+      ? await prisma.worker.findUnique({ where: { id: workerId } })
+      : await prisma.worker.findFirst({
+        where: birthYYMMDD ? { name: workerName, birthYYMMDD } : { name: workerName },
+      })
+
+    const hasId = !!birthYYMMDD && ['ID_CARD', 'DRIVER_LICENSE'].includes(data.documentType || doc.documentType)
+    const hasBank = !!data.bankName && !!data.accountNumber
+    const hasSafety = !!data.safetyEduNumber || !!data.safetyEduComplete
+    const nextDocumentStatus = hasId || hasBank || hasSafety ? 'COMPLETE' : 'REVIEW'
+
+    const workerPatch = {
+      name: workerName,
+      birthYYMMDD: birthYYMMDD || existing?.birthYYMMDD || null,
+      bankName: data.bankName || existing?.bankName || null,
+      accountNumber: data.accountNumber || existing?.accountNumber || null,
+      safetyEduNumber: data.safetyEduNumber || existing?.safetyEduNumber || null,
+      basicSafetyEdu: !!data.safetyEduComplete || existing?.basicSafetyEdu || !!data.safetyEduNumber,
+      documentStatus: existing?.documentStatus === 'COMPLETE' ? 'COMPLETE' : nextDocumentStatus,
+      driveFolderUrl: driveFolderUrl || existing?.driveFolderUrl || null,
+      isActive: true,
+    }
+
+    const worker = existing
+      ? await prisma.worker.update({ where: { id: existing.id }, data: workerPatch })
+      : await prisma.worker.create({ data: workerPatch })
+    workerId = worker.id
+    driveFolderUrl = worker.driveFolderUrl || driveFolderUrl
+  }
+
+  const updated = await prisma.workerDocument.update({
+    where: { id: documentId },
+    data: {
+      workerId,
+      workerName: workerName || null,
+      birthYYMMDD: birthYYMMDD || null,
+      documentType: data.documentType || doc.documentType,
+      driveFolderUrl,
+      extractedData,
+      confidence: typeof data.confidence === 'number' ? data.confidence : doc.confidence,
+      status: approve ? 'SUCCESS' : (data.status || doc.status || 'REVIEW'),
+      note: data.note || null,
+    },
+  })
+
+  revalidatePath('/')
+  revalidatePath('/workers')
+  return updated
 }
 
 export async function generateMonthlyLaborBilling(siteId: string, year: number, month: number) {

@@ -15,12 +15,35 @@ function serviceAccountPrivateKey() {
   return raw.replace(/\\n/g, '\n')
 }
 
-async function getAccessToken() {
+async function getOAuthAccessToken() {
+  const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID
+  const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET
+  const refreshToken = process.env.GOOGLE_OAUTH_REFRESH_TOKEN
+
+  if (!clientId || !clientSecret || !refreshToken) return null
+
+  const res = await fetch(TOKEN_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
+      refresh_token: refreshToken,
+      grant_type: 'refresh_token',
+    }),
+  })
+
+  const json = await res.json()
+  if (!res.ok) {
+    throw new Error(json?.error_description || json?.error || 'Google OAuth 토큰 발급 실패')
+  }
+  return json.access_token as string
+}
+
+async function getServiceAccountAccessToken() {
   const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL
   const privateKey = serviceAccountPrivateKey()
-  if (!clientEmail || !privateKey) {
-    throw new Error('Google 서비스 계정 환경변수가 설정되지 않았습니다.')
-  }
+  if (!clientEmail || !privateKey) return null
 
   const now = Math.floor(Date.now() / 1000)
   const header = base64url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }))
@@ -45,9 +68,19 @@ async function getAccessToken() {
 
   const json = await res.json()
   if (!res.ok) {
-    throw new Error(json?.error_description || json?.error || 'Google 토큰 발급 실패')
+    throw new Error(json?.error_description || json?.error || 'Google 서비스 계정 토큰 발급 실패')
   }
   return json.access_token as string
+}
+
+async function getAccessToken() {
+  const oauthToken = await getOAuthAccessToken()
+  if (oauthToken) return oauthToken
+
+  const serviceAccountToken = await getServiceAccountAccessToken()
+  if (serviceAccountToken) return serviceAccountToken
+
+  throw new Error('Google 인증 환경변수가 설정되지 않았습니다. OAuth 방식은 GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET, GOOGLE_OAUTH_REFRESH_TOKEN이 필요합니다.')
 }
 
 function spreadsheetUrl(id: string) {
@@ -114,6 +147,21 @@ export async function moveDriveFileToFolder(fileId: string, folderId?: string | 
   return json as { id: string; parents?: string[] }
 }
 
+export async function trashDriveFile(fileId: string) {
+  const token = await getAccessToken()
+  const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?fields=id,trashed`, {
+    method: 'PATCH',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ trashed: true }),
+  })
+  const json = await res.json()
+  if (!res.ok) throw new Error(json?.error?.message || 'Drive 파일 휴지통 이동 실패')
+  return json as { id: string; trashed: boolean }
+}
+
 export async function writeSheetValues(spreadsheetId: string, sheetName: string, values: unknown[][]) {
   const token = await getAccessToken()
   const range = `${sheetName}!A1`
@@ -126,7 +174,7 @@ export async function writeSheetValues(spreadsheetId: string, sheetName: string,
     body: JSON.stringify({ values }),
   })
   const json = await res.json()
-  if (!res.ok) throw new Error(json?.error?.message || 'Google Sheet 값 쓰기 실패')
+  if (!res.ok) throw new Error(json?.error?.message || 'Google Sheet 쓰기 실패')
 }
 
 export async function appendSheetValues(spreadsheetId: string, sheetName: string, values: unknown[][]) {

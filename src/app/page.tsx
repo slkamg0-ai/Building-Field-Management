@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { getDailyLog, addLabor, addEquipment, addMaterial, addOutsourcing, addExpense, searchLabors, searchEquipments, searchMaterials, searchOutsourcings, getSites, createSite, updateSite, resetSiteData, getMonthlyStats, getSiteTotalStats, getUsers, createUser, deleteUser, toggleUserActive, updateUserPin, updateUserRole, updateDailyLogDescription, addPhotoRecord, deletePhoto, getMonthlyExpensesByPerson, settleExpenses, uploadPhoto, getCurrentUser, logout, syncWorkersFromConfiguredDriveMaster, processPendingWorkerDocuments, generateMonthlyLaborBilling, exportMonthlyLaborBillingToDrive } from '@/lib/actions'
+import { getDailyLog, addLabor, addEquipment, addMaterial, addOutsourcing, addExpense, searchLabors, searchEquipments, searchMaterials, searchOutsourcings, getSites, createSite, updateSite, resetSiteData, getMonthlyStats, getSiteTotalStats, getUsers, createUser, deleteUser, toggleUserActive, updateUserPin, updateUserRole, updateDailyLogDescription, addPhotoRecord, deletePhoto, getMonthlyExpensesByPerson, settleExpenses, uploadPhoto, getCurrentUser, logout, syncWorkersFromConfiguredDriveMaster, processPendingWorkerDocuments, generateMonthlyLaborBilling, exportMonthlyLaborBillingToDrive, getWorkerDocumentReviews, saveWorkerDocumentReview, getWorkers } from '@/lib/actions'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid, PieChart, Pie, Cell } from 'recharts'
 import { exportMonthlyReport } from '@/lib/exportExcel'
 import { useRouter } from 'next/navigation'
@@ -59,6 +59,10 @@ export default function Home() {
   const [syncResult, setSyncResult] = useState<any>(null)
   const [documentScanResult, setDocumentScanResult] = useState<any>(null)
   const [billingResult, setBillingResult] = useState<any>(null)
+  const [documentReviews, setDocumentReviews] = useState<any[]>([])
+  const [documentReviewEdits, setDocumentReviewEdits] = useState<Record<string, any>>({})
+  const [documentReviewLoading, setDocumentReviewLoading] = useState(false)
+  const [workerOptions, setWorkerOptions] = useState<any[]>([])
   const [suggestions, setSuggestions] = useState<any[]>([])
   
   // 작업 내용 및 사진 관련 상태
@@ -99,6 +103,9 @@ export default function Home() {
       setShowAddForm(false)
       if (activeTab === 'settlement') loadSettlementData()
     }
+    if (activeTab === 'integration' && currentUser?.role === 'ADMIN') {
+      loadDocumentReviews()
+    }
   }, [currentDate, selectedSiteId, activeTab, selectedYear, selectedMonth])
 
   async function loadSettlementData() {
@@ -134,7 +141,59 @@ export default function Home() {
     try {
       const result = await processPendingWorkerDocuments(10)
       setDocumentScanResult(result)
+      await loadDocumentReviews()
       await loadData()
+    } catch (e) {
+      setIntegrationError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setIntegrationLoading(null)
+    }
+  }
+
+  async function loadDocumentReviews() {
+    setDocumentReviewLoading(true)
+    try {
+      const [docs, workers] = await Promise.all([
+        getWorkerDocumentReviews(30),
+        getWorkers(true),
+      ])
+      setDocumentReviews(docs)
+      setWorkerOptions(workers)
+      setDocumentReviewEdits(Object.fromEntries(docs.map((doc: any) => {
+        const extracted = doc.extractedData || {}
+        return [doc.id, {
+          workerId: doc.workerId || '',
+          workerName: doc.workerName || extracted.workerName || '',
+          birthYYMMDD: doc.birthYYMMDD || extracted.birthYYMMDD || '',
+          documentType: doc.documentType || 'OTHER',
+          bankName: extracted.bankName || doc.worker?.bankName || '',
+          accountNumber: extracted.accountNumber || doc.worker?.accountNumber || '',
+          safetyEduNumber: extracted.safetyEduNumber || doc.worker?.safetyEduNumber || '',
+          safetyEduComplete: !!extracted.safetyEduComplete,
+          status: doc.status || 'REVIEW',
+          note: doc.note || '',
+        }]
+      })))
+    } catch (e) {
+      setIntegrationError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setDocumentReviewLoading(false)
+    }
+  }
+
+  function patchDocumentReview(id: string, patch: any) {
+    setDocumentReviewEdits(prev => ({
+      ...prev,
+      [id]: { ...(prev[id] || {}), ...patch },
+    }))
+  }
+
+  async function handleSaveDocumentReview(id: string, approve: boolean) {
+    setIntegrationLoading(`review-${id}`)
+    setIntegrationError(null)
+    try {
+      await saveWorkerDocumentReview(id, documentReviewEdits[id] || {}, approve)
+      await loadDocumentReviews()
     } catch (e) {
       setIntegrationError(e instanceof Error ? e.message : String(e))
     } finally {
@@ -1760,6 +1819,103 @@ export default function Home() {
                           )}
                         </div>
                       )}
+                    </div>
+                  </div>
+
+                  <div className="bg-[#ffffff] border border-[#e5e5e5] rounded-xl p-5 space-y-4">
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1">
+                        <p className="text-xs font-bold tracking-widest text-[#7c3aed] uppercase">Document Review</p>
+                        <h4 className="font-bold text-[#1a1c1c] mt-1">AI 서류 인식 검수</h4>
+                        <p className="text-sm text-[#6b6b6b] mt-2">인식된 이름, 생년월일, 계좌, 안전교육 정보를 관리자가 수정하고 승인합니다.</p>
+                      </div>
+                      <button
+                        onClick={loadDocumentReviews}
+                        disabled={documentReviewLoading || integrationLoading !== null}
+                        className="px-3 py-2 rounded-lg border border-[#7c3aed]/40 text-[#7c3aed] text-sm font-bold disabled:opacity-50"
+                      >
+                        {documentReviewLoading ? '불러오는 중...' : '새로고침'}
+                      </button>
+                    </div>
+
+                    <div className="space-y-3 max-h-[520px] overflow-auto pr-1">
+                      {documentReviews.length === 0 && (
+                        <div className="text-center text-sm text-[#737373] py-8 bg-[#f3f3f3] rounded-lg">
+                          검수할 서류가 없습니다.
+                        </div>
+                      )}
+                      {documentReviews.map((doc: any) => {
+                        const edit = documentReviewEdits[doc.id] || {}
+                        const busy = integrationLoading === `review-${doc.id}`
+                        return (
+                          <div key={doc.id} className="border border-[#e5e5e5] rounded-xl p-3 space-y-3">
+                            <div className="flex flex-wrap items-start gap-2">
+                              <div className="flex-1 min-w-[220px]">
+                                <p className="font-bold text-sm text-[#1a1c1c]">{doc.sourceFileName || doc.workerName || '서류'}</p>
+                                <p className="text-[11px] text-[#737373]">
+                                  {doc.status} · {doc.documentType} · 신뢰도 {doc.confidence == null ? '-' : `${Math.round(doc.confidence * 100)}%`}
+                                </p>
+                              </div>
+                              {doc.driveFileUrl && (
+                                <a href={doc.driveFileUrl} target="_blank" className="text-xs font-bold text-[#0284c7] border border-[#0284c7]/30 rounded px-2 py-1">
+                                  원본 열기
+                                </a>
+                              )}
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+                              <select
+                                value={edit.workerId || ''}
+                                onChange={e => {
+                                  const worker = workerOptions.find(w => w.id === e.target.value)
+                                  patchDocumentReview(doc.id, {
+                                    workerId: e.target.value,
+                                    ...(worker ? {
+                                      workerName: worker.name || edit.workerName,
+                                      birthYYMMDD: worker.birthYYMMDD || edit.birthYYMMDD,
+                                      bankName: worker.bankName || edit.bankName,
+                                      accountNumber: worker.accountNumber || edit.accountNumber,
+                                      safetyEduNumber: worker.safetyEduNumber || edit.safetyEduNumber,
+                                    } : {}),
+                                  })
+                                }}
+                                className="bg-[#f3f3f3] border border-[#e5e5e5] rounded px-3 py-2 text-sm"
+                              >
+                                <option value="">근로자 선택/신규</option>
+                                {workerOptions.filter(w => w.isActive).map(w => (
+                                  <option key={w.id} value={w.id}>{w.name}{w.birthYYMMDD ? `_${w.birthYYMMDD}` : ''}</option>
+                                ))}
+                              </select>
+                              <input value={edit.workerName || ''} onChange={e => patchDocumentReview(doc.id, { workerName: e.target.value })} placeholder="이름" className="bg-[#f3f3f3] border border-[#e5e5e5] rounded px-3 py-2 text-sm" />
+                              <input value={edit.birthYYMMDD || ''} onChange={e => patchDocumentReview(doc.id, { birthYYMMDD: e.target.value.replace(/[^\d]/g, '').slice(0, 6) })} placeholder="생년월일 6자리" className="bg-[#f3f3f3] border border-[#e5e5e5] rounded px-3 py-2 text-sm" />
+                              <select value={edit.documentType || 'OTHER'} onChange={e => patchDocumentReview(doc.id, { documentType: e.target.value })} className="bg-[#f3f3f3] border border-[#e5e5e5] rounded px-3 py-2 text-sm">
+                                <option value="ID_CARD">신분증</option>
+                                <option value="DRIVER_LICENSE">운전면허증</option>
+                                <option value="BANKBOOK">통장사본</option>
+                                <option value="SAFETY_EDU">안전교육증</option>
+                                <option value="OTHER">기타</option>
+                              </select>
+                              <input value={edit.bankName || ''} onChange={e => patchDocumentReview(doc.id, { bankName: e.target.value })} placeholder="은행" className="bg-[#f3f3f3] border border-[#e5e5e5] rounded px-3 py-2 text-sm" />
+                              <input value={edit.accountNumber || ''} onChange={e => patchDocumentReview(doc.id, { accountNumber: e.target.value })} placeholder="계좌번호" className="bg-[#f3f3f3] border border-[#e5e5e5] rounded px-3 py-2 text-sm md:col-span-2" />
+                              <input value={edit.safetyEduNumber || ''} onChange={e => patchDocumentReview(doc.id, { safetyEduNumber: e.target.value })} placeholder="안전교육번호" className="bg-[#f3f3f3] border border-[#e5e5e5] rounded px-3 py-2 text-sm" />
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-2">
+                              <label className="flex items-center gap-2 text-xs text-[#737373]">
+                                <input type="checkbox" checked={!!edit.safetyEduComplete} onChange={e => patchDocumentReview(doc.id, { safetyEduComplete: e.target.checked })} className="accent-[#556b2f]" />
+                                안전교육 이수
+                              </label>
+                              <input value={edit.note || ''} onChange={e => patchDocumentReview(doc.id, { note: e.target.value })} placeholder="검수 메모" className="flex-1 min-w-[180px] bg-[#f3f3f3] border border-[#e5e5e5] rounded px-3 py-2 text-sm" />
+                              <button onClick={() => handleSaveDocumentReview(doc.id, false)} disabled={busy} className="px-3 py-2 rounded-lg border border-[#737373]/30 text-[#737373] text-sm font-bold disabled:opacity-50">
+                                저장
+                              </button>
+                              <button onClick={() => handleSaveDocumentReview(doc.id, true)} disabled={busy} className="px-3 py-2 rounded-lg bg-[#556b2f] text-white text-sm font-bold disabled:opacity-50">
+                                승인
+                              </button>
+                            </div>
+                          </div>
+                        )
+                      })}
                     </div>
                   </div>
                 </div>

@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "next build --webpack",
     "start": "next start",
+    "google:token": "node scripts/get-google-refresh-token.mjs",
     "lint": "next lint"
   },
   "dependencies": {
