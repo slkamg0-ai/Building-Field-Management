@@ -445,7 +445,8 @@ export default function Home() {
   const monthName = `${selectedMonth}월`
   const isOverBudgetToday = siteTotalStats && grandTotal > (siteTotalStats.dailyLimit || 0)
   
-  const optimizeImage = (file: File): Promise<string> => {
+  // mode 'photo': 보관용 사진(용량 우선). mode 'document': OCR용(해상도·품질 우선 — 작은 글씨 보존)
+  const optimizeImage = (file: File, mode: 'photo' | 'document' = 'photo'): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.readAsDataURL(file);
@@ -456,7 +457,7 @@ export default function Home() {
           const canvas = document.createElement('canvas');
           let width = img.width;
           let height = img.height;
-          const max_size = 1024;
+          const max_size = mode === 'document' ? 1792 : 1024;
 
           if (width > height) {
             if (width > max_size) {
@@ -473,7 +474,7 @@ export default function Home() {
           canvas.height = height;
           const ctx = canvas.getContext('2d');
           ctx?.drawImage(img, 0, 0, width, height);
-          resolve(canvas.toDataURL('image/jpeg', 0.6));
+          resolve(canvas.toDataURL('image/jpeg', mode === 'document' ? 0.85 : 0.6));
         };
       };
       reader.onerror = error => reject(error);
@@ -483,7 +484,7 @@ export default function Home() {
   async function analyzeDocument(file: File, formType: string): Promise<Record<string, string> | null> {
     setIsAnalyzing(true)
     try {
-      const base64 = await optimizeImage(file)
+      const base64 = await optimizeImage(file, 'document')
       const res = await fetch('/api/analyze-document', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -491,6 +492,9 @@ export default function Home() {
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error)
+      if (Array.isArray(json.warnings) && json.warnings.length > 0) {
+        alert(`인식 결과 확인 필요:\n- ${json.warnings.join('\n- ')}`)
+      }
       return json.data
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e)
