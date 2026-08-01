@@ -542,12 +542,15 @@ export default function Home() {
       <aside className="fixed inset-y-0 left-0 z-40 hidden xl:flex flex-col h-full w-72 border-r border-[#e5e5e5] bg-[#ffffff] transition-all">
         <div className="p-8 flex flex-col gap-6">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded bg-[#556b2f] flex items-center justify-center">
-              <span className="material-symbols-outlined text-black">construction</span>
+            <div className="w-10 h-10 rounded-lg bg-[#82a441] text-black font-black flex items-center justify-center text-sm shadow-md">
+              FM
             </div>
-            <h1 className="text-xl font-black text-[#1a1c1c] font-['Inter'] tracking-widest uppercase truncate">
-              {sites.find(s => s.id === selectedSiteId)?.name || 'SITE ALPHA'}
-            </h1>
+            <div className="flex flex-col truncate">
+              <span className="text-[10px] font-black text-[#82a441] tracking-widest uppercase">Field manage</span>
+              <span className="text-sm font-bold text-[#1a1c1c] truncate">
+                {sites.find(s => s.id === selectedSiteId)?.name || '현장 선택'}
+              </span>
+            </div>
           </div>
           
           <div className="pt-6 flex flex-col gap-2">
@@ -601,9 +604,9 @@ export default function Home() {
           <div className="flex justify-between items-center px-3 md:px-8 h-16">
             <div className="flex items-center gap-2 min-w-0">
               <div className="flex flex-col min-w-0">
-                <h1 className="font-['Inter'] tracking-tight text-[#82a441] text-[11px] md:text-sm font-bold uppercase leading-none truncate">
-                  현장 분석 대시보드
-                </h1>
+                <div className="flex items-center gap-1.5">
+                  <span className="bg-[#82a441] text-black font-black text-[10px] px-1.5 py-0.5 rounded uppercase tracking-wider">Field manage</span>
+                </div>
                 {sites.length > 0 && (
                   <div className="flex items-center gap-1 mt-1 min-w-0">
                     <select

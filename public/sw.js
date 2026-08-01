@@ -8,7 +8,7 @@ self.addEventListener('activate', (event) => {
 })
 
 self.addEventListener('push', (event) => {
-  let data = { title: '현장관리', body: '알림' }
+  let data = { title: 'Field manage', body: '알림' }
   try {
     if (event.data) data = event.data.json()
   } catch (e) {
@@ -22,7 +22,7 @@ self.addEventListener('push', (event) => {
     vibrate: [80, 40, 80],
     requireInteraction: false,
   }
-  event.waitUntil(self.registration.showNotification(data.title || '현장관리', options))
+  event.waitUntil(self.registration.showNotification(data.title || 'Field manage', options))
 })
 
 self.addEventListener('notificationclick', (event) => {
