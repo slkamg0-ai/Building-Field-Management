@@ -105,9 +105,9 @@ const FORM_DEFS: Record<string, { prompt: string; schema: Schema }> = {
   },
 }
 
-async function callGemini(base64Data: string, mimeType: string, def: { prompt: string; schema: Schema }) {
+async function callGemini(base64Data: string, mimeType: string, def: { prompt: string; schema: Schema }, modelName = 'gemini-2.5-flash') {
   const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash',
+    model: modelName,
     contents: [
       {
         role: 'user',
@@ -140,6 +140,28 @@ function tryParse(text: string): Record<string, unknown> | null {
   }
 }
 
+// 추출 결과가 유효한지 검증하는 함수 (주요 필수 항목 검사)
+function isValidExtraction(formType: string, data: Record<string, unknown> | null): boolean {
+  if (!data) return false
+  const strVal = (v: unknown) => (typeof v === 'string' ? v.trim() : typeof v === 'number' ? String(v) : '')
+
+  switch (formType) {
+    case 'labor':
+      return strVal(data.name).length > 0
+    case 'equipment':
+    case 'equipment_photo':
+      return strVal(data.name).length > 0
+    case 'material':
+      return strVal(data.name).length > 0
+    case 'expense':
+      return strVal(data.category).length > 0 || strVal(data.amount).length > 0
+    case 'outsourcing':
+      return strVal(data.company).length > 0 || strVal(data.amount).length > 0
+    default:
+      return Object.values(data).some(v => strVal(v).length > 0)
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { imageBase64, formType } = await req.json()
@@ -156,19 +178,43 @@ export async function POST(req: NextRequest) {
     const base64Data = imageBase64.includes(',') ? imageBase64.split(',')[1] : imageBase64
     const mimeType = imageBase64.startsWith('data:image/png') ? 'image/png' : 'image/jpeg'
 
-    // 1차 시도 + 파싱 실패 시 1회 재시도
+    // 1차 시도: Gemini 2.5 Flash (초고속, 저비용)
     let extracted: Record<string, unknown> | null = null
-    for (let attempt = 0; attempt < 2 && !extracted; attempt++) {
-      const text = await callGemini(base64Data, mimeType, def)
+    let usedModel = 'gemini-2.5-flash'
+
+    try {
+      const text = await callGemini(base64Data, mimeType, def, 'gemini-2.5-flash')
       extracted = tryParse(text)
+    } catch (err) {
+      console.warn('Gemini 2.5 Flash OCR failed, trying Pro:', err)
     }
+
+    // 2차 시도: Flash 추출 실패 또는 주요 항목 누락 시 Gemini 2.5 Pro 폴백 (고성능)
+    if (!isValidExtraction(formType, extracted)) {
+      console.log(`[OCR] ${formType}: Flash 인식 결과 불충분 → Gemini 2.5 Pro로 정밀 재분석 실행`)
+      try {
+        const textPro = await callGemini(base64Data, mimeType, def, 'gemini-2.5-pro')
+        const extractedPro = tryParse(textPro)
+        if (isValidExtraction(formType, extractedPro)) {
+          extracted = extractedPro
+          usedModel = 'gemini-2.5-pro'
+        } else if (extractedPro) {
+          // Pro 결과도 완벽하진 않으나 일부 추출된 경우 사용
+          extracted = extractedPro
+          usedModel = 'gemini-2.5-pro'
+        }
+      } catch (proErr) {
+        console.error('Gemini 2.5 Pro OCR failed:', proErr)
+      }
+    }
+
     if (!extracted) {
       return NextResponse.json({ error: '문서에서 정보를 추출할 수 없습니다' }, { status: 422 })
     }
 
     // 오류 예비수정: 숫자 정규화, 번호판 검증, 명칭 표준화, 범위 점검
     const { data, warnings } = postProcess(formType, extracted)
-    return NextResponse.json({ data, warnings })
+    return NextResponse.json({ data, warnings, model: usedModel })
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e)
     return NextResponse.json({ error: msg }, { status: 500 })

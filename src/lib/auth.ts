@@ -51,10 +51,11 @@ export async function createSession(user: SessionUser) {
   const payload = base64url(JSON.stringify({ ...user, exp: expiresAt }))
   const token = `${payload}.${sign(payload)}`
   const store = await cookies()
+  const isHttps = process.env.NEXTAUTH_URL?.startsWith('https') ?? false
   store.set(SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
+    secure: isHttps,
     path: '/',
     maxAge: SESSION_MAX_AGE_SECONDS,
   })
