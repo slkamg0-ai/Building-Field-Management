@@ -18,16 +18,16 @@ services:
       timeout: 5s
       retries: 5
 
-  # ── Next.js 앱 (Docker Hub pull 또는 로컬/NAS 빌드) ─────────────
-  building-field-management:
+  # ── Field manage 앱 (신규 독자 도커 서비스) ─────────────
+  field-manage:
     build:
       context: .
       dockerfile: Dockerfile
-    image: prince211/field-management:latest
-    container_name: building-field-management
+    image: prince211/field-manage:latest
+    container_name: field-manage-app
     restart: unless-stopped
     ports:
-      - "3100:3000"
+      - "3200:3000"
     env_file:
       - .env
     environment:
