@@ -5,11 +5,12 @@ import { getDailyLog, addLabor, addEquipment, addMaterial, addOutsourcing, addEx
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid, PieChart, Pie, Cell } from 'recharts'
 import { exportMonthlyReport } from '@/lib/exportExcel'
 import { useRouter } from 'next/navigation'
-import { Users, User, LogOut, Shield, Trash2, UserPlus, Power, KeyRound, Check, X, UserCheck } from 'lucide-react'
+import { Users, User, LogOut, Shield, Trash2, UserPlus, Power, KeyRound, Check, X, UserCheck, Menu } from 'lucide-react'
 import NotifyButton from './NotifyButton'
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState('dashboard') // dashboard, labor, equipment, material, outsourcing
+  const [showMobileMenu, setShowMobileMenu] = useState(false)
   const [currentDate, setCurrentDate] = useState(new Date().toISOString().split('T')[0])
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1)
@@ -595,54 +596,72 @@ export default function Home() {
       </aside>
 
       <div className="xl:ml-72 flex flex-col min-h-screen">
-        <header className="fixed top-0 left-0 xl:left-72 right-0 z-30 flex flex-col bg-[#f9f9f9] border-b border-[#e5e5e5] transition-all">
+        <header className="fixed top-0 left-0 xl:left-72 right-0 z-30 flex flex-col bg-[#181a1d] border-b border-[#2d343d] transition-all text-white">
           {/* 1행: 타이틀 / 현장 선택 + 버튼 */}
-          <div className="flex justify-between items-center px-4 md:px-8 h-16">
-            <div className="flex items-center gap-3 md:gap-4">
-              <div className="flex flex-col">
-                <h1 className="font-['Inter'] tracking-tight text-[#556b2f] text-sm md:text-xl font-bold uppercase leading-none">
+          <div className="flex justify-between items-center px-3 md:px-8 h-16">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="flex flex-col min-w-0">
+                <h1 className="font-['Inter'] tracking-tight text-[#82a441] text-[11px] md:text-sm font-bold uppercase leading-none truncate">
                   현장 분석 대시보드
                 </h1>
                 {sites.length > 0 && (
-                  <div className="flex items-center gap-2 mt-1">
+                  <div className="flex items-center gap-1 mt-1 min-w-0">
                     <select
                       value={selectedSiteId}
                       onChange={(e) => {
                         if (e.target.value === 'NEW') setShowNewSiteForm(true)
                         else setSelectedSiteId(e.target.value)
                       }}
-                      className="bg-transparent text-[#1a1c1c] font-bold text-xs md:text-lg outline-none appearance-none cursor-pointer hover:opacity-80 truncate max-w-[120px] md:max-w-xs"
+                      className="bg-transparent text-white font-bold text-xs md:text-base outline-none cursor-pointer hover:opacity-80 truncate max-w-[130px] sm:max-w-[200px] md:max-w-xs"
                     >
-                      {sites.map(s => <option key={s.id} value={s.id} className="bg-[#f9f9f9] text-base">{s.name}</option>)}
-                      <option value="NEW" className="bg-[#f9f9f9] text-[#556b2f] font-bold">+ 새 현장 추가</option>
+                      {sites.map(s => <option key={s.id} value={s.id} className="bg-[#181a1d] text-white text-base">{s.name}</option>)}
+                      <option value="NEW" className="bg-[#181a1d] text-[#82a441] font-bold">+ 새 현장 추가</option>
                     </select>
                     {selectedSiteId && (
-                      <button onClick={openEditSiteModal} className="text-[#737373] hover:text-[#1a1c1c] transition-colors">
-                        <span className="material-symbols-outlined text-sm md:text-lg">edit</span>
+                      <button onClick={openEditSiteModal} className="text-[#a1a1aa] hover:text-white transition-colors p-1 shrink-0">
+                        <span className="material-symbols-outlined text-xs md:text-sm">edit</span>
                       </button>
                     )}
                   </div>
                 )}
               </div>
             </div>
-            <div className="flex items-center gap-1">
+
+            <div className="flex items-center gap-1.5 shrink-0">
               <NotifyButton userName={currentUser?.name} />
-              <button onClick={() => router.push('/attendance')} className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-[#e5e5e5] transition-colors text-[#6b6b6b] hover:text-[#556b2f]" title="출퇴근 체크">
-                <UserCheck className="w-5 h-5" />
+              
+              {/* 모바일 화면용 통합 메뉴 버튼 */}
+              <button 
+                onClick={() => setShowMobileMenu(true)} 
+                className="md:hidden flex items-center gap-1 bg-[#282a2d] hover:bg-[#333538] border border-[#3f434a] rounded-lg px-2 py-1.5 text-white text-xs font-medium transition-all active:scale-95"
+                title="사용자 메뉴"
+              >
+                <div className="w-5 h-5 rounded-full bg-[#556b2f]/40 text-[#82a441] flex items-center justify-center font-bold text-[10px]">
+                  {currentUser?.name?.slice(0, 1) || 'U'}
+                </div>
+                <span className="max-w-[45px] truncate text-[11px] font-semibold">{currentUser?.name || '사용자'}</span>
+                <Menu className="w-4 h-4 text-slate-300 ml-0.5" />
               </button>
-              {currentUser?.role === 'ADMIN' && (
-                <button onClick={() => router.push('/workers')} className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-[#e5e5e5] transition-colors text-[#6b6b6b] hover:text-[#556b2f]" title="근로자 관리">
-                  <UserPlus className="w-5 h-5" />
+
+              {/* 데스크톱 화면용 풀 아이콘 바 */}
+              <div className="hidden md:flex items-center gap-1">
+                <button onClick={() => router.push('/attendance')} className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-[#282a2d] transition-colors text-slate-300 hover:text-[#82a441]" title="출퇴근 체크">
+                  <UserCheck className="w-4 h-4" />
                 </button>
-              )}
-              {currentUser?.role === 'ADMIN' && (
-                <button onClick={() => { loadAllUsers(); setShowUserManagement(true) }} className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-[#e5e5e5] transition-colors text-[#6b6b6b] hover:text-[#556b2f]" title="사용자 관리">
-                  <Users className="w-5 h-5" />
+                {currentUser?.role === 'ADMIN' && (
+                  <button onClick={() => router.push('/workers')} className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-[#282a2d] transition-colors text-slate-300 hover:text-[#82a441]" title="근로자 관리">
+                    <UserPlus className="w-4 h-4" />
+                  </button>
+                )}
+                {currentUser?.role === 'ADMIN' && (
+                  <button onClick={() => { loadAllUsers(); setShowUserManagement(true) }} className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-[#282a2d] transition-colors text-slate-300 hover:text-[#82a441]" title="사용자 관리">
+                    <Users className="w-4 h-4" />
+                  </button>
+                )}
+                <button onClick={handleLogout} className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-[#282a2d] transition-colors text-slate-300 hover:text-red-400" title="로그아웃">
+                  <LogOut className="w-4 h-4" />
                 </button>
-              )}
-              <button onClick={handleLogout} className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-[#e5e5e5] transition-colors text-[#6b6b6b] hover:text-red-600" title="로그아웃">
-                <LogOut className="w-5 h-5" />
-              </button>
+              </div>
             </div>
           </div>
           {/* 2행: 날짜 선택 (데스크톱 전용) */}
@@ -2028,6 +2047,78 @@ export default function Home() {
         >
           <span className="material-symbols-outlined font-bold">add</span>
         </button>
+      )}
+
+      {/* 모바일 우측 슬라이드 메뉴 드로어 */}
+      {showMobileMenu && (
+        <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm flex justify-end animate-fade-in" onClick={() => setShowMobileMenu(false)}>
+          <div className="w-4/5 max-w-xs bg-[#181a1d] border-l border-[#2d343d] h-full p-6 flex flex-col justify-between shadow-2xl text-white" onClick={e => e.stopPropagation()}>
+            <div>
+              <div className="flex justify-between items-center mb-6 pb-4 border-b border-[#2d343d]">
+                <div className="flex items-center gap-3 overflow-hidden">
+                  <div className="w-10 h-10 rounded-full bg-[#556b2f]/30 border border-[#82a441] flex items-center justify-center text-[#82a441] shrink-0">
+                    <User className="w-5 h-5" />
+                  </div>
+                  <div className="overflow-hidden">
+                    <div className="font-bold text-white text-base truncate">{currentUser?.name}</div>
+                    <div className="text-[11px] text-[#82a441] font-semibold">{currentUser?.role === 'ADMIN' ? '관리자 (ADMIN)' : '일반 사용자'}</div>
+                  </div>
+                </div>
+                <button onClick={() => setShowMobileMenu(false)} className="text-slate-400 hover:text-white p-1 shrink-0">
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              <div className="space-y-2">
+                <button 
+                  onClick={() => { setShowMobileMenu(false); router.push('/attendance'); }}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-[#22252a] hover:bg-[#2c3036] text-white text-sm font-medium transition-all"
+                >
+                  <UserCheck className="w-5 h-5 text-[#82a441]" />
+                  <span>출퇴근 체크</span>
+                </button>
+
+                {currentUser?.role === 'ADMIN' && (
+                  <button 
+                    onClick={() => { setShowMobileMenu(false); router.push('/workers'); }}
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-[#22252a] hover:bg-[#2c3036] text-white text-sm font-medium transition-all"
+                  >
+                    <UserPlus className="w-5 h-5 text-sky-400" />
+                    <span>근로자 관리</span>
+                  </button>
+                )}
+
+                {currentUser?.role === 'ADMIN' && (
+                  <button 
+                    onClick={() => { setShowMobileMenu(false); loadAllUsers(); setShowUserManagement(true); }}
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-[#22252a] hover:bg-[#2c3036] text-white text-sm font-medium transition-all"
+                  >
+                    <Users className="w-5 h-5 text-indigo-400" />
+                    <span>사용자 권한 관리</span>
+                  </button>
+                )}
+
+                {selectedSiteId && (
+                  <button 
+                    onClick={() => { setShowMobileMenu(false); openEditSiteModal(); }}
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-[#22252a] hover:bg-[#2c3036] text-white text-sm font-medium transition-all"
+                  >
+                    <span className="material-symbols-outlined text-amber-400 text-xl">edit</span>
+                    <span>현재 현장 정보 수정</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <button 
+              onClick={() => { setShowMobileMenu(false); handleLogout(); }}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 text-sm font-bold transition-all"
+            >
+              <LogOut className="w-5 h-5" />
+              <span>로그아웃</span>
+            </button>
+          </div>
+        </div>
       )}
     </>
   )
