@@ -300,7 +300,7 @@ model ContractItem {
   isLeaf            Boolean        @default(true) // true=실제 시공수량을 입력하는 최종 품목, false=소계용 그룹 헤더
   contractQuantity  Float?         // 계약(견적)수량
   contractUnitPrice Int?           // 계약(견적)단가
-  contractAmount    Int            @default(0) // 계약금액 (수량*단가, 캐시 — 그룹 헤더는 하위 합산)
+  contractAmount    Float          @default(0) // 계약금액 (수량*단가, 캐시 — 그룹 헤더는 하위 합산). 대형 현장 총액이 INT4 범위(약 21억)를 넘어 Float 사용
   category          String?        // 내역서 "비고" 태그 (우수/오수/토공 등 대분류 필터용)
   sortOrder         Int            @default(0) // 원본 내역서 행 순서 보존(트리 렌더링용)
   isActive          Boolean        @default(true) // 계약 변경으로 폐기된 품목 소프트 삭제용
@@ -337,10 +337,10 @@ model MonthlyProgressClaim {
   site                  Site      @relation(fields: [siteId], references: [id], onDelete: Cascade)
   year                  Int
   month                 Int
-  totalClaimAmount      Int       @default(0) // 이번달 기성청구액 (전월 누적 대비 증가분)
-  cumulativeClaimAmount Int       @default(0) // 이번달까지 누적 기성고
-  totalCostAmount       Int       @default(0) // 이번달 실투입원가 (노무+장비+자재+경비+외주, 참고용 캐시)
-  profitAmount          Int       @default(0) // 이번달 손익 = totalClaimAmount - totalCostAmount
+  totalClaimAmount      Float     @default(0) // 이번달 기성청구액 (전월 누적 대비 증가분)
+  cumulativeClaimAmount Float     @default(0) // 이번달까지 누적 기성고 — 계약총액 근처까지 커질 수 있어 Float 사용
+  totalCostAmount       Float     @default(0) // 이번달 실투입원가 (노무+장비+자재+경비+외주, 참고용 캐시)
+  profitAmount          Float     @default(0) // 이번달 손익 = totalClaimAmount - totalCostAmount
   status                String    @default("DRAFT") // DRAFT(작성중)/SUBMITTED(원청 제출)/CONFIRMED(지급 확정)
   submittedAt           DateTime?
   confirmedAt           DateTime?

@@ -1443,3 +1443,276 @@ export async function exportMonthlyLaborBillingToDrive(siteId: string, year: num
 
   return { billing: updated, items, spreadsheetUrl: spreadsheet.url, pdfUrl: pdfFile.url }
 }
+
+// ════════════════════════════════════════════════════════════════
+//  기성관리 — 계약품목(내역서) / 일일 시공수량 / 월별 기성청구
+//  "원가관리(노무/장비/자재/경비/외주)"와는 완전히 별개의 축.
+//  계약품목×계약단가로 산정되는 게 기성(청구액), 실제 투입비용 합이 원가.
+// ════════════════════════════════════════════════════════════════
+export async function getContractItems(siteId: string) {
+  return prisma.contractItem.findMany({
+    where: { siteId, isActive: true },
+    orderBy: { sortOrder: 'asc' },
+  })
+}
+
+// 엑셀에서 파싱한 내역서 행을 그대로 덮어쓰기(재수입) 방식으로 저장.
+// 트리 구조 대신 원본 순서(sortOrder)를 보존하는 평면 목록으로 저장한다 —
+// 구분코드가 중복/분할되는 실제 내역서 특성상 트리 자동 구성은 신뢰도가 낮기 때문.
+export async function importContractItems(siteId: string, rows: Array<{
+  code?: string; name: string; spec?: string; unit?: string
+  quantity?: number | null; unitPrice?: number | null; amount?: number | null; note?: string
+}>) {
+  await requireAdmin()
+  if (!rows.length) throw new Error('가져올 내역이 없습니다.')
+
+  // 행이 수백 개일 수 있어 하나씩 create하면(interactive transaction) 기본 타임아웃(5초)을
+  // 넘겨 "Transaction not found" 오류가 난다. createMany로 한 번에 묶어서 처리한다.
+  let sortOrder = 0
+  const data = rows
+    .map(row => {
+      const name = String(row.name || '').trim()
+      if (!name) return null
+      const quantity = row.quantity ?? null
+      const unitPrice = row.unitPrice ?? null
+      const isLeaf = !!(row.unit && quantity != null && unitPrice != null)
+      const amount = row.amount ?? (isLeaf ? Math.round((quantity || 0) * (unitPrice || 0)) : 0)
+      return {
+        siteId,
+        code: row.code || null,
+        name,
+        spec: row.spec || null,
+        unit: row.unit || null,
+        isLeaf,
+        contractQuantity: quantity,
+        contractUnitPrice: unitPrice,
+        contractAmount: amount,
+        category: row.note || null,
+        sortOrder: sortOrder++,
+      }
+    })
+    .filter((r): r is NonNullable<typeof r> => r !== null)
+
+  await prisma.$transaction([
+    prisma.contractItem.updateMany({ where: { siteId, isActive: true }, data: { isActive: false } }),
+    prisma.contractItem.createMany({ data }),
+  ], { timeout: 30000 })
+  revalidatePath('/')
+  return { imported: rows.length }
+}
+
+export async function createContractItem(siteId: string, data: any) {
+  await requireAdmin()
+  const quantity = data.quantity !== '' && data.quantity != null ? parseFloat(data.quantity) : null
+  const unitPrice = data.unitPrice !== '' && data.unitPrice != null ? parseInt(data.unitPrice) : null
+  const isLeaf = data.isLeaf !== undefined ? !!data.isLeaf : true
+  const amount = isLeaf && quantity != null && unitPrice != null ? Math.round(quantity * unitPrice) : 0
+  const last = await prisma.contractItem.findFirst({ where: { siteId }, orderBy: { sortOrder: 'desc' } })
+  const row = await prisma.contractItem.create({
+    data: {
+      siteId, name: data.name, code: data.code || null, spec: data.spec || null,
+      unit: data.unit || null, isLeaf, contractQuantity: quantity, contractUnitPrice: unitPrice,
+      contractAmount: amount, category: data.category || null, sortOrder: (last?.sortOrder ?? -1) + 1,
+    },
+  })
+  revalidatePath('/')
+  return row
+}
+
+export async function updateContractItem(id: string, data: any) {
+  await requireAdmin()
+  const existing = await prisma.contractItem.findUnique({ where: { id } })
+  if (!existing) throw new Error('품목을 찾을 수 없습니다.')
+  const patch: any = {}
+  for (const f of ['name', 'code', 'spec', 'unit', 'category']) {
+    if (data[f] !== undefined) patch[f] = data[f] || null
+  }
+  if (data.isLeaf !== undefined) patch.isLeaf = !!data.isLeaf
+  const quantity = data.quantity !== undefined ? (data.quantity !== '' && data.quantity != null ? parseFloat(data.quantity) : null) : existing.contractQuantity
+  const unitPrice = data.unitPrice !== undefined ? (data.unitPrice !== '' && data.unitPrice != null ? parseInt(data.unitPrice) : null) : existing.contractUnitPrice
+  if (data.quantity !== undefined) patch.contractQuantity = quantity
+  if (data.unitPrice !== undefined) patch.contractUnitPrice = unitPrice
+  if (data.quantity !== undefined || data.unitPrice !== undefined) {
+    patch.contractAmount = quantity != null && unitPrice != null ? Math.round(quantity * unitPrice) : existing.contractAmount
+  }
+  await prisma.contractItem.update({ where: { id }, data: patch })
+  revalidatePath('/')
+}
+
+export async function deleteContractItem(id: string) {
+  await requireAdmin()
+  await prisma.contractItem.update({ where: { id }, data: { isActive: false } })
+  revalidatePath('/')
+}
+
+// 계약품목별 누적 시공수량 — 계약수량 대비 진행률(잔량) 확인용
+export async function getContractItemProgress(siteId: string) {
+  const items = await prisma.contractItem.findMany({ where: { siteId, isActive: true, isLeaf: true }, orderBy: { sortOrder: 'asc' } })
+  const sums = await prisma.workQuantity.groupBy({
+    by: ['contractItemId'],
+    where: { contractItem: { siteId, isActive: true } },
+    _sum: { quantity: true },
+  })
+  const sumMap = new Map(sums.map(s => [s.contractItemId, s._sum.quantity || 0]))
+  return items.map(item => {
+    const done = sumMap.get(item.id) || 0
+    const unitPrice = item.contractUnitPrice || 0
+    return {
+      ...item,
+      doneQuantity: done,
+      doneAmount: Math.round(done * unitPrice),
+      remainQuantity: item.contractQuantity != null ? Math.max(0, item.contractQuantity - done) : null,
+      progressPercent: item.contractQuantity ? Math.min(100, (done / item.contractQuantity) * 100) : null,
+    }
+  })
+}
+
+// ── 일일 시공수량 ──
+export async function getWorkQuantities(logId: string) {
+  return prisma.workQuantity.findMany({ where: { logId }, include: { contractItem: true }, orderBy: { createdAt: 'asc' } })
+}
+
+export async function addWorkQuantity(logId: string, contractItemId: string, quantity: number, note?: string) {
+  const user = await requireUser()
+  const row = await prisma.workQuantity.create({
+    data: { logId, contractItemId, quantity, note: note || null, createdBy: user.name },
+  })
+  revalidatePath('/')
+  return row
+}
+
+export async function updateWorkQuantity(id: string, quantity: number, note?: string) {
+  await requireUser()
+  await prisma.workQuantity.update({ where: { id }, data: { quantity, ...(note !== undefined ? { note } : {}) } })
+  revalidatePath('/')
+}
+
+export async function deleteWorkQuantity(id: string) {
+  await requireUser()
+  await prisma.workQuantity.delete({ where: { id } })
+  revalidatePath('/')
+}
+
+// ── 월별 기성청구서 ──
+export async function getMonthlyProgressClaim(siteId: string, year: number, month: number) {
+  return prisma.monthlyProgressClaim.findUnique({ where: { siteId_year_month: { siteId, year, month } } })
+}
+
+export async function getProgressClaimHistory(siteId: string) {
+  return prisma.monthlyProgressClaim.findMany({ where: { siteId }, orderBy: [{ year: 'desc' }, { month: 'desc' }] })
+}
+
+// 이번달까지의 누적 시공수량×계약단가로 누적기성고를 구하고, 전월 누적기성고를 빼서
+// 이번달 청구액을 산출한다. 실투입원가(원가관리 데이터 합)도 함께 캐시해 손익을 비교한다.
+export async function generateMonthlyProgressClaim(siteId: string, year: number, month: number) {
+  const user = await requireAdmin()
+  const endOfMonth = new Date(year, month, 0, 23, 59, 59)
+  const prevMonthEnd = new Date(year, month - 1, 0, 23, 59, 59)
+
+  const items = await prisma.contractItem.findMany({ where: { siteId, isActive: true, isLeaf: true } })
+  const priceMap = new Map(items.map(i => [i.id, i.contractUnitPrice || 0]))
+
+  const cumulativeGroups = await prisma.workQuantity.groupBy({
+    by: ['contractItemId'],
+    where: { contractItem: { siteId, isActive: true }, log: { date: { lte: endOfMonth } } },
+    _sum: { quantity: true },
+  })
+  const cumulativeClaimAmount = cumulativeGroups.reduce(
+    (sum, g) => sum + Math.round((g._sum.quantity || 0) * (priceMap.get(g.contractItemId) || 0)), 0
+  )
+
+  const prevGroups = await prisma.workQuantity.groupBy({
+    by: ['contractItemId'],
+    where: { contractItem: { siteId, isActive: true }, log: { date: { lte: prevMonthEnd } } },
+    _sum: { quantity: true },
+  })
+  const prevCumulative = prevGroups.reduce(
+    (sum, g) => sum + Math.round((g._sum.quantity || 0) * (priceMap.get(g.contractItemId) || 0)), 0
+  )
+  const totalClaimAmount = cumulativeClaimAmount - prevCumulative
+
+  const startOfMonth = new Date(year, month - 1, 1)
+  const logs = await prisma.dailyLog.findMany({
+    where: { siteId, date: { gte: startOfMonth, lte: endOfMonth } },
+    include: { labors: true, equipments: true, materials: true, expenses: true, outsourcings: true },
+  })
+  let totalCostAmount = 0
+  for (const log of logs) {
+    totalCostAmount += log.labors.reduce((s, i) => s + i.totalPrice, 0)
+    totalCostAmount += log.equipments.reduce((s, i) => s + i.totalPrice, 0)
+    totalCostAmount += log.materials.reduce((s, i) => s + (i.totalPrice || 0), 0)
+    totalCostAmount += log.expenses.reduce((s, i) => s + i.amount, 0)
+    totalCostAmount += log.outsourcings.reduce((s, i) => s + i.amount, 0)
+  }
+  const profitAmount = totalClaimAmount - totalCostAmount
+
+  const claim = await prisma.monthlyProgressClaim.upsert({
+    where: { siteId_year_month: { siteId, year, month } },
+    update: { totalClaimAmount, cumulativeClaimAmount, totalCostAmount, profitAmount, createdBy: user.name },
+    create: { siteId, year, month, totalClaimAmount, cumulativeClaimAmount, totalCostAmount, profitAmount, createdBy: user.name },
+  })
+  revalidatePath('/')
+  return claim
+}
+
+export async function updateProgressClaimStatus(id: string, status: string, note?: string) {
+  await requireAdmin()
+  const patch: any = { status }
+  if (status === 'SUBMITTED') patch.submittedAt = new Date()
+  if (status === 'CONFIRMED') patch.confirmedAt = new Date()
+  if (note !== undefined) patch.note = note
+  await prisma.monthlyProgressClaim.update({ where: { id }, data: patch })
+  revalidatePath('/')
+}
+
+// 기성청구서 품목별 상세 — 이번달/누적 시공수량과 금액을 계약품목별로 계산.
+// 엑셀 내보내기(자유 양식)용 원천 데이터.
+export async function getProgressClaimItemDetail(siteId: string, year: number, month: number) {
+  const site = await prisma.site.findUnique({ where: { id: siteId } })
+  if (!site) throw new Error('현장을 찾을 수 없습니다.')
+
+  const endOfMonth = new Date(year, month, 0, 23, 59, 59)
+  const startOfMonth = new Date(year, month - 1, 1)
+
+  const items = await prisma.contractItem.findMany({
+    where: { siteId, isActive: true, isLeaf: true },
+    orderBy: { sortOrder: 'asc' },
+  })
+
+  const [monthGroups, cumulativeGroups] = await Promise.all([
+    prisma.workQuantity.groupBy({
+      by: ['contractItemId'],
+      where: { contractItem: { siteId, isActive: true }, log: { date: { gte: startOfMonth, lte: endOfMonth } } },
+      _sum: { quantity: true },
+    }),
+    prisma.workQuantity.groupBy({
+      by: ['contractItemId'],
+      where: { contractItem: { siteId, isActive: true }, log: { date: { lte: endOfMonth } } },
+      _sum: { quantity: true },
+    }),
+  ])
+  const monthMap = new Map(monthGroups.map(g => [g.contractItemId, g._sum.quantity || 0]))
+  const cumulativeMap = new Map(cumulativeGroups.map(g => [g.contractItemId, g._sum.quantity || 0]))
+
+  const rows = items.map(item => {
+    const unitPrice = item.contractUnitPrice || 0
+    const monthQuantity = monthMap.get(item.id) || 0
+    const cumulativeQuantity = cumulativeMap.get(item.id) || 0
+    return {
+      code: item.code || '',
+      name: item.name,
+      spec: item.spec || '',
+      unit: item.unit || '',
+      contractQuantity: item.contractQuantity,
+      contractUnitPrice: unitPrice,
+      contractAmount: item.contractAmount,
+      monthQuantity,
+      monthAmount: Math.round(monthQuantity * unitPrice),
+      cumulativeQuantity,
+      cumulativeAmount: Math.round(cumulativeQuantity * unitPrice),
+      remainQuantity: item.contractQuantity != null ? Math.max(0, item.contractQuantity - cumulativeQuantity) : null,
+    }
+  }).filter(r => r.monthQuantity !== 0 || r.cumulativeQuantity !== 0)
+
+  return { site, rows }
+}
