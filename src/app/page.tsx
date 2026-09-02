@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation'
 import { Users, User, LogOut, Shield, Trash2, UserPlus, Power, KeyRound, Check, X, UserCheck, Menu } from 'lucide-react'
 import NotifyButton from './NotifyButton'
 import BillingPanel from './BillingPanel'
+import FeedbackPanel from './FeedbackPanel'
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState('dashboard') // dashboard, labor, equipment, material, outsourcing
@@ -588,6 +589,7 @@ export default function Home() {
               { id: 'outsourcing', label: 'Outsourcing', icon: 'assignment' },
               { id: 'expense', label: 'Expense', icon: 'payments' },
               { id: 'billing', label: 'Billing (기성)', icon: 'request_quote' },
+              { id: 'feedback', label: 'Feedback', icon: 'feedback' },
               ...(currentUser?.role === 'ADMIN' ? [{ id: 'integration', label: 'Drive Link', icon: 'hub' }] : []),
             ].map(item => (
               <div 
@@ -1067,6 +1069,7 @@ export default function Home() {
                 <button onClick={() => setActiveTab('expense')} className={`flex-1 py-2.5 px-3 whitespace-nowrap text-center text-xs md:text-sm font-bold tracking-wider transition-all ${activeTab === 'expense' ? 'border-b-2 border-[#556b2f] text-[#556b2f]' : 'text-[#737373] hover:text-[#1a1c1c]'}`}>경비</button>
                 <button onClick={() => setActiveTab('material')} className={`flex-1 py-2.5 px-3 whitespace-nowrap text-center text-xs md:text-sm font-bold tracking-wider transition-all ${activeTab === 'material' ? 'border-b-2 border-[#556b2f] text-[#556b2f]' : 'text-[#737373] hover:text-[#1a1c1c]'}`}>자재</button>
                 <button onClick={() => setActiveTab('billing')} className={`flex-1 py-2.5 px-3 whitespace-nowrap text-center text-xs md:text-sm font-bold tracking-wider transition-all ${activeTab === 'billing' ? 'border-b-2 border-[#556b2f] text-[#556b2f]' : 'text-[#737373] hover:text-[#1a1c1c]'}`}>기성</button>
+                <button onClick={() => setActiveTab('feedback')} className={`flex-1 py-2.5 px-3 whitespace-nowrap text-center text-xs md:text-sm font-bold tracking-wider transition-all ${activeTab === 'feedback' ? 'border-b-2 border-[#556b2f] text-[#556b2f]' : 'text-[#737373] hover:text-[#1a1c1c]'}`}>건의사항</button>
                 {currentUser?.role === 'ADMIN' && (
                   <button onClick={() => setActiveTab('settlement')} className={`flex-1 py-2.5 px-3 whitespace-nowrap text-center text-xs md:text-sm font-bold tracking-wider transition-all ${activeTab === 'settlement' ? 'border-b-2 border-[#16a34a] text-[#16a34a]' : 'text-[#737373] hover:text-[#1a1c1c]'}`}>정산</button>
                 )}
@@ -1708,6 +1711,11 @@ export default function Home() {
               {/* ===================== BILLING(기성) TAB ===================== */}
               {activeTab === 'billing' && selectedSiteId && (
                 <BillingPanel siteId={selectedSiteId} logId={logData?.id} currentUser={currentUser} />
+              )}
+
+              {/* ===================== FEEDBACK TAB ===================== */}
+              {activeTab === 'feedback' && (
+                <FeedbackPanel currentUser={currentUser} />
               )}
 
               {/* ===================== SETTLEMENT TAB ===================== */}

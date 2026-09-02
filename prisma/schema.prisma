@@ -369,3 +369,16 @@ model BillingAdjustment {
 
   @@index([siteId, date])
 }
+
+// 앱 개선 요청/버그 리포트 — 초기 운영 단계에서 사용자가 바로 남기는 피드백 게시판
+model Feedback {
+  id        String    @id @default(cuid())
+  content   String
+  category  String    @default("REQUEST") // REQUEST(요구사항) / BUG(버그) / ETC(기타)
+  status    String    @default("OPEN") // OPEN(대기) / IN_PROGRESS(진행중) / DONE(완료)
+  createdBy String?
+  createdAt DateTime  @default(now())
+  resolvedAt DateTime?
+
+  @@index([status, createdAt])
+}
