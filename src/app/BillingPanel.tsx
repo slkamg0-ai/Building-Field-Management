@@ -298,20 +298,28 @@ export default function BillingPanel({ siteId, logId, currentUser }: { siteId: s
 
   async function handleExportCostDetail() {
     if (!costDetail) return
-    const { site, labors, equipments, materials, expenses, outsourcings, totals, grandTotal } = costDetail
+    const { site, daysInMonth, labors, equipments, materials, expenses, outsourcings, totals, grandTotal } = costDetail
+    const dayHeaders = Array.from({ length: daysInMonth }, (_, i) => `${i + 1}일`)
+    const calendarRows = (rows: any[], labelKey: string, subLabel: string) => [
+      [labelKey, subLabel, ...dayHeaders, '합계공수', '단가', '금액'],
+      ...rows.map((r: any) => [
+        r.name, r.sub,
+        ...Array.from({ length: daysInMonth }, (_, i) => r.days[i + 1] ?? ''),
+        r.totalAmount, r.unitPrice, r.totalPrice,
+      ]),
+    ]
+
     const sheetData: any[][] = [
       [`${site.name} 투입명세서 (${year}년 ${month}월)`],
       [`작성일: ${new Date().toISOString().slice(0, 10)}`],
       [],
-      ['[노무]'],
-      ['이름', '공종', '공수', '금액'],
-      ...labors.map((l: any) => [l.name, l.jobType, l.amount, l.totalPrice]),
-      ['', '', '소계', totals.labor],
+      ['[노무] — 일자별 출력일수'],
+      ...calendarRows(labors, '이름', '공종'),
+      ['', '', ...dayHeaders.map(() => ''), '', '소계', totals.labor],
       [],
-      ['[장비]'],
-      ['장비명', '구분', '투입량', '금액'],
-      ...equipments.map((e: any) => [e.name, e.ownerType === 'DIRECT' ? '원청 직영' : '당사 투입', e.amount, e.totalPrice]),
-      ['', '', '소계', totals.equipment],
+      ['[장비] — 일자별 투입량'],
+      ...calendarRows(equipments, '장비명', '구분'),
+      ['', '', ...dayHeaders.map(() => ''), '', '소계', totals.equipment],
       [],
       ['[자재]'],
       ['날짜', '자재명', '규격', '단위', '수량', '금액'],
@@ -331,7 +339,7 @@ export default function BillingPanel({ siteId, logId, currentUser }: { siteId: s
       ['총 투입원가 합계', grandTotal],
     ]
     const ws = XLSX.utils.aoa_to_sheet(sheetData)
-    ws['!cols'] = [{ wch: 16 }, { wch: 16 }, { wch: 12 }, { wch: 14 }, { wch: 10 }, { wch: 14 }]
+    ws['!cols'] = [{ wch: 14 }, { wch: 14 }, ...dayHeaders.map(() => ({ wch: 5 })), { wch: 10 }, { wch: 10 }, { wch: 14 }]
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, '투입명세서')
     XLSX.writeFile(wb, `${site.name}_투입명세서_${year}-${String(month).padStart(2, '0')}.xlsx`)
@@ -527,11 +535,49 @@ export default function BillingPanel({ siteId, logId, currentUser }: { siteId: s
               </div>
 
               {[
-                { title: '노무', rows: costDetail.labors, cols: ['이름', '공종', '공수', '금액'], get: (r: any) => [r.name, r.jobType, r.amount, won(r.totalPrice)] },
-                { title: '장비', rows: costDetail.equipments, cols: ['장비명', '구분', '투입량', '금액'], get: (r: any) => [r.name, r.ownerType === 'DIRECT' ? '원청 직영' : '당사 투입', r.amount, won(r.totalPrice)] },
-                { title: '자재', rows: costDetail.materials, cols: ['자재명', '규격', '수량', '금액'], get: (r: any) => [r.name, `${r.spec || ''}${r.spec ? ' · ' : ''}${r.unit || ''}`, r.quantity, won(r.totalPrice)] },
-                { title: '경비', rows: costDetail.expenses, cols: ['항목', '', '', '금액'], get: (r: any) => [r.category, '', '', won(r.amount)] },
-                { title: '외주', rows: costDetail.outsourcings, cols: ['업체명', '작업내용', '', '금액'], get: (r: any) => [r.companyName, r.task, '', won(r.amount)] },
+                { title: '노무 — 일자별 출력일수', rows: costDetail.labors },
+                { title: '장비 — 일자별 투입량', rows: costDetail.equipments },
+              ].filter(sec => sec.rows.length > 0).map(sec => (
+                <div key={sec.title} className="bg-[#f3f3f3] border border-[#e5e5e5] rounded-xl overflow-hidden">
+                  <div className="px-3 py-2 bg-[#ededed] font-bold text-sm text-[#1a1c1c]">{sec.title} ({sec.rows.length}건)</div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs whitespace-nowrap">
+                      <thead>
+                        <tr className="text-[#6b6b6b] border-t border-[#e5e5e5]">
+                          <th className="p-2 text-left sticky left-0 bg-[#f3f3f3]">이름/구분</th>
+                          {Array.from({ length: costDetail.daysInMonth }, (_, i) => (
+                            <th key={i} className="p-1 text-center w-7">{i + 1}</th>
+                          ))}
+                          <th className="p-2 text-right">합계</th>
+                          <th className="p-2 text-right">단가</th>
+                          <th className="p-2 text-right">금액</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {sec.rows.map((r: any) => (
+                          <tr key={r.key} className="border-t border-[#e5e5e5]">
+                            <td className="p-2 sticky left-0 bg-[#f3f3f3]">
+                              <div className="font-bold text-[#1a1c1c]">{r.name}</div>
+                              <div className="text-[10px] text-[#6b6b6b]">{r.sub}</div>
+                            </td>
+                            {Array.from({ length: costDetail.daysInMonth }, (_, i) => (
+                              <td key={i} className="p-1 text-center text-[#556b2f]">{r.days[i + 1] ?? ''}</td>
+                            ))}
+                            <td className="p-2 text-right font-bold text-[#1a1c1c]">{r.totalAmount}</td>
+                            <td className="p-2 text-right text-[#1a1c1c]">{r.unitPrice.toLocaleString()}</td>
+                            <td className="p-2 text-right font-bold text-[#1a1c1c]">{won(r.totalPrice)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ))}
+
+              {[
+                { title: '자재', rows: costDetail.materials, get: (r: any) => [r.name, `${r.spec || ''}${r.spec ? ' · ' : ''}${r.unit || ''}`, r.quantity, won(r.totalPrice)] },
+                { title: '경비', rows: costDetail.expenses, get: (r: any) => [r.category, '', '', won(r.amount)] },
+                { title: '외주', rows: costDetail.outsourcings, get: (r: any) => [r.companyName, r.task, '', won(r.amount)] },
               ].filter(sec => sec.rows.length > 0).map(sec => (
                 <div key={sec.title} className="bg-[#f3f3f3] border border-[#e5e5e5] rounded-xl overflow-hidden">
                   <div className="px-3 py-2 bg-[#ededed] font-bold text-sm text-[#1a1c1c]">{sec.title} ({sec.rows.length}건)</div>

@@ -65,6 +65,7 @@ export default function Home() {
   const [documentReviewEdits, setDocumentReviewEdits] = useState<Record<string, any>>({})
   const [documentReviewLoading, setDocumentReviewLoading] = useState(false)
   const [workerOptions, setWorkerOptions] = useState<any[]>([])
+  const [workerDocMap, setWorkerDocMap] = useState<Record<string, string>>({}) // 이름(소문자) -> documentStatus, 노무 서류 경고용
   const [suggestions, setSuggestions] = useState<any[]>([])
   
   // 작업 내용 및 사진 관련 상태
@@ -85,6 +86,17 @@ export default function Home() {
     setCurrentUser(user)
     await loadSites()
     await loadAllUsers()
+    await loadWorkerDocMap()
+  }
+
+  // 근로자 서류 상태 조회 (이름 기준) — 노무 입력 목록에 서류 미비 경고를 띄우기 위함
+  async function loadWorkerDocMap() {
+    try {
+      const workers = await getWorkers(true)
+      const map: Record<string, string> = {}
+      for (const w of workers) map[w.name.trim().toLowerCase()] = w.documentStatus
+      setWorkerDocMap(map)
+    } catch {}
   }
 
   async function handleLogout() {
@@ -1326,15 +1338,23 @@ export default function Home() {
                     <span className="text-xs font-bold text-[#556b2f] bg-[#556b2f]/10 px-2 py-1 rounded border border-[#556b2f]/20">{totalLabors} 활성 공수</span>
                   </div>
                   <div className="grid grid-cols-1 gap-3">
-                    {loading ? <div className="text-center py-8 text-[#737373]">데이터를 불러오는 중...</div> : logData?.labors.length === 0 ? <div className="bg-[#f3f3f3] border border-[#e5e5e5] rounded-xl p-8 text-center text-[#737373]">입력된 노무 인력이 없습니다.</div> : logData?.labors.map((labor: any) => (
+                    {loading ? <div className="text-center py-8 text-[#737373]">데이터를 불러오는 중...</div> : logData?.labors.length === 0 ? <div className="bg-[#f3f3f3] border border-[#e5e5e5] rounded-xl p-8 text-center text-[#737373]">입력된 노무 인력이 없습니다.</div> : logData?.labors.map((labor: any) => {
+                      const docStatus = workerDocMap[labor.name.trim().toLowerCase()]
+                      const docWarning = docStatus === undefined ? '근로자 미등록' : docStatus !== 'COMPLETE' ? '서류 미비' : null
+                      return (
                         <div key={labor.id} className="bg-[#f3f3f3] border border-[#e5e5e5] rounded-xl p-4 flex justify-between items-center hover:border-[#556b2f]/50 transition-colors group">
                           <div className="flex items-center gap-3 w-2/3">
                             <div className="w-12 h-12 bg-[#e5e5e5] rounded-lg flex items-center justify-center shrink-0"><span className="material-symbols-outlined text-[#0369a1]">engineering</span></div>
                             <div className="overflow-hidden">
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 flex-wrap">
                                 <h4 className="font-bold text-[#1a1c1c] truncate text-sm md:text-base">{labor.name}</h4>
                                 {labor.createdBy && (
                                   <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#ededed] text-[#737373] font-bold">BY {labor.createdBy}</span>
+                                )}
+                                {docWarning && (
+                                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-700 font-bold flex items-center gap-0.5" title="근로자 관리에서 서류를 등록해주세요">
+                                    <span className="material-symbols-outlined text-[11px]">warning</span>{docWarning}
+                                  </span>
                                 )}
                               </div>
                               <p className="text-[10px] md:text-xs text-[#6b6b6b] uppercase truncate mt-0.5">{labor.jobType} • {labor.amount}공수 • 단가₩{labor.unitPrice.toLocaleString()}</p>
@@ -1354,7 +1374,8 @@ export default function Home() {
                             </button>
                           </div>
                         </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 </div>
               )}
@@ -1423,10 +1444,15 @@ export default function Home() {
                           <div className="flex items-center gap-3 w-2/3">
                             <div className="w-12 h-12 bg-[#e5e5e5] rounded-lg flex items-center justify-center shrink-0"><span className="material-symbols-outlined text-[#0369a1]">precision_manufacturing</span></div>
                             <div className="overflow-hidden">
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 flex-wrap">
                                 <h4 className="font-bold text-[#1a1c1c] truncate text-sm md:text-base">{eq.name}</h4>
                                 {eq.createdBy && (
                                   <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#ededed] text-[#737373] font-bold">BY {eq.createdBy}</span>
+                                )}
+                                {eq.documentStatus !== 'COMPLETE' && (
+                                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-700 font-bold flex items-center gap-0.5" title="장비 안전서류(등록증/보험/면허 등) 확인 필요">
+                                    <span className="material-symbols-outlined text-[11px]">warning</span>서류 확인필요
+                                  </span>
                                 )}
                               </div>
                               <p className="text-[10px] md:text-xs text-[#6b6b6b] uppercase truncate mt-0.5">{eq.spec} • {eq.amount} 시간/일</p>

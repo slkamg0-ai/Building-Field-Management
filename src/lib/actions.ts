@@ -1677,26 +1677,31 @@ export async function getMonthlyCostDetail(siteId: string, year: number, month: 
     orderBy: { date: 'asc' },
   })
 
-  // 노무: 인원별 합산 (공수/금액) — 지급 대상별 총액 확인용
-  const laborMap = new Map<string, { name: string; jobType: string; amount: number; totalPrice: number }>()
-  // 장비: 장비명+구분(직영/당사)별 합산
-  const equipmentMap = new Map<string, { name: string; ownerType: string; amount: number; totalPrice: number }>()
+  const daysInMonth = endOfMonth.getDate()
+
+  // 노무/장비: 인원(장비)별로 일자별 공수를 캘린더 칸에 채워넣는다 — 기존에 쓰던 출력일수 캘린더 양식과 동일한 구조.
+  type CalendarRow = { key: string; name: string; sub: string; days: Record<number, number>; totalAmount: number; totalPrice: number }
+  const laborMap = new Map<string, CalendarRow>()
+  const equipmentMap = new Map<string, CalendarRow>()
   const materials: any[] = []
   const expenseMap = new Map<string, { category: string; amount: number }>()
   const outsourcingMap = new Map<string, { companyName: string; task: string; amount: number }>()
 
   for (const log of logs) {
+    const day = new Date(log.date).getDate()
     for (const l of log.labors) {
       const key = `${l.name}::${l.jobType}`
-      const cur = laborMap.get(key) || { name: l.name, jobType: l.jobType, amount: 0, totalPrice: 0 }
-      cur.amount += l.amount
+      const cur = laborMap.get(key) || { key, name: l.name, sub: l.jobType, days: {}, totalAmount: 0, totalPrice: 0 }
+      cur.days[day] = (cur.days[day] || 0) + l.amount
+      cur.totalAmount += l.amount
       cur.totalPrice += l.totalPrice
       laborMap.set(key, cur)
     }
     for (const e of log.equipments) {
       const key = `${e.name}::${e.ownerType}`
-      const cur = equipmentMap.get(key) || { name: e.name, ownerType: e.ownerType, amount: 0, totalPrice: 0 }
-      cur.amount += e.amount
+      const cur = equipmentMap.get(key) || { key, name: e.name, sub: e.ownerType === 'DIRECT' ? '원청 직영' : '당사 투입', days: {}, totalAmount: 0, totalPrice: 0 }
+      cur.days[day] = (cur.days[day] || 0) + e.amount
+      cur.totalAmount += e.amount
       cur.totalPrice += e.totalPrice
       equipmentMap.set(key, cur)
     }
@@ -1717,8 +1722,12 @@ export async function getMonthlyCostDetail(siteId: string, year: number, month: 
     }
   }
 
-  const labors = Array.from(laborMap.values()).sort((a, b) => a.name.localeCompare(b.name, 'ko'))
-  const equipments = Array.from(equipmentMap.values()).sort((a, b) => a.name.localeCompare(b.name, 'ko'))
+  const labors = Array.from(laborMap.values())
+    .map(r => ({ ...r, unitPrice: r.totalAmount > 0 ? Math.round(r.totalPrice / r.totalAmount) : 0 }))
+    .sort((a, b) => a.name.localeCompare(b.name, 'ko'))
+  const equipments = Array.from(equipmentMap.values())
+    .map(r => ({ ...r, unitPrice: r.totalAmount > 0 ? Math.round(r.totalPrice / r.totalAmount) : 0 }))
+    .sort((a, b) => a.name.localeCompare(b.name, 'ko'))
   const expenses = Array.from(expenseMap.values()).sort((a, b) => a.category.localeCompare(b.category, 'ko'))
   const outsourcings = Array.from(outsourcingMap.values()).sort((a, b) => a.companyName.localeCompare(b.companyName, 'ko'))
 
@@ -1731,7 +1740,7 @@ export async function getMonthlyCostDetail(siteId: string, year: number, month: 
   }
   const grandTotal = totals.labor + totals.equipment + totals.material + totals.expense + totals.outsourcing
 
-  return { site, labors, equipments, materials, expenses, outsourcings, totals, grandTotal }
+  return { site, daysInMonth, labors, equipments, materials, expenses, outsourcings, totals, grandTotal }
 }
 
 export async function updateProgressClaimStatus(id: string, status: string, note?: string) {
