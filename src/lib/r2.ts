@@ -55,7 +55,10 @@ export async function uploadDataUrlToR2(dataUrl: string, prefix: string) {
   const res = await client.fetch(`${getEndpointBase()}/${key}`, {
     method: 'PUT',
     body: buffer,
-    headers: { 'Content-Type': contentType },
+    headers: {
+      'Content-Type': contentType,
+      'Content-Length': String(buffer.length),
+    },
   })
   if (!res.ok) {
     throw new Error(`R2 업로드 실패 (${res.status}): ${await res.text().catch(() => '')}`)
