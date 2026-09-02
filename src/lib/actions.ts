@@ -3,8 +3,7 @@
 import prisma from './prisma'
 import { GoogleGenAI } from '@google/genai'
 import { revalidatePath } from 'next/cache'
-import { writeFile, mkdir } from 'fs/promises'
-import path from 'path'
+import { uploadDataUrlToR2, deleteFromR2 } from './r2'
 import { clearSession, createSession, getSessionUser, hashPin, requireAdmin, requireUser, verifyPin } from './auth'
 import {
   appendSheetValues,
@@ -257,6 +256,12 @@ export async function addLabor(logId: string, data: any, creatorName: string) {
   revalidatePath('/')
 }
 
+export async function deleteLabor(id: string) {
+  await requireUser()
+  await prisma.labor.delete({ where: { id } })
+  revalidatePath('/')
+}
+
 export async function addEquipment(logId: string, data: any, creatorName: string) {
   const user = await requireUser()
   await prisma.equipment.create({ data: {
@@ -265,6 +270,12 @@ export async function addEquipment(logId: string, data: any, creatorName: string
     totalPrice: parseInt(data.unitPrice) * parseFloat(data.amount),
     note: data.note || null, createdBy: user.name,
   } })
+  revalidatePath('/')
+}
+
+export async function deleteEquipment(id: string) {
+  await requireUser()
+  await prisma.equipment.delete({ where: { id } })
   revalidatePath('/')
 }
 
@@ -277,6 +288,12 @@ export async function addMaterial(logId: string, data: any, creatorName: string)
   revalidatePath('/')
 }
 
+export async function deleteMaterial(id: string) {
+  await requireUser()
+  await prisma.material.delete({ where: { id } })
+  revalidatePath('/')
+}
+
 export async function addExpense(logId: string, data: any, creatorName: string) {
   const user = await requireUser()
   await prisma.expense.create({ data: {
@@ -284,6 +301,14 @@ export async function addExpense(logId: string, data: any, creatorName: string) 
     note: data.note || null, createdBy: user.name,
     assignedTo: data.assignedTo || user.name,
   } })
+  revalidatePath('/')
+}
+
+export async function deleteExpense(id: string) {
+  await requireUser()
+  const expense = await prisma.expense.findUnique({ where: { id } })
+  if (expense?.isSettled) throw new Error('이미 정산 완료된 경비는 삭제할 수 없습니다.')
+  await prisma.expense.delete({ where: { id } })
   revalidatePath('/')
 }
 
@@ -326,6 +351,12 @@ export async function addOutsourcing(logId: string, data: any, creatorName: stri
   revalidatePath('/')
 }
 
+export async function deleteOutsourcing(id: string) {
+  await requireUser()
+  await prisma.outsourcing.delete({ where: { id } })
+  revalidatePath('/')
+}
+
 export async function updateDailyLogDescription(logId: string, description: string) {
   await requireUser()
   await prisma.dailyLog.update({ where: { id: logId }, data: { description } })
@@ -340,31 +371,23 @@ export async function addPhotoRecord(logId: string, url: string, creatorName: st
 
 export async function deletePhoto(photoId: string) {
   await requireUser()
+  const photo = await prisma.photo.findUnique({ where: { id: photoId } })
   await prisma.photo.delete({ where: { id: photoId } })
+  if (photo?.url) {
+    try { await deleteFromR2(photo.url) } catch (e) { console.error('R2 삭제 실패(무시):', e) }
+  }
   revalidatePath('/')
 }
 
-// base64(dataURL) → 로컬 /app/uploads 저장 → 접근 URL 반환 (헬퍼)
-async function saveImageToLocal(dataUrl: string, prefix: string) {
-  const m = dataUrl.match(/^data:(.+?);base64,(.*)$/)
-  if (!m) throw new Error('잘못된 이미지 형식')
-  const buffer = Buffer.from(m[2], 'base64')
-  const fileName = `${prefix}_${Date.now()}.jpg`
-  const dir = path.join(process.cwd(), 'uploads')
-  await mkdir(dir, { recursive: true })
-  await writeFile(path.join(dir, fileName), buffer)
-  return `/api/uploads/${fileName}`
-}
-
-// 범용 이미지 업로드(얼굴/출퇴근 사진 등) — URL만 반환
+// 범용 이미지 업로드(얼굴/출퇴근 사진 등) — R2에 업로드하고 공개 URL만 반환
 export async function uploadImage(dataUrl: string, prefix: string = 'img') {
-  return saveImageToLocal(dataUrl, prefix)
+  return uploadDataUrlToR2(dataUrl, prefix)
 }
 
-// 작업일보 사진 업로드 — 저장 + Photo 레코드
+// 작업일보 사진 업로드 — R2 업로드 + Photo 레코드
 export async function uploadPhoto(logId: string, dataUrl: string, creatorName?: string | null) {
   const user = await requireUser()
-  const url = await saveImageToLocal(dataUrl, logId)
+  const url = await uploadDataUrlToR2(dataUrl, logId)
   await prisma.photo.create({ data: { logId, url, createdBy: user.name } })
   revalidatePath('/')
   return url

@@ -55,13 +55,15 @@ export default function LoginPage() {
   }
 
   useEffect(() => {
-    if (pin.length === 4) {
+    // 4~8자리 PIN을 지원하므로, 최대 자리수(8자리)에 도달했을 때만 자동 로그인.
+    // 그보다 짧은 PIN은 '접속하기' 버튼으로 제출한다.
+    if (pin.length === 8) {
       handleLogin()
     }
   }, [pin])
 
   const handlePinClick = (num: string) => {
-    if (pin.length < 4) setPin(prev => prev + num)
+    if (pin.length < 8) setPin(prev => prev + num)
   }
 
   if (loading) return <div className="min-h-screen bg-[#f9f9f9] flex items-center justify-center text-[#1a1c1c]">로딩 중...</div>
@@ -106,11 +108,11 @@ export default function LoginPage() {
           </div>
 
           <div className="space-y-4">
-            <div className="flex justify-center gap-4 mb-6">
-              {[0, 1, 2, 3].map(i => (
-                <div 
-                  key={i} 
-                  className={`w-4 h-4 rounded-full border-2 transition-all duration-300 ${pin.length > i ? 'bg-[#556b2f] border-[#556b2f] scale-110 shadow-[0_0_10px_rgba(85,107,47,0.5)]' : 'border-[#e5e5e5]'}`}
+            <div className="flex justify-center gap-2 mb-6 flex-wrap">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div
+                  key={i}
+                  className={`w-3.5 h-3.5 rounded-full border-2 transition-all duration-300 ${pin.length > i ? 'bg-[#556b2f] border-[#556b2f] scale-110 shadow-[0_0_10px_rgba(85,107,47,0.5)]' : 'border-[#e5e5e5]'}`}
                 ></div>
               ))}
             </div>

@@ -2,6 +2,9 @@ import { GoogleGenAI, Type, type Schema } from '@google/genai'
 import { NextRequest, NextResponse } from 'next/server'
 import { postProcess } from '@/lib/ocrPostProcess'
 
+// Vercel 서버리스 함수 기본 제한(짧으면 10초)보다 여유를 두어 Gemini Vision 응답 지연에 대비
+export const maxDuration = 60
+
 const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY || '' })
 
 // 공통 지시: 한국어 문서 OCR에서 흔한 오류를 모델 단계에서 줄인다

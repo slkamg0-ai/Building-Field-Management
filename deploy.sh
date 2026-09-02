@@ -6,7 +6,7 @@
 # ═══════════════════════════════════════════════════
 
 DOCKER_USERNAME="prince211"
-IMAGE_NAME="field-management"
+IMAGE_NAME="field-manage"
 VERSION=${1:-latest}
 FULL_IMAGE="$DOCKER_USERNAME/$IMAGE_NAME"
 

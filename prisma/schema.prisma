@@ -3,7 +3,9 @@
 
 generator client {
   provider      = "prisma-client-js"
-  binaryTargets = ["native", "debian-openssl-3.0.x"]
+  // native: 로컬 개발용 / debian-openssl-3.0.x: 기존 Docker(시놀로지) 배포용
+  // rhel-openssl-3.0.x: Vercel 서버리스 함수(Amazon Linux) 배포에 필수
+  binaryTargets = ["native", "debian-openssl-3.0.x", "rhel-openssl-3.0.x"]
 }
 
 datasource db {
@@ -82,13 +84,16 @@ model Site {
   id             String      @id @default(cuid())
   name           String
   location       String?
-  contractAmount Float       @default(0) // 도급액
+  contractAmount Float       @default(0) // 도급액 (견적내역서 총액, 절사 등 조정 포함)
   startDate      DateTime    @default(now()) // 공사 시작일
   endDate        DateTime    @default(now()) // 공사 종료일
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
   logs           DailyLog[]
   monthlyBillings MonthlyBilling[]
+  contractItems       ContractItem[]
+  monthlyClaims       MonthlyProgressClaim[]
+  billingAdjustments  BillingAdjustment[]
 }
 
 model DailyLog {
@@ -105,7 +110,8 @@ model DailyLog {
   expenses    Expense[]
   outsourcings Outsourcing[]
   photos      Photo[]
-  
+  workQuantities WorkQuantity[] // 오늘 시공한 계약품목별 수량 (기성 산정 기초자료)
+
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -137,16 +143,20 @@ model Labor {
 
 // 장비
 model Equipment {
-  id          String   @id @default(cuid())
-  logId       String
-  log         DailyLog @relation(fields: [logId], references: [id], onDelete: Cascade)
-  name        String   // 장비명
-  spec        String?  // 규격
-  unitPrice   Int      // 단가
-  amount      Float    // 투입시간/일
-  totalPrice  Int      // 총 금액
-  note        String?
-  createdBy   String?
+  id             String   @id @default(cuid())
+  logId          String
+  log            DailyLog @relation(fields: [logId], references: [id], onDelete: Cascade)
+  name           String   // 장비명
+  spec           String?  // 규격
+  unitPrice      Int      // 단가
+  amount         Float    // 투입시간/일
+  totalPrice     Int      // 총 금액
+  note           String?
+  createdBy      String?
+  ownerType      String   @default("SUBCONTRACT") // DIRECT(원청 직영) / SUBCONTRACT(당사 투입) — 원가·기성 집계 시 구분
+  documentStatus String   @default("UNKNOWN") // UNKNOWN/INCOMPLETE/COMPLETE/REVIEW — 장비 안전서류 충족여부
+  documentUrl    String?  // 안전서류(보험, 장비등록증 등) 첨부 링크
+  expenses       Expense[] // 이 장비에 연결된 지출(주유비 등)
 }
 
 // 자재
@@ -158,6 +168,9 @@ model Material {
   spec        String?  // 규격
   unit        String   // 단위
   quantity    Float    // 수량
+  unitPrice   Int?     // 단가 (원가 집계에 필요)
+  totalPrice  Int?     // 총 금액 (수량*단가, 캐시)
+  invoiceUrl  String?  // 거래명세서/송장 첨부 링크
   note        String?
   createdBy   String?
 }
@@ -167,13 +180,15 @@ model Expense {
   id          String   @id @default(cuid())
   logId       String
   log         DailyLog @relation(fields: [logId], references: [id], onDelete: Cascade)
-  category    String   // 항목
+  category    String   // 항목 (주유비, 식대, 숙박비 등)
   amount      Int      // 금액
   note        String?  // 비고
   createdBy   String?
   assignedTo  String?    // 정산 담당자
   isSettled   Boolean   @default(false)  // 정산 완료 여부
   settledAt   DateTime?  // 정산 시각
+  equipmentId String?    // 특정 장비에 연결(주유비 등 원가 추적용, 선택)
+  equipment   Equipment? @relation(fields: [equipmentId], references: [id], onDelete: SetNull)
 }
 
 // 외주
@@ -261,4 +276,94 @@ model MonthlyBilling {
 
   @@unique([siteId, year, month])
   @@index([year, month])
+}
+
+// ============================================================
+// 기성(도급 청구) 관리 — 견적내역서(BOQ)를 그대로 이식해 품목별로
+// 매일 시공수량을 기록하고, 월말에 자동으로 기성청구액을 산출한다.
+// "원가관리(Labor/Equipment/Material/Expense/Outsourcing)"와는
+// 완전히 별개의 축이며, 두 축을 비교해 손익을 계산한다.
+// ============================================================
+
+// 계약(견적)내역서 품목 — 트리 구조로 원본 내역서 계층을 그대로 반영
+model ContractItem {
+  id                String         @id @default(cuid())
+  siteId            String
+  site              Site           @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  parentId          String?
+  parent            ContractItem?  @relation("ContractItemTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children          ContractItem[] @relation("ContractItemTree")
+  code              String?        // 내역서 구분 코드 (예: "3.1.1") — 참고용, 고유값 아님(협상 중 분할될 수 있음)
+  name              String         // 항목명
+  spec              String?        // 규격
+  unit              String?        // 단위 (그룹 소계 행은 null)
+  isLeaf            Boolean        @default(true) // true=실제 시공수량을 입력하는 최종 품목, false=소계용 그룹 헤더
+  contractQuantity  Float?         // 계약(견적)수량
+  contractUnitPrice Int?           // 계약(견적)단가
+  contractAmount    Int            @default(0) // 계약금액 (수량*단가, 캐시 — 그룹 헤더는 하위 합산)
+  category          String?        // 내역서 "비고" 태그 (우수/오수/토공 등 대분류 필터용)
+  sortOrder         Int            @default(0) // 원본 내역서 행 순서 보존(트리 렌더링용)
+  isActive          Boolean        @default(true) // 계약 변경으로 폐기된 품목 소프트 삭제용
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  workQuantities    WorkQuantity[]
+
+  @@index([siteId, sortOrder])
+  @@index([siteId, isLeaf])
+  @@index([parentId])
+}
+
+// 일일 시공수량 — "오늘 이 품목을 얼마나 시공했는지"의 원천 데이터
+model WorkQuantity {
+  id             String       @id @default(cuid())
+  logId          String
+  log            DailyLog     @relation(fields: [logId], references: [id], onDelete: Cascade)
+  contractItemId String
+  contractItem   ContractItem @relation(fields: [contractItemId], references: [id])
+  quantity       Float        // 오늘 시공수량
+  note           String?
+  createdBy      String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([contractItemId])
+  @@index([logId])
+}
+
+// 월별 기성청구 스냅샷 — WorkQuantity를 월 단위로 집계해 확정한 결과
+model MonthlyProgressClaim {
+  id                    String    @id @default(cuid())
+  siteId                String
+  site                  Site      @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  year                  Int
+  month                 Int
+  totalClaimAmount      Int       @default(0) // 이번달 기성청구액 (전월 누적 대비 증가분)
+  cumulativeClaimAmount Int       @default(0) // 이번달까지 누적 기성고
+  totalCostAmount       Int       @default(0) // 이번달 실투입원가 (노무+장비+자재+경비+외주, 참고용 캐시)
+  profitAmount          Int       @default(0) // 이번달 손익 = totalClaimAmount - totalCostAmount
+  status                String    @default("DRAFT") // DRAFT(작성중)/SUBMITTED(원청 제출)/CONFIRMED(지급 확정)
+  submittedAt           DateTime?
+  confirmedAt           DateTime?
+  note                  String?
+  createdBy             String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@unique([siteId, year, month])
+  @@index([siteId, year, month])
+}
+
+// 기성고 대비 잉여/부족 정산 기록 — 계약총액과 누적기성 사이의 조정 내역을 별도로 남긴다
+model BillingAdjustment {
+  id        String   @id @default(cuid())
+  siteId    String
+  site      Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  date      DateTime @default(now())
+  type      String   // SURPLUS(잉여) / SHORTFALL(부족)
+  amount    Int
+  reason    String?
+  createdBy String?
+  createdAt DateTime @default(now())
+
+  @@index([siteId, date])
 }

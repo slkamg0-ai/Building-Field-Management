@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { getDailyLog, addLabor, addEquipment, addMaterial, addOutsourcing, addExpense, searchLabors, searchEquipments, searchMaterials, searchOutsourcings, getSites, createSite, updateSite, resetSiteData, getMonthlyStats, getSiteTotalStats, getUsers, createUser, deleteUser, toggleUserActive, updateUserPin, updateUserRole, updateDailyLogDescription, addPhotoRecord, deletePhoto, getMonthlyExpensesByPerson, settleExpenses, uploadPhoto, getCurrentUser, logout, syncWorkersFromConfiguredDriveMaster, processPendingWorkerDocuments, generateMonthlyLaborBilling, exportMonthlyLaborBillingToDrive, getWorkerDocumentReviews, saveWorkerDocumentReview, getWorkers } from '@/lib/actions'
+import { getDailyLog, addLabor, addEquipment, addMaterial, addOutsourcing, addExpense, deleteLabor, deleteEquipment, deleteMaterial, deleteOutsourcing, deleteExpense, searchLabors, searchEquipments, searchMaterials, searchOutsourcings, getSites, createSite, updateSite, resetSiteData, getMonthlyStats, getSiteTotalStats, getUsers, createUser, deleteUser, toggleUserActive, updateUserPin, updateUserRole, updateDailyLogDescription, addPhotoRecord, deletePhoto, getMonthlyExpensesByPerson, settleExpenses, uploadPhoto, getCurrentUser, logout, syncWorkersFromConfiguredDriveMaster, processPendingWorkerDocuments, generateMonthlyLaborBilling, exportMonthlyLaborBillingToDrive, getWorkerDocumentReviews, saveWorkerDocumentReview, getWorkers } from '@/lib/actions'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid, PieChart, Pie, Cell } from 'recharts'
 import { exportMonthlyReport } from '@/lib/exportExcel'
 import { useRouter } from 'next/navigation'
@@ -332,6 +332,19 @@ export default function Home() {
     }
   }
 
+  // 노무/장비/자재/외주/경비 항목 삭제 공통 핸들러
+  const handleDeleteItem = async (deleteFn: (id: string) => Promise<any>, id: string, label: string) => {
+    if (!confirm(`${label} 항목을 삭제하시겠습니까? 되돌릴 수 없습니다.`)) return
+    try {
+      await deleteFn(id)
+      loadData()
+      loadMonthlyData()
+      loadSiteTotalStats()
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '삭제 중 오류가 발생했습니다.')
+    }
+  }
+
   // ==== 노무 관련 로직 ====
   const handleLaborNameChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value
@@ -630,38 +643,38 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="flex items-center gap-1.5 shrink-0">
+            <div className="flex items-center gap-1 shrink-0">
               <NotifyButton userName={currentUser?.name} />
-              
-              {/* 모바일 화면용 통합 메뉴 버튼 */}
-              <button 
-                onClick={() => setShowMobileMenu(true)} 
-                className="md:hidden flex items-center gap-1 bg-[#282a2d] hover:bg-[#333538] border border-[#3f434a] rounded-lg px-2 py-1.5 text-white text-xs font-medium transition-all active:scale-95"
+
+              {/* 모바일·태블릿(~lg 미만) 통합 메뉴 버튼: 아이콘 바가 잘리지 않도록 lg 미만에서는 항상 드로어로 통합 */}
+              <button
+                onClick={() => setShowMobileMenu(true)}
+                className="lg:hidden flex items-center gap-1 bg-[#282a2d] hover:bg-[#333538] border border-[#3f434a] rounded-lg px-2 py-1.5 text-white text-xs font-medium transition-all active:scale-95"
                 title="사용자 메뉴"
               >
-                <div className="w-5 h-5 rounded-full bg-[#556b2f]/40 text-[#82a441] flex items-center justify-center font-bold text-[10px]">
+                <div className="w-5 h-5 rounded-full bg-[#556b2f]/40 text-[#82a441] flex items-center justify-center font-bold text-[10px] shrink-0">
                   {currentUser?.name?.slice(0, 1) || 'U'}
                 </div>
-                <span className="max-w-[45px] truncate text-[11px] font-semibold">{currentUser?.name || '사용자'}</span>
+                <span className="max-w-[45px] truncate text-[11px] font-semibold hidden sm:inline">{currentUser?.name || '사용자'}</span>
                 <Menu className="w-4 h-4 text-slate-300 ml-0.5" />
               </button>
 
-              {/* 데스크톱 화면용 풀 아이콘 바 */}
-              <div className="hidden md:flex items-center gap-1">
-                <button onClick={() => router.push('/attendance')} className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-[#282a2d] transition-colors text-slate-300 hover:text-[#82a441]" title="출퇴근 체크">
+              {/* 데스크톱(lg 이상) 전용 풀 아이콘 바: 화면이 좁으면 잘리지 않고 위 드로어 버튼으로 대체됨 */}
+              <div className="hidden lg:flex items-center gap-0.5">
+                <button onClick={() => router.push('/attendance')} className="w-8 h-8 shrink-0 flex items-center justify-center rounded-lg hover:bg-[#282a2d] transition-colors text-slate-300 hover:text-[#82a441]" title="출퇴근 체크">
                   <UserCheck className="w-4 h-4" />
                 </button>
                 {currentUser?.role === 'ADMIN' && (
-                  <button onClick={() => router.push('/workers')} className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-[#282a2d] transition-colors text-slate-300 hover:text-[#82a441]" title="근로자 관리">
+                  <button onClick={() => router.push('/workers')} className="w-8 h-8 shrink-0 flex items-center justify-center rounded-lg hover:bg-[#282a2d] transition-colors text-slate-300 hover:text-[#82a441]" title="근로자 관리">
                     <UserPlus className="w-4 h-4" />
                   </button>
                 )}
                 {currentUser?.role === 'ADMIN' && (
-                  <button onClick={() => { loadAllUsers(); setShowUserManagement(true) }} className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-[#282a2d] transition-colors text-slate-300 hover:text-[#82a441]" title="사용자 관리">
+                  <button onClick={() => { loadAllUsers(); setShowUserManagement(true) }} className="w-8 h-8 shrink-0 flex items-center justify-center rounded-lg hover:bg-[#282a2d] transition-colors text-slate-300 hover:text-[#82a441]" title="사용자 관리">
                     <Users className="w-4 h-4" />
                   </button>
                 )}
-                <button onClick={handleLogout} className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-[#282a2d] transition-colors text-slate-300 hover:text-red-400" title="로그아웃">
+                <button onClick={handleLogout} className="w-8 h-8 shrink-0 flex items-center justify-center rounded-lg hover:bg-[#282a2d] transition-colors text-slate-300 hover:text-red-400" title="로그아웃">
                   <LogOut className="w-4 h-4" />
                 </button>
               </div>
@@ -704,7 +717,7 @@ export default function Home() {
           </div>
         </header>
 
-        <main className="mt-16 md:mt-[104px] px-4 md:px-8 space-y-6 pb-24 xl:pb-8 max-w-7xl mx-auto pt-6 w-full">
+        <main className="mt-16 md:mt-[104px] px-4 md:px-8 space-y-4 pb-24 xl:pb-8 max-w-7xl mx-auto pt-4 w-full">
           {/* Mobile Project & Date Selector */}
           <section className="md:hidden flex flex-col gap-3 pb-4 border-b border-[#e5e5e5]">
             <div className="flex items-center gap-2">
@@ -829,13 +842,13 @@ export default function Home() {
                     value={newUserForm.name}
                     onChange={e => setNewUserForm({...newUserForm, name: e.target.value})}
                   />
-                  <input 
-                    type="text" 
-                    placeholder="PIN (4자리)" 
-                    maxLength={4}
+                  <input
+                    type="text"
+                    placeholder="PIN (4~8자리)"
+                    maxLength={8}
                     className="bg-[#ffffff] border border-[#e5e5e5] rounded px-3 py-2 text-[#1a1c1c] outline-none focus:border-[#556b2f]"
                     value={newUserForm.pin}
-                    onChange={e => setNewUserForm({...newUserForm, pin: e.target.value})}
+                    onChange={e => setNewUserForm({...newUserForm, pin: e.target.value.replace(/\D/g, '')})}
                   />
                   <select 
                     className="bg-[#ffffff] border border-[#e5e5e5] rounded px-3 py-2 text-[#1a1c1c] outline-none focus:border-[#556b2f]"
@@ -847,7 +860,7 @@ export default function Home() {
                   </select>
                   <button 
                     onClick={async () => {
-                      if (!newUserForm.name || newUserForm.pin.length < 4) return
+                      if (!newUserForm.name || !/^\d{4,8}$/.test(newUserForm.pin)) return
                       await createUser(newUserForm.name, newUserForm.pin, newUserForm.role)
                       setNewUserForm({ name: '', pin: '', role: 'WORKER' })
                       loadAllUsers()
@@ -895,16 +908,16 @@ export default function Home() {
                         <div className="flex items-center gap-1">
                           <input
                             type="password"
-                            maxLength={4}
-                            placeholder="새 PIN"
+                            maxLength={8}
+                            placeholder="새 PIN (4~8자리)"
                             value={newPinInput}
                             onChange={e => setNewPinInput(e.target.value.replace(/\D/g, ''))}
-                            className="w-20 bg-[#ffffff] border border-[#556b2f] rounded px-2 py-1 text-[#1a1c1c] text-sm outline-none text-center tracking-widest"
+                            className="w-28 bg-[#ffffff] border border-[#556b2f] rounded px-2 py-1 text-[#1a1c1c] text-sm outline-none text-center tracking-widest"
                             autoFocus
                           />
                           <button
                             onClick={async () => {
-                              if (newPinInput.length !== 4) return
+                              if (!/^\d{4,8}$/.test(newPinInput)) return
                               await updateUserPin(u.id, newPinInput)
                               setChangingPinId(null)
                               setNewPinInput('')
@@ -971,22 +984,20 @@ export default function Home() {
         ) : (
           <>
             {/* Status & Cost Summary - 항상 표시 */}
-            <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="p-6 bg-[#ffffff] rounded-lg border border-[#e5e5e5] space-y-4 relative overflow-hidden">
+            <section className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="p-4 bg-[#ffffff] rounded-lg border border-[#e5e5e5] space-y-2.5 relative overflow-hidden">
                 <div className="flex justify-between items-start relative z-10">
                   <div>
-                    <p className="font-bold text-[#556b2f] text-sm tracking-wider uppercase mb-1">{monthName} 누적 지출</p>
-                    <h2 className="text-3xl font-bold text-[#1a1c1c] tracking-tight">
+                    <p className="font-bold text-[#556b2f] text-[11px] tracking-wider uppercase mb-0.5">{monthName} 누적 지출</p>
+                    <h2 className="text-xl md:text-2xl font-bold text-[#1a1c1c] tracking-tight">
                       ₩{monthlyStats?.summary?.grandTotal?.toLocaleString() || 0}
                     </h2>
                   </div>
-                  <div className="flex flex-col items-end">
-                    <span className="px-3 py-1 rounded-full bg-[#15803d]/20 text-[#16a34a] text-xs font-bold flex items-center gap-1">
-                      <span className="material-symbols-outlined text-[14px]">insights</span> 월간 집계
-                    </span>
-                  </div>
+                  <span className="px-2 py-0.5 rounded-full bg-[#15803d]/20 text-[#16a34a] text-[10px] font-bold flex items-center gap-1 shrink-0">
+                    <span className="material-symbols-outlined text-[12px]">insights</span> 월간
+                  </span>
                 </div>
-                <div className="h-3 w-full bg-[#f3f3f3] rounded-full overflow-hidden relative z-10 border border-[#e5e5e5]">
+                <div className="h-2 w-full bg-[#f3f3f3] rounded-full overflow-hidden relative z-10 border border-[#e5e5e5]">
                   <div className="h-full flex">
                     {monthlyStats?.summary?.grandTotal > 0 && (
                       <>
@@ -998,37 +1009,35 @@ export default function Home() {
                     )}
                   </div>
                 </div>
-                <div className="flex justify-between text-[10px] md:text-xs font-bold tracking-widest relative z-10">
-                  <span className="text-[#556b2f] flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#556b2f] inline-block"></span>노무: ₩{monthlyStats?.summary?.totalLabor?.toLocaleString() || 0}</span>
-                  <span className="text-[#0284c7] flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#0284c7] inline-block"></span>장비: ₩{monthlyStats?.summary?.totalEquipment?.toLocaleString() || 0}</span>
-                  <span className="text-[#7c3aed] flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#7c3aed] inline-block"></span>외주: ₩{monthlyStats?.summary?.totalOutsourcing?.toLocaleString() || 0}</span>
-                  <span className="text-[#16a34a] flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#16a34a] inline-block"></span>경비: ₩{monthlyStats?.summary?.totalExpense?.toLocaleString() || 0}</span>
+                <div className="flex justify-between text-[9px] md:text-[11px] font-bold tracking-widest relative z-10">
+                  <span className="text-[#556b2f] flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-[#556b2f] inline-block"></span>노무: ₩{monthlyStats?.summary?.totalLabor?.toLocaleString() || 0}</span>
+                  <span className="text-[#0284c7] flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-[#0284c7] inline-block"></span>장비: ₩{monthlyStats?.summary?.totalEquipment?.toLocaleString() || 0}</span>
+                  <span className="text-[#7c3aed] flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-[#7c3aed] inline-block"></span>외주: ₩{monthlyStats?.summary?.totalOutsourcing?.toLocaleString() || 0}</span>
+                  <span className="text-[#16a34a] flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-[#16a34a] inline-block"></span>경비: ₩{monthlyStats?.summary?.totalExpense?.toLocaleString() || 0}</span>
                 </div>
               </div>
 
               {/* 총 예산 대비 누적 지출 분석 카드 */}
               {siteTotalStats && (
-                <div className="p-6 bg-[#ffffff] rounded-lg border border-[#e5e5e5] space-y-4 relative overflow-hidden">
+                <div className="p-4 bg-[#ffffff] rounded-lg border border-[#e5e5e5] space-y-2.5 relative overflow-hidden">
                   <div className="flex justify-between items-start relative z-10">
                     <div>
-                      <p className="font-bold text-[#0284c7] text-sm tracking-wider uppercase mb-1">전체 예산 대비 실적</p>
-                      <h2 className="text-3xl font-bold text-[#1a1c1c] tracking-tight">
+                      <p className="font-bold text-[#0284c7] text-[11px] tracking-wider uppercase mb-0.5">전체 예산 대비 실적</p>
+                      <h2 className="text-xl md:text-2xl font-bold text-[#1a1c1c] tracking-tight">
                         ₩{siteTotalStats.totalSpent.toLocaleString()}
-                        <span className="text-sm text-[#737373] font-normal ml-2">/ ₩{siteTotalStats.site.contractAmount.toLocaleString()}</span>
+                        <span className="text-xs text-[#737373] font-normal ml-2">/ ₩{siteTotalStats.site.contractAmount.toLocaleString()}</span>
                       </h2>
                     </div>
-                    <div className="flex flex-col items-end">
-                      <span className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 ${siteTotalStats.progressPercent > 100 ? 'bg-red-500/20 text-red-600' : 'bg-[#0284c7]/20 text-[#0284c7]'}`}>
-                        <span className="material-symbols-outlined text-[14px]">flag</span> {siteTotalStats.progressPercent.toFixed(1)}% 진행
-                      </span>
-                    </div>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 shrink-0 ${siteTotalStats.progressPercent > 100 ? 'bg-red-500/20 text-red-600' : 'bg-[#0284c7]/20 text-[#0284c7]'}`}>
+                      <span className="material-symbols-outlined text-[12px]">flag</span> {siteTotalStats.progressPercent.toFixed(1)}%
+                    </span>
                   </div>
-                  <div className="h-3 w-full bg-[#f3f3f3] rounded-full overflow-hidden relative z-10 border border-[#e5e5e5]">
+                  <div className="h-2 w-full bg-[#f3f3f3] rounded-full overflow-hidden relative z-10 border border-[#e5e5e5]">
                     <div className={`h-full ${siteTotalStats.progressPercent > 100 ? 'bg-red-500' : 'bg-[#0284c7]'}`} style={{ width: `${Math.min(siteTotalStats.progressPercent, 100)}%` }}></div>
                   </div>
-                  <div className="flex justify-between text-[10px] md:text-xs font-bold tracking-widest relative z-10 text-[#6b6b6b]">
+                  <div className="flex justify-between text-[9px] md:text-[11px] font-bold tracking-widest relative z-10 text-[#6b6b6b]">
                     <span>공기: {siteTotalStats.totalDays}일 중 {siteTotalStats.passedDays}일 경과</span>
-                    <span>잔여 예산: ₩{Math.max(0, siteTotalStats.site.contractAmount - siteTotalStats.totalSpent).toLocaleString()}</span>
+                    <span>잔여: ₩{Math.max(0, siteTotalStats.site.contractAmount - siteTotalStats.totalSpent).toLocaleString()}</span>
                   </div>
                 </div>
               )}
@@ -1037,231 +1046,231 @@ export default function Home() {
             {/* Dynamic Content Tabs */}
             <section className="space-y-4">
               <nav className="flex border-b border-[#e5e5e5] overflow-x-auto scrollbar-hide">
-                <button onClick={() => setActiveTab('dashboard')} className={`flex-1 py-4 px-3 whitespace-nowrap text-center text-xs md:text-sm font-bold tracking-wider transition-all ${activeTab === 'dashboard' ? 'border-b-2 border-[#556b2f] text-[#556b2f]' : 'text-[#737373] hover:text-[#1a1c1c]'}`}>대시보드</button>
-                <button onClick={() => setActiveTab('labor')} className={`flex-1 py-4 px-3 whitespace-nowrap text-center text-xs md:text-sm font-bold tracking-wider transition-all ${activeTab === 'labor' ? 'border-b-2 border-[#556b2f] text-[#556b2f]' : 'text-[#737373] hover:text-[#1a1c1c]'}`}>노무</button>
-                <button onClick={() => setActiveTab('equipment')} className={`flex-1 py-4 px-3 whitespace-nowrap text-center text-xs md:text-sm font-bold tracking-wider transition-all ${activeTab === 'equipment' ? 'border-b-2 border-[#556b2f] text-[#556b2f]' : 'text-[#737373] hover:text-[#1a1c1c]'}`}>장비</button>
-                <button onClick={() => setActiveTab('outsourcing')} className={`flex-1 py-4 px-3 whitespace-nowrap text-center text-xs md:text-sm font-bold tracking-wider transition-all ${activeTab === 'outsourcing' ? 'border-b-2 border-[#556b2f] text-[#556b2f]' : 'text-[#737373] hover:text-[#1a1c1c]'}`}>외주</button>
-                <button onClick={() => setActiveTab('expense')} className={`flex-1 py-4 px-3 whitespace-nowrap text-center text-xs md:text-sm font-bold tracking-wider transition-all ${activeTab === 'expense' ? 'border-b-2 border-[#556b2f] text-[#556b2f]' : 'text-[#737373] hover:text-[#1a1c1c]'}`}>경비</button>
-                <button onClick={() => setActiveTab('material')} className={`flex-1 py-4 px-3 whitespace-nowrap text-center text-xs md:text-sm font-bold tracking-wider transition-all ${activeTab === 'material' ? 'border-b-2 border-[#556b2f] text-[#556b2f]' : 'text-[#737373] hover:text-[#1a1c1c]'}`}>자재</button>
+                <button onClick={() => setActiveTab('dashboard')} className={`flex-1 py-2.5 px-3 whitespace-nowrap text-center text-xs md:text-sm font-bold tracking-wider transition-all ${activeTab === 'dashboard' ? 'border-b-2 border-[#556b2f] text-[#556b2f]' : 'text-[#737373] hover:text-[#1a1c1c]'}`}>대시보드</button>
+                <button onClick={() => setActiveTab('labor')} className={`flex-1 py-2.5 px-3 whitespace-nowrap text-center text-xs md:text-sm font-bold tracking-wider transition-all ${activeTab === 'labor' ? 'border-b-2 border-[#556b2f] text-[#556b2f]' : 'text-[#737373] hover:text-[#1a1c1c]'}`}>노무</button>
+                <button onClick={() => setActiveTab('equipment')} className={`flex-1 py-2.5 px-3 whitespace-nowrap text-center text-xs md:text-sm font-bold tracking-wider transition-all ${activeTab === 'equipment' ? 'border-b-2 border-[#556b2f] text-[#556b2f]' : 'text-[#737373] hover:text-[#1a1c1c]'}`}>장비</button>
+                <button onClick={() => setActiveTab('outsourcing')} className={`flex-1 py-2.5 px-3 whitespace-nowrap text-center text-xs md:text-sm font-bold tracking-wider transition-all ${activeTab === 'outsourcing' ? 'border-b-2 border-[#556b2f] text-[#556b2f]' : 'text-[#737373] hover:text-[#1a1c1c]'}`}>외주</button>
+                <button onClick={() => setActiveTab('expense')} className={`flex-1 py-2.5 px-3 whitespace-nowrap text-center text-xs md:text-sm font-bold tracking-wider transition-all ${activeTab === 'expense' ? 'border-b-2 border-[#556b2f] text-[#556b2f]' : 'text-[#737373] hover:text-[#1a1c1c]'}`}>경비</button>
+                <button onClick={() => setActiveTab('material')} className={`flex-1 py-2.5 px-3 whitespace-nowrap text-center text-xs md:text-sm font-bold tracking-wider transition-all ${activeTab === 'material' ? 'border-b-2 border-[#556b2f] text-[#556b2f]' : 'text-[#737373] hover:text-[#1a1c1c]'}`}>자재</button>
                 {currentUser?.role === 'ADMIN' && (
-                  <button onClick={() => setActiveTab('settlement')} className={`flex-1 py-4 px-3 whitespace-nowrap text-center text-xs md:text-sm font-bold tracking-wider transition-all ${activeTab === 'settlement' ? 'border-b-2 border-[#16a34a] text-[#16a34a]' : 'text-[#737373] hover:text-[#1a1c1c]'}`}>정산</button>
+                  <button onClick={() => setActiveTab('settlement')} className={`flex-1 py-2.5 px-3 whitespace-nowrap text-center text-xs md:text-sm font-bold tracking-wider transition-all ${activeTab === 'settlement' ? 'border-b-2 border-[#16a34a] text-[#16a34a]' : 'text-[#737373] hover:text-[#1a1c1c]'}`}>정산</button>
                 )}
                 {currentUser?.role === 'ADMIN' && (
-                  <button onClick={() => setActiveTab('integration')} className={`flex-1 py-4 px-3 whitespace-nowrap text-center text-xs md:text-sm font-bold tracking-wider transition-all ${activeTab === 'integration' ? 'border-b-2 border-[#0284c7] text-[#0284c7]' : 'text-[#737373] hover:text-[#1a1c1c]'}`}>연계</button>
+                  <button onClick={() => setActiveTab('integration')} className={`flex-1 py-2.5 px-3 whitespace-nowrap text-center text-xs md:text-sm font-bold tracking-wider transition-all ${activeTab === 'integration' ? 'border-b-2 border-[#0284c7] text-[#0284c7]' : 'text-[#737373] hover:text-[#1a1c1c]'}`}>연계</button>
                 )}
               </nav>
 
               {/* ===================== DASHBOARD TAB ===================== */}
               {activeTab === 'dashboard' && (
-                <div className="space-y-6 animate-fade-in">
-                  
+                <div className="space-y-3 animate-fade-in">
+
                   {/* 오늘의 요약 및 한계금액 분석 */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="bg-[#ffffff] border border-[#e5e5e5] rounded-xl p-6">
-                      <h4 className="font-bold text-[#1a1c1c] mb-4 flex items-center gap-2">
-                        <span className="material-symbols-outlined text-[#556b2f]">calendar_today</span> 오늘의 지출 요약 ({currentDate})
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                    <div className="bg-[#ffffff] border border-[#e5e5e5] rounded-xl p-4">
+                      <h4 className="font-bold text-[#1a1c1c] text-sm mb-2 flex items-center gap-2">
+                        <span className="material-symbols-outlined text-[#556b2f] text-[18px]">calendar_today</span> 오늘의 지출 요약 ({currentDate})
                       </h4>
-                      <div className="space-y-3">
-                        <div className="flex justify-between items-center py-2 border-b border-[#e5e5e5]">
-                          <span className="text-[#6b6b6b]">일일 총 지출</span>
-                          <span className={`font-bold text-lg ${isOverBudgetToday ? 'text-red-600' : 'text-[#1a1c1c]'}`}>₩{grandTotal.toLocaleString()}</span>
+                      <div className="space-y-1.5">
+                        <div className="flex justify-between items-center py-1.5 border-b border-[#e5e5e5]">
+                          <span className="text-[#6b6b6b] text-sm">일일 총 지출</span>
+                          <span className={`font-bold ${isOverBudgetToday ? 'text-red-600' : 'text-[#1a1c1c]'}`}>₩{grandTotal.toLocaleString()}</span>
                         </div>
-                        <div className="flex justify-between items-center py-2 border-b border-[#e5e5e5]">
-                          <span className="text-[#6b6b6b]">일일 권장 투입 한계</span>
+                        <div className="flex justify-between items-center py-1.5 border-b border-[#e5e5e5]">
+                          <span className="text-[#6b6b6b] text-sm">일일 권장 투입 한계</span>
                           <span className="font-bold text-[#0284c7]">₩{siteTotalStats ? Math.round(siteTotalStats.dailyLimit).toLocaleString() : 0}</span>
                         </div>
-                        <div className="flex justify-between items-center pt-2">
-                          <span className="text-[#6b6b6b]">상태 분석</span>
+                        <div className="flex justify-between items-center pt-1.5">
+                          <span className="text-[#6b6b6b] text-sm">상태 분석</span>
                           {isOverBudgetToday ? (
-                            <span className="text-red-600 font-bold text-sm bg-red-400/10 px-2 py-1 rounded">한계선 초과 (주의)</span>
+                            <span className="text-red-600 font-bold text-xs bg-red-400/10 px-2 py-1 rounded">한계선 초과 (주의)</span>
                           ) : (
-                            <span className="text-[#16a34a] font-bold text-sm bg-[#16a34a]/10 px-2 py-1 rounded">안정적 (예산 내)</span>
+                            <span className="text-[#16a34a] font-bold text-xs bg-[#16a34a]/10 px-2 py-1 rounded">안정적 (예산 내)</span>
                           )}
                         </div>
                       </div>
                     </div>
-                    
-                    <div className="bg-[#ffffff] border border-[#e5e5e5] rounded-xl p-6 flex flex-col items-center justify-center text-center">
-                      <span className="material-symbols-outlined text-5xl text-[#8a8a8a] mb-4">download</span>
-                      <h4 className="font-bold text-[#1a1c1c] mb-2">데이터 내보내기</h4>
-                      <p className="text-sm text-[#6b6b6b] mb-6">월간 작업일보 및 투입 비용 명세서를<br/>엑셀(.xlsx) 파일로 다운로드합니다.</p>
-                      <button
-                        onClick={() => {
-                          const selectedSite = sites.find(s => s.id === selectedSiteId)
-                          const d = new Date(currentDate)
-                          const monthLabel = `${d.getFullYear()}년 ${d.getMonth() + 1}월`
-                          exportMonthlyReport(
-                            selectedSite?.name || '현장',
-                            monthLabel,
-                            logData,
-                            monthlyStats,
-                            siteTotalStats
-                          )
-                        }}
-                        className="w-full max-w-[200px] py-3 rounded-lg bg-[#556b2f] text-[#ffffff] font-bold transition-colors flex items-center justify-center gap-2 hover:opacity-90 active:scale-95"
-                      >
-                        <span className="material-symbols-outlined text-sm">file_download</span>
-                        엑셀 다운로드
-                      </button>
-                    </div>
-                  </div>
 
-                  {/* 차트 */}
-                  <div className="bg-[#ffffff] border border-[#e5e5e5] rounded-xl p-6">
-                    <div className="flex justify-between items-center mb-6">
-                      <h3 className="font-bold text-[#1a1c1c] text-lg flex items-center gap-2">
-                        <span className="material-symbols-outlined text-[#556b2f]">bar_chart</span>
-                        {monthName} 일자별 지출 추이
-                      </h3>
-                      <span className="text-xs text-[#737373]">단위: 원</span>
-                    </div>
-                    
-                    {monthlyLoading ? (
-                      <div className="h-64 flex items-center justify-center text-[#737373]">데이터를 불러오는 중...</div>
-                    ) : monthlyStats?.dailyData?.length === 0 ? (
-                      <div className="h-64 flex items-center justify-center text-[#737373]">입력된 데이터가 없습니다.</div>
-                    ) : (
-                      <div className="h-72 w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <BarChart data={monthlyStats.dailyData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5" vertical={false} />
-                            <XAxis dataKey="name" stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
-                            <YAxis stroke="#64748b" fontSize={12} tickFormatter={(val) => `₩${(val/10000).toFixed(0)}만`} tickLine={false} axisLine={false} />
-                            <Tooltip 
-                              contentStyle={{ backgroundColor: '#f3f3f3', borderColor: '#e5e5e5', borderRadius: '8px' }}
-                              itemStyle={{ fontSize: '14px' }}
-                              formatter={(value: unknown) => [`₩${Number(value).toLocaleString()}`, undefined]}
-                            />
-                            <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
-                            <Bar dataKey="노무비" stackId="a" fill="#556b2f" radius={[0, 0, 4, 4]} />
-                            <Bar dataKey="장비대" stackId="a" fill="#0284c7" />
-                            <Bar dataKey="외주비" stackId="a" fill="#7c3aed" />
-                            <Bar dataKey="경비" stackId="a" fill="#16a34a" radius={[4, 4, 0, 0]} />
-                          </BarChart>
-                        </ResponsiveContainer>
-                      </div>
-                    )}
-                  </div>
-
-                {/* 월간 상세 분석 섹션 */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {/* 지출 비중 원형 차트 */}
-                  <div className="bg-[#ffffff] border border-[#e5e5e5] rounded-xl p-6 flex flex-col items-center">
-                    <h4 className="font-bold text-[#1a1c1c] mb-4 self-start flex items-center gap-2">
-                      <span className="material-symbols-outlined text-[#556b2f]">pie_chart</span> 카테고리별 지출 비중
-                    </h4>
-                    <div className="w-full h-48">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie
-                            data={[
-                              { name: '노무', value: monthlyStats?.summary?.totalLabor || 0, color: '#556b2f' },
-                              { name: '장비', value: monthlyStats?.summary?.totalEquipment || 0, color: '#0284c7' },
-                              { name: '외주', value: monthlyStats?.summary?.totalOutsourcing || 0, color: '#7c3aed' },
-                              { name: '경비', value: monthlyStats?.summary?.totalExpense || 0, color: '#16a34a' },
-                            ].filter(d => d.value > 0)}
-                            cx="50%"
-                            cy="50%"
-                            innerRadius={60}
-                            outerRadius={80}
-                            paddingAngle={5}
-                            dataKey="value"
-                          >
-                            {[
-                              { color: '#556b2f' },
-                              { color: '#0284c7' },
-                              { color: '#7c3aed' },
-                              { color: '#16a34a' },
-                            ].map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={entry.color} />
-                            ))}
-                          </Pie>
-                          <Tooltip 
-                            contentStyle={{ backgroundColor: '#f3f3f3', border: '1px solid #e5e5e5', borderRadius: '8px' }}
-                            itemStyle={{ color: '#fff' }}
-                          />
-                        </PieChart>
-                      </ResponsiveContainer>
-                    </div>
-                    <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 w-full">
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-[#556b2f]"></div>
-                        <span className="text-[10px] text-[#6b6b6b] font-bold uppercase">노무 {((monthlyStats?.summary?.totalLabor / monthlyStats?.summary?.grandTotal) * 100 || 0).toFixed(1)}%</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-[#0284c7]"></div>
-                        <span className="text-[10px] text-[#6b6b6b] font-bold uppercase">장비 {((monthlyStats?.summary?.totalEquipment / monthlyStats?.summary?.grandTotal) * 100 || 0).toFixed(1)}%</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-[#7c3aed]"></div>
-                        <span className="text-[10px] text-[#6b6b6b] font-bold uppercase">외주 {((monthlyStats?.summary?.totalOutsourcing / monthlyStats?.summary?.grandTotal) * 100 || 0).toFixed(1)}%</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-[#16a34a]"></div>
-                        <span className="text-[10px] text-[#6b6b6b] font-bold uppercase">경비 {((monthlyStats?.summary?.totalExpense / monthlyStats?.summary?.grandTotal) * 100 || 0).toFixed(1)}%</span>
+                    <div className="bg-[#ffffff] border border-[#e5e5e5] rounded-xl p-4 flex items-center gap-4">
+                      <span className="material-symbols-outlined text-3xl text-[#8a8a8a] shrink-0">download</span>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-bold text-[#1a1c1c] text-sm mb-0.5">데이터 내보내기</h4>
+                        <p className="text-xs text-[#6b6b6b] mb-2 truncate">월간 작업일보 및 투입 비용 명세서 (.xlsx)</p>
+                        <button
+                          onClick={() => {
+                            const selectedSite = sites.find(s => s.id === selectedSiteId)
+                            const d = new Date(currentDate)
+                            const monthLabel = `${d.getFullYear()}년 ${d.getMonth() + 1}월`
+                            exportMonthlyReport(
+                              selectedSite?.name || '현장',
+                              monthLabel,
+                              logData,
+                              monthlyStats,
+                              siteTotalStats
+                            )
+                          }}
+                          className="py-1.5 px-4 rounded-lg bg-[#556b2f] text-[#ffffff] text-sm font-bold transition-colors flex items-center justify-center gap-1.5 hover:opacity-90 active:scale-95"
+                        >
+                          <span className="material-symbols-outlined text-sm">file_download</span>
+                          엑셀 다운로드
+                        </button>
                       </div>
                     </div>
                   </div>
 
-                  {/* 월간 상세 집계표 */}
-                  <div className="md:col-span-2 bg-[#ffffff] border border-[#e5e5e5] rounded-xl p-6">
-                    <h4 className="font-bold text-[#1a1c1c] mb-4 flex items-center gap-2">
-                      <span className="material-symbols-outlined text-[#556b2f]">analytics</span> 월간 상세 집계표 ({monthName})
-                    </h4>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left">
-                        <thead>
-                          <tr className="border-b border-[#e5e5e5] text-[10px] text-[#737373] font-bold uppercase tracking-widest">
-                            <th className="pb-3 px-2">카테고리</th>
-                            <th className="pb-3 px-2 text-right">금액</th>
-                            <th className="pb-3 px-2 text-right">비중</th>
-                            <th className="pb-3 px-2 text-right">상태</th>
-                          </tr>
-                        </thead>
-                        <tbody className="text-sm">
-                          <tr className="border-b border-[#e5e5e5]/50">
-                            <td className="py-3 px-2 text-[#1a1c1c] font-medium flex items-center gap-2">
-                              <span className="w-1.5 h-1.5 rounded-full bg-[#556b2f]"></span> 노무비
-                            </td>
-                            <td className="py-3 px-2 text-right text-[#1a1c1c] font-bold">₩{monthlyStats?.summary?.totalLabor?.toLocaleString()}</td>
-                            <td className="py-3 px-2 text-right text-[#6b6b6b]">{((monthlyStats?.summary?.totalLabor / monthlyStats?.summary?.grandTotal) * 100 || 0).toFixed(1)}%</td>
-                            <td className="py-3 px-2 text-right text-[#16a34a] font-bold text-[10px]">정상</td>
-                          </tr>
-                          <tr className="border-b border-[#e5e5e5]/50">
-                            <td className="py-3 px-2 text-[#1a1c1c] font-medium flex items-center gap-2">
-                              <span className="w-1.5 h-1.5 rounded-full bg-[#0284c7]"></span> 장비대
-                            </td>
-                            <td className="py-3 px-2 text-right text-[#1a1c1c] font-bold">₩{monthlyStats?.summary?.totalEquipment?.toLocaleString()}</td>
-                            <td className="py-3 px-2 text-right text-[#6b6b6b]">{((monthlyStats?.summary?.totalEquipment / monthlyStats?.summary?.grandTotal) * 100 || 0).toFixed(1)}%</td>
-                            <td className="py-3 px-2 text-right text-[#16a34a] font-bold text-[10px]">정상</td>
-                          </tr>
-                          <tr className="border-b border-[#e5e5e5]/50">
-                            <td className="py-3 px-2 text-[#1a1c1c] font-medium flex items-center gap-2">
-                              <span className="w-1.5 h-1.5 rounded-full bg-[#7c3aed]"></span> 외주비
-                            </td>
-                            <td className="py-3 px-2 text-right text-[#1a1c1c] font-bold">₩{monthlyStats?.summary?.totalOutsourcing?.toLocaleString()}</td>
-                            <td className="py-3 px-2 text-right text-[#6b6b6b]">{((monthlyStats?.summary?.totalOutsourcing / monthlyStats?.summary?.grandTotal) * 100 || 0).toFixed(1)}%</td>
-                            <td className="py-3 px-2 text-right text-[#16a34a] font-bold text-[10px]">정상</td>
-                          </tr>
-                          <tr className="border-b border-[#e5e5e5]/50">
-                            <td className="py-3 px-2 text-[#1a1c1c] font-medium flex items-center gap-2">
-                              <span className="w-1.5 h-1.5 rounded-full bg-[#16a34a]"></span> 경비
-                            </td>
-                            <td className="py-3 px-2 text-right text-[#1a1c1c] font-bold">₩{monthlyStats?.summary?.totalExpense?.toLocaleString()}</td>
-                            <td className="py-3 px-2 text-right text-[#6b6b6b]">{((monthlyStats?.summary?.totalExpense / monthlyStats?.summary?.grandTotal) * 100 || 0).toFixed(1)}%</td>
-                            <td className="py-3 px-2 text-right text-[#16a34a] font-bold text-[10px]">정상</td>
-                          </tr>
-                          <tr className="bg-[#556b2f]/5">
-                            <td className="py-4 px-2 text-[#556b2f] font-bold">합계 (Grand Total)</td>
-                            <td className="py-4 px-2 text-right text-[#556b2f] font-bold">₩{monthlyStats?.summary?.grandTotal?.toLocaleString()}</td>
-                            <td className="py-4 px-2 text-right text-[#556b2f] font-bold">100%</td>
-                            <td className="py-4 px-2 text-right text-[#556b2f] font-bold text-[10px]">-</td>
-                          </tr>
-                        </tbody>
-                      </table>
+                  {/* 차트 + 월간 상세 분석: 넓은 화면에서는 좌우로 배치해 스크롤을 줄임 */}
+                  <div className="grid grid-cols-1 xl:grid-cols-5 gap-3">
+                    {/* 일자별 지출 추이 바 차트 */}
+                    <div className="xl:col-span-3 bg-[#ffffff] border border-[#e5e5e5] rounded-xl p-4">
+                      <div className="flex justify-between items-center mb-2">
+                        <h3 className="font-bold text-[#1a1c1c] text-sm flex items-center gap-2">
+                          <span className="material-symbols-outlined text-[#556b2f] text-[18px]">bar_chart</span>
+                          {monthName} 일자별 지출 추이
+                        </h3>
+                        <span className="text-[10px] text-[#737373]">단위: 원</span>
+                      </div>
+
+                      {monthlyLoading ? (
+                        <div className="h-56 flex items-center justify-center text-[#737373] text-sm">데이터를 불러오는 중...</div>
+                      ) : monthlyStats?.dailyData?.length === 0 ? (
+                        <div className="h-56 flex items-center justify-center text-[#737373] text-sm">입력된 데이터가 없습니다.</div>
+                      ) : (
+                        <div className="h-56 w-full xl:h-[26rem]">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={monthlyStats.dailyData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
+                              <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5" vertical={false} />
+                              <XAxis dataKey="name" stroke="#64748b" fontSize={11} tickLine={false} axisLine={false} />
+                              <YAxis stroke="#64748b" fontSize={11} tickFormatter={(val) => `₩${(val/10000).toFixed(0)}만`} tickLine={false} axisLine={false} />
+                              <Tooltip
+                                contentStyle={{ backgroundColor: '#f3f3f3', borderColor: '#e5e5e5', borderRadius: '8px' }}
+                                itemStyle={{ fontSize: '13px' }}
+                                formatter={(value: unknown) => [`₩${Number(value).toLocaleString()}`, undefined]}
+                              />
+                              <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} />
+                              <Bar dataKey="노무비" stackId="a" fill="#556b2f" radius={[0, 0, 4, 4]} />
+                              <Bar dataKey="장비대" stackId="a" fill="#0284c7" />
+                              <Bar dataKey="외주비" stackId="a" fill="#7c3aed" />
+                              <Bar dataKey="경비" stackId="a" fill="#16a34a" radius={[4, 4, 0, 0]} />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="xl:col-span-2 flex flex-col gap-3">
+                      {/* 지출 비중 원형 차트 */}
+                      <div className="bg-[#ffffff] border border-[#e5e5e5] rounded-xl p-4">
+                        <h4 className="font-bold text-[#1a1c1c] text-sm mb-2 flex items-center gap-2">
+                          <span className="material-symbols-outlined text-[#556b2f] text-[18px]">pie_chart</span> 카테고리별 지출 비중
+                        </h4>
+                        <div className="flex items-center gap-3">
+                          <div className="w-28 h-28 shrink-0">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <PieChart>
+                                <Pie
+                                  data={[
+                                    { name: '노무', value: monthlyStats?.summary?.totalLabor || 0, color: '#556b2f' },
+                                    { name: '장비', value: monthlyStats?.summary?.totalEquipment || 0, color: '#0284c7' },
+                                    { name: '외주', value: monthlyStats?.summary?.totalOutsourcing || 0, color: '#7c3aed' },
+                                    { name: '경비', value: monthlyStats?.summary?.totalExpense || 0, color: '#16a34a' },
+                                  ].filter(d => d.value > 0)}
+                                  cx="50%"
+                                  cy="50%"
+                                  innerRadius={32}
+                                  outerRadius={48}
+                                  paddingAngle={5}
+                                  dataKey="value"
+                                >
+                                  {[
+                                    { color: '#556b2f' },
+                                    { color: '#0284c7' },
+                                    { color: '#7c3aed' },
+                                    { color: '#16a34a' },
+                                  ].map((entry, index) => (
+                                    <Cell key={`cell-${index}`} fill={entry.color} />
+                                  ))}
+                                </Pie>
+                                <Tooltip
+                                  contentStyle={{ backgroundColor: '#f3f3f3', border: '1px solid #e5e5e5', borderRadius: '8px' }}
+                                  itemStyle={{ color: '#fff' }}
+                                />
+                              </PieChart>
+                            </ResponsiveContainer>
+                          </div>
+                          <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <div className="w-1.5 h-1.5 rounded-full bg-[#556b2f] shrink-0"></div>
+                              <span className="text-[10px] text-[#6b6b6b] font-bold uppercase truncate">노무 {((monthlyStats?.summary?.totalLabor / monthlyStats?.summary?.grandTotal) * 100 || 0).toFixed(1)}%</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <div className="w-1.5 h-1.5 rounded-full bg-[#0284c7] shrink-0"></div>
+                              <span className="text-[10px] text-[#6b6b6b] font-bold uppercase truncate">장비 {((monthlyStats?.summary?.totalEquipment / monthlyStats?.summary?.grandTotal) * 100 || 0).toFixed(1)}%</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <div className="w-1.5 h-1.5 rounded-full bg-[#7c3aed] shrink-0"></div>
+                              <span className="text-[10px] text-[#6b6b6b] font-bold uppercase truncate">외주 {((monthlyStats?.summary?.totalOutsourcing / monthlyStats?.summary?.grandTotal) * 100 || 0).toFixed(1)}%</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <div className="w-1.5 h-1.5 rounded-full bg-[#16a34a] shrink-0"></div>
+                              <span className="text-[10px] text-[#6b6b6b] font-bold uppercase truncate">경비 {((monthlyStats?.summary?.totalExpense / monthlyStats?.summary?.grandTotal) * 100 || 0).toFixed(1)}%</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* 월간 상세 집계표 */}
+                      <div className="flex-1 bg-[#ffffff] border border-[#e5e5e5] rounded-xl p-4">
+                        <h4 className="font-bold text-[#1a1c1c] text-sm mb-2 flex items-center gap-2">
+                          <span className="material-symbols-outlined text-[#556b2f] text-[18px]">analytics</span> 월간 상세 집계표 ({monthName})
+                        </h4>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left">
+                            <thead>
+                              <tr className="border-b border-[#e5e5e5] text-[9px] text-[#737373] font-bold uppercase tracking-widest">
+                                <th className="pb-1.5 px-1">카테고리</th>
+                                <th className="pb-1.5 px-1 text-right">금액</th>
+                                <th className="pb-1.5 px-1 text-right">비중</th>
+                              </tr>
+                            </thead>
+                            <tbody className="text-xs">
+                              <tr className="border-b border-[#e5e5e5]/50">
+                                <td className="py-1.5 px-1 text-[#1a1c1c] font-medium flex items-center gap-1.5">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-[#556b2f] shrink-0"></span> 노무비
+                                </td>
+                                <td className="py-1.5 px-1 text-right text-[#1a1c1c] font-bold">₩{monthlyStats?.summary?.totalLabor?.toLocaleString()}</td>
+                                <td className="py-1.5 px-1 text-right text-[#6b6b6b]">{((monthlyStats?.summary?.totalLabor / monthlyStats?.summary?.grandTotal) * 100 || 0).toFixed(1)}%</td>
+                              </tr>
+                              <tr className="border-b border-[#e5e5e5]/50">
+                                <td className="py-1.5 px-1 text-[#1a1c1c] font-medium flex items-center gap-1.5">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-[#0284c7] shrink-0"></span> 장비대
+                                </td>
+                                <td className="py-1.5 px-1 text-right text-[#1a1c1c] font-bold">₩{monthlyStats?.summary?.totalEquipment?.toLocaleString()}</td>
+                                <td className="py-1.5 px-1 text-right text-[#6b6b6b]">{((monthlyStats?.summary?.totalEquipment / monthlyStats?.summary?.grandTotal) * 100 || 0).toFixed(1)}%</td>
+                              </tr>
+                              <tr className="border-b border-[#e5e5e5]/50">
+                                <td className="py-1.5 px-1 text-[#1a1c1c] font-medium flex items-center gap-1.5">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-[#7c3aed] shrink-0"></span> 외주비
+                                </td>
+                                <td className="py-1.5 px-1 text-right text-[#1a1c1c] font-bold">₩{monthlyStats?.summary?.totalOutsourcing?.toLocaleString()}</td>
+                                <td className="py-1.5 px-1 text-right text-[#6b6b6b]">{((monthlyStats?.summary?.totalOutsourcing / monthlyStats?.summary?.grandTotal) * 100 || 0).toFixed(1)}%</td>
+                              </tr>
+                              <tr className="border-b border-[#e5e5e5]/50">
+                                <td className="py-1.5 px-1 text-[#1a1c1c] font-medium flex items-center gap-1.5">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-[#16a34a] shrink-0"></span> 경비
+                                </td>
+                                <td className="py-1.5 px-1 text-right text-[#1a1c1c] font-bold">₩{monthlyStats?.summary?.totalExpense?.toLocaleString()}</td>
+                                <td className="py-1.5 px-1 text-right text-[#6b6b6b]">{((monthlyStats?.summary?.totalExpense / monthlyStats?.summary?.grandTotal) * 100 || 0).toFixed(1)}%</td>
+                              </tr>
+                              <tr className="bg-[#556b2f]/5">
+                                <td className="py-2 px-1 text-[#556b2f] font-bold">합계</td>
+                                <td className="py-2 px-1 text-right text-[#556b2f] font-bold">₩{monthlyStats?.summary?.grandTotal?.toLocaleString()}</td>
+                                <td className="py-2 px-1 text-right text-[#556b2f] font-bold">100%</td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
               </div>
             )}
 
@@ -1328,9 +1337,18 @@ export default function Home() {
                               <p className="text-[10px] md:text-xs text-[#6b6b6b] uppercase truncate mt-0.5">{labor.jobType} • {labor.amount}공수 • 단가₩{labor.unitPrice.toLocaleString()}</p>
                             </div>
                           </div>
-                          <div className="text-right shrink-0">
-                            <p className="text-base md:text-lg font-bold text-[#1a1c1c]">₩{labor.totalPrice.toLocaleString()}</p>
-                            <p className="text-[10px] text-[#16a34a] font-bold tracking-widest mt-0.5">확인됨</p>
+                          <div className="text-right shrink-0 flex items-center gap-2">
+                            <div>
+                              <p className="text-base md:text-lg font-bold text-[#1a1c1c]">₩{labor.totalPrice.toLocaleString()}</p>
+                              <p className="text-[10px] text-[#16a34a] font-bold tracking-widest mt-0.5">확인됨</p>
+                            </div>
+                            <button
+                              onClick={() => handleDeleteItem(deleteLabor, labor.id, `노무 (${labor.name})`)}
+                              className="p-2 rounded-lg text-[#8a8a8a] opacity-0 group-hover:opacity-100 hover:bg-red-500/10 hover:text-red-600 transition-all"
+                              title="삭제"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
                           </div>
                         </div>
                     ))}
@@ -1411,8 +1429,15 @@ export default function Home() {
                               <p className="text-[10px] md:text-xs text-[#6b6b6b] uppercase truncate mt-0.5">{eq.spec} • {eq.amount} 시간/일</p>
                             </div>
                           </div>
-                          <div className="text-right shrink-0">
+                          <div className="text-right shrink-0 flex items-center gap-2">
                             <p className="text-base md:text-lg font-bold text-[#1a1c1c]">₩{eq.totalPrice.toLocaleString()}</p>
+                            <button
+                              onClick={() => handleDeleteItem(deleteEquipment, eq.id, `장비 (${eq.name})`)}
+                              className="p-2 rounded-lg text-[#8a8a8a] opacity-0 group-hover:opacity-100 hover:bg-red-500/10 hover:text-red-600 transition-all"
+                              title="삭제"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
                           </div>
                         </div>
                     ))}
@@ -1481,8 +1506,15 @@ export default function Home() {
                               <p className="text-[10px] md:text-xs text-[#6b6b6b] uppercase truncate mt-0.5">{out.task}</p>
                             </div>
                           </div>
-                          <div className="text-right shrink-0">
+                          <div className="text-right shrink-0 flex items-center gap-2">
                             <p className="text-base md:text-lg font-bold text-[#1a1c1c]">₩{out.amount.toLocaleString()}</p>
+                            <button
+                              onClick={() => handleDeleteItem(deleteOutsourcing, out.id, `외주 (${out.companyName})`)}
+                              className="p-2 rounded-lg text-[#8a8a8a] opacity-0 group-hover:opacity-100 hover:bg-red-500/10 hover:text-red-600 transition-all"
+                              title="삭제"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
                           </div>
                         </div>
                     ))}
@@ -1553,8 +1585,15 @@ export default function Home() {
                               <p className="text-[10px] md:text-xs text-[#6b6b6b] uppercase truncate mt-0.5">{mat.spec} • {mat.quantity}{mat.unit}</p>
                             </div>
                           </div>
-                          <div className="text-right shrink-0">
+                          <div className="text-right shrink-0 flex items-center gap-2">
                             <p className="text-xs text-[#6b6b6b]">{mat.note || '메모 없음'}</p>
+                            <button
+                              onClick={() => handleDeleteItem(deleteMaterial, mat.id, `자재 (${mat.name})`)}
+                              className="p-2 rounded-lg text-[#8a8a8a] opacity-0 group-hover:opacity-100 hover:bg-red-500/10 hover:text-red-600 transition-all"
+                              title="삭제"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
                           </div>
                         </div>
                     ))}
@@ -1617,8 +1656,19 @@ export default function Home() {
                               <p className="text-[10px] md:text-xs text-[#6b6b6b] truncate mt-0.5">{exp.note || '메모 없음'}</p>
                             </div>
                           </div>
-                          <div className="text-right shrink-0">
+                          <div className="text-right shrink-0 flex items-center gap-2">
                             <p className="text-base md:text-lg font-bold text-[#1a1c1c]">₩{exp.amount.toLocaleString()}</p>
+                            {exp.isSettled ? (
+                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#16a34a]/10 text-[#16a34a] font-bold" title="정산 완료된 경비는 삭제할 수 없습니다">정산됨</span>
+                            ) : (
+                              <button
+                                onClick={() => handleDeleteItem(deleteExpense, exp.id, `경비 (${exp.category})`)}
+                                className="p-2 rounded-lg text-[#8a8a8a] opacity-0 group-hover:opacity-100 hover:bg-red-500/10 hover:text-red-600 transition-all"
+                                title="삭제"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
                           </div>
                         </div>
                     ))}
@@ -1951,14 +2001,14 @@ export default function Home() {
           </>
         )}
             {/* Bottom Row: Work Log & Photos - 대시보드 탭에서만 표시 */}
-            {activeTab === 'dashboard' && <section className="grid grid-cols-1 xl:grid-cols-2 gap-6 pt-10 pb-10">
-              <div className="bg-[#ffffff] border border-[#e5e5e5] p-6 rounded-xl flex flex-col gap-4">
+            {activeTab === 'dashboard' && <section className="grid grid-cols-1 xl:grid-cols-2 gap-3 pt-3 pb-6">
+              <div className="bg-[#ffffff] border border-[#e5e5e5] p-4 rounded-xl flex flex-col gap-2">
                 <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[#556b2f]">edit_note</span>
+                  <span className="material-symbols-outlined text-[#556b2f] text-[18px]">edit_note</span>
                   <h4 className="font-['Inter'] font-bold text-[#1a1c1c] uppercase text-xs tracking-widest">오늘의 주요 작업 내용 (WORK LOG)</h4>
                 </div>
-                <textarea 
-                  className="bg-[#f9f9f9] border border-[#e5e5e5] text-sm text-[#1a1c1c] p-4 h-40 focus:ring-1 focus:ring-[#556b2f] focus:border-[#556b2f] transition-all resize-none outline-none rounded-lg" 
+                <textarea
+                  className="bg-[#f9f9f9] border border-[#e5e5e5] text-sm text-[#1a1c1c] p-3 h-24 focus:ring-1 focus:ring-[#556b2f] focus:border-[#556b2f] transition-all resize-none outline-none rounded-lg"
                   placeholder="오늘의 주요 작업 내용을 입력하세요..."
                   value={workDescription}
                   onChange={(e) => setWorkDescription(e.target.value)}
@@ -1971,15 +2021,15 @@ export default function Home() {
                 </div>
               </div>
 
-              <div className="bg-[#ffffff] border border-[#e5e5e5] p-6 rounded-xl flex flex-col gap-4">
+              <div className="bg-[#ffffff] border border-[#e5e5e5] p-4 rounded-xl flex flex-col gap-2">
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-[#556b2f]">photo_library</span>
+                    <span className="material-symbols-outlined text-[#556b2f] text-[18px]">photo_library</span>
                     <h4 className="font-['Inter'] font-bold text-[#1a1c1c] uppercase text-xs tracking-widest">현장 사진 첨부 (SITE PHOTOS)</h4>
                   </div>
                   <span className="text-[10px] text-[#6b6b6b] font-label-caps uppercase">{logData?.photos?.length || 0} ATTACHMENTS</span>
                 </div>
-                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
                   {logData?.photos?.map((photo: any) => (
                     <div key={photo.id} className="aspect-square bg-surface-container-high relative group cursor-pointer overflow-hidden rounded-lg border border-[#e5e5e5]">
                       <img className="w-full h-full object-cover group-hover:scale-110 transition-transform" src={photo.url} alt="Site Photo" />

@@ -34,14 +34,14 @@ export default function NotifyButton({ userName }: { userName?: string }) {
 
   if (state === 'on') {
     return (
-      <button disabled className="w-10 h-10 flex items-center justify-center rounded-lg text-[#556b2f]" title="알림 켜짐">
-        <BellRing className="w-5 h-5" />
+      <button disabled className="w-8 h-8 shrink-0 flex items-center justify-center rounded-lg text-[#82a441]" title="알림 켜짐">
+        <BellRing className="w-4 h-4" />
       </button>
     )
   }
   return (
-    <button onClick={turnOn} className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-[#e5e5e5] transition-colors text-[#6b6b6b] hover:text-[#556b2f]" title="알림 받기">
-      {state === 'loading' ? <Loader2 className="w-5 h-5 animate-spin" /> : <Bell className="w-5 h-5" />}
+    <button onClick={turnOn} className="w-8 h-8 shrink-0 flex items-center justify-center rounded-lg hover:bg-[#282a2d] transition-colors text-slate-300 hover:text-[#82a441]" title="알림 받기">
+      {state === 'loading' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Bell className="w-4 h-4" />}
     </button>
   )
 }
