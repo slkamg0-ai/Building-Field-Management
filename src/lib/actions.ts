@@ -1496,7 +1496,7 @@ export async function importContractItems(siteId: string, rows: Array<{
   await prisma.$transaction([
     prisma.contractItem.updateMany({ where: { siteId, isActive: true }, data: { isActive: false } }),
     prisma.contractItem.createMany({ data }),
-  ], { timeout: 30000 })
+  ])
   revalidatePath('/')
   return { imported: rows.length }
 }
@@ -1632,27 +1632,106 @@ export async function generateMonthlyProgressClaim(siteId: string, year: number,
   const totalClaimAmount = cumulativeClaimAmount - prevCumulative
 
   const startOfMonth = new Date(year, month - 1, 1)
-  const logs = await prisma.dailyLog.findMany({
-    where: { siteId, date: { gte: startOfMonth, lte: endOfMonth } },
-    include: { labors: true, equipments: true, materials: true, expenses: true, outsourcings: true },
-  })
-  let totalCostAmount = 0
-  for (const log of logs) {
-    totalCostAmount += log.labors.reduce((s, i) => s + i.totalPrice, 0)
-    totalCostAmount += log.equipments.reduce((s, i) => s + i.totalPrice, 0)
-    totalCostAmount += log.materials.reduce((s, i) => s + (i.totalPrice || 0), 0)
-    totalCostAmount += log.expenses.reduce((s, i) => s + i.amount, 0)
-    totalCostAmount += log.outsourcings.reduce((s, i) => s + i.amount, 0)
-  }
+  const [monthLogs, cumulativeLogs] = await Promise.all([
+    prisma.dailyLog.findMany({
+      where: { siteId, date: { gte: startOfMonth, lte: endOfMonth } },
+      include: { labors: true, equipments: true, materials: true, expenses: true, outsourcings: true },
+    }),
+    prisma.dailyLog.findMany({
+      where: { siteId, date: { lte: endOfMonth } },
+      include: { labors: true, equipments: true, materials: true, expenses: true, outsourcings: true },
+    }),
+  ])
+  const sumCost = (logs: typeof monthLogs) => logs.reduce((total, log) => {
+    total += log.labors.reduce((s, i) => s + i.totalPrice, 0)
+    total += log.equipments.reduce((s, i) => s + i.totalPrice, 0)
+    total += log.materials.reduce((s, i) => s + (i.totalPrice || 0), 0)
+    total += log.expenses.reduce((s, i) => s + i.amount, 0)
+    total += log.outsourcings.reduce((s, i) => s + i.amount, 0)
+    return total
+  }, 0)
+  const totalCostAmount = sumCost(monthLogs)
+  const cumulativeCostAmount = sumCost(cumulativeLogs)
   const profitAmount = totalClaimAmount - totalCostAmount
+  const cumulativeProfitAmount = cumulativeClaimAmount - cumulativeCostAmount
 
   const claim = await prisma.monthlyProgressClaim.upsert({
     where: { siteId_year_month: { siteId, year, month } },
-    update: { totalClaimAmount, cumulativeClaimAmount, totalCostAmount, profitAmount, createdBy: user.name },
-    create: { siteId, year, month, totalClaimAmount, cumulativeClaimAmount, totalCostAmount, profitAmount, createdBy: user.name },
+    update: { totalClaimAmount, cumulativeClaimAmount, totalCostAmount, profitAmount, cumulativeCostAmount, cumulativeProfitAmount, createdBy: user.name },
+    create: { siteId, year, month, totalClaimAmount, cumulativeClaimAmount, totalCostAmount, profitAmount, cumulativeCostAmount, cumulativeProfitAmount, createdBy: user.name },
   })
   revalidatePath('/')
   return claim
+}
+
+// ── 월별 투입명세서(원가) — 그달 노무/장비/자재/경비/외주 취합. 지급 결정용 상세 문서.
+export async function getMonthlyCostDetail(siteId: string, year: number, month: number) {
+  const site = await prisma.site.findUnique({ where: { id: siteId } })
+  if (!site) throw new Error('현장을 찾을 수 없습니다.')
+
+  const startOfMonth = new Date(year, month - 1, 1)
+  const endOfMonth = new Date(year, month, 0, 23, 59, 59)
+  const logs = await prisma.dailyLog.findMany({
+    where: { siteId, date: { gte: startOfMonth, lte: endOfMonth } },
+    include: { labors: true, equipments: true, materials: true, expenses: true, outsourcings: true },
+    orderBy: { date: 'asc' },
+  })
+
+  // 노무: 인원별 합산 (공수/금액) — 지급 대상별 총액 확인용
+  const laborMap = new Map<string, { name: string; jobType: string; amount: number; totalPrice: number }>()
+  // 장비: 장비명+구분(직영/당사)별 합산
+  const equipmentMap = new Map<string, { name: string; ownerType: string; amount: number; totalPrice: number }>()
+  const materials: any[] = []
+  const expenseMap = new Map<string, { category: string; amount: number }>()
+  const outsourcingMap = new Map<string, { companyName: string; task: string; amount: number }>()
+
+  for (const log of logs) {
+    for (const l of log.labors) {
+      const key = `${l.name}::${l.jobType}`
+      const cur = laborMap.get(key) || { name: l.name, jobType: l.jobType, amount: 0, totalPrice: 0 }
+      cur.amount += l.amount
+      cur.totalPrice += l.totalPrice
+      laborMap.set(key, cur)
+    }
+    for (const e of log.equipments) {
+      const key = `${e.name}::${e.ownerType}`
+      const cur = equipmentMap.get(key) || { name: e.name, ownerType: e.ownerType, amount: 0, totalPrice: 0 }
+      cur.amount += e.amount
+      cur.totalPrice += e.totalPrice
+      equipmentMap.set(key, cur)
+    }
+    for (const m of log.materials) {
+      materials.push({ date: log.date, name: m.name, spec: m.spec, unit: m.unit, quantity: m.quantity, totalPrice: m.totalPrice || 0 })
+    }
+    for (const ex of log.expenses) {
+      const key = ex.category
+      const cur = expenseMap.get(key) || { category: ex.category, amount: 0 }
+      cur.amount += ex.amount
+      expenseMap.set(key, cur)
+    }
+    for (const o of log.outsourcings) {
+      const key = `${o.companyName}::${o.task}`
+      const cur = outsourcingMap.get(key) || { companyName: o.companyName, task: o.task, amount: 0 }
+      cur.amount += o.amount
+      outsourcingMap.set(key, cur)
+    }
+  }
+
+  const labors = Array.from(laborMap.values()).sort((a, b) => a.name.localeCompare(b.name, 'ko'))
+  const equipments = Array.from(equipmentMap.values()).sort((a, b) => a.name.localeCompare(b.name, 'ko'))
+  const expenses = Array.from(expenseMap.values()).sort((a, b) => a.category.localeCompare(b.category, 'ko'))
+  const outsourcings = Array.from(outsourcingMap.values()).sort((a, b) => a.companyName.localeCompare(b.companyName, 'ko'))
+
+  const totals = {
+    labor: labors.reduce((s, i) => s + i.totalPrice, 0),
+    equipment: equipments.reduce((s, i) => s + i.totalPrice, 0),
+    material: materials.reduce((s, i) => s + i.totalPrice, 0),
+    expense: expenses.reduce((s, i) => s + i.amount, 0),
+    outsourcing: outsourcings.reduce((s, i) => s + i.amount, 0),
+  }
+  const grandTotal = totals.labor + totals.equipment + totals.material + totals.expense + totals.outsourcing
+
+  return { site, labors, equipments, materials, expenses, outsourcings, totals, grandTotal }
 }
 
 export async function updateProgressClaimStatus(id: string, status: string, note?: string) {

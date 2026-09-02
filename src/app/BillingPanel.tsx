@@ -18,6 +18,7 @@ import {
   generateMonthlyProgressClaim,
   updateProgressClaimStatus,
   getProgressClaimItemDetail,
+  getMonthlyCostDetail,
 } from '@/lib/actions'
 
 function won(n: number | null | undefined) {
@@ -33,7 +34,7 @@ const STATUS_COLOR: Record<string, string> = {
 
 export default function BillingPanel({ siteId, logId, currentUser }: { siteId: string; logId?: string | null; currentUser: any }) {
   const isAdmin = currentUser?.role === 'ADMIN'
-  const [subTab, setSubTab] = useState<'entry' | 'items' | 'claim'>('entry')
+  const [subTab, setSubTab] = useState<'entry' | 'items' | 'cost' | 'claim'>('entry')
 
   const [items, setItems] = useState<any[]>([])
   const [itemsLoading, setItemsLoading] = useState(true)
@@ -49,6 +50,9 @@ export default function BillingPanel({ siteId, logId, currentUser }: { siteId: s
   const [claim, setClaim] = useState<any>(null)
   const [claimHistory, setClaimHistory] = useState<any[]>([])
   const [claimLoading, setClaimLoading] = useState(false)
+
+  const [costDetail, setCostDetail] = useState<any>(null)
+  const [costLoading, setCostLoading] = useState(false)
 
   async function loadItems() {
     if (!siteId) return
@@ -88,9 +92,21 @@ export default function BillingPanel({ siteId, logId, currentUser }: { siteId: s
     }
   }
 
+  async function loadCostDetail() {
+    if (!siteId) return
+    setCostLoading(true)
+    try {
+      const data = await getMonthlyCostDetail(siteId, year, month)
+      setCostDetail(data)
+    } finally {
+      setCostLoading(false)
+    }
+  }
+
   useEffect(() => { loadItems() }, [siteId])
   useEffect(() => { loadTodayQuantities() }, [logId])
   useEffect(() => { loadClaim() }, [siteId, year, month])
+  useEffect(() => { loadCostDetail() }, [siteId, year, month])
 
   const leafItems = useMemo(() => items.filter(i => i.isLeaf), [items])
   const filteredLeafItems = useMemo(() => {
@@ -280,6 +296,47 @@ export default function BillingPanel({ siteId, logId, currentUser }: { siteId: s
     }
   }
 
+  async function handleExportCostDetail() {
+    if (!costDetail) return
+    const { site, labors, equipments, materials, expenses, outsourcings, totals, grandTotal } = costDetail
+    const sheetData: any[][] = [
+      [`${site.name} 투입명세서 (${year}년 ${month}월)`],
+      [`작성일: ${new Date().toISOString().slice(0, 10)}`],
+      [],
+      ['[노무]'],
+      ['이름', '공종', '공수', '금액'],
+      ...labors.map((l: any) => [l.name, l.jobType, l.amount, l.totalPrice]),
+      ['', '', '소계', totals.labor],
+      [],
+      ['[장비]'],
+      ['장비명', '구분', '투입량', '금액'],
+      ...equipments.map((e: any) => [e.name, e.ownerType === 'DIRECT' ? '원청 직영' : '당사 투입', e.amount, e.totalPrice]),
+      ['', '', '소계', totals.equipment],
+      [],
+      ['[자재]'],
+      ['날짜', '자재명', '규격', '단위', '수량', '금액'],
+      ...materials.map((m: any) => [new Date(m.date).toISOString().slice(0, 10), m.name, m.spec, m.unit, m.quantity, m.totalPrice]),
+      ['', '', '', '', '소계', totals.material],
+      [],
+      ['[경비]'],
+      ['항목', '금액'],
+      ...expenses.map((e: any) => [e.category, e.amount]),
+      ['소계', totals.expense],
+      [],
+      ['[외주]'],
+      ['업체명', '작업내용', '금액'],
+      ...outsourcings.map((o: any) => [o.companyName, o.task, o.amount]),
+      ['', '소계', totals.outsourcing],
+      [],
+      ['총 투입원가 합계', grandTotal],
+    ]
+    const ws = XLSX.utils.aoa_to_sheet(sheetData)
+    ws['!cols'] = [{ wch: 16 }, { wch: 16 }, { wch: 12 }, { wch: 14 }, { wch: 10 }, { wch: 14 }]
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, '투입명세서')
+    XLSX.writeFile(wb, `${site.name}_투입명세서_${year}-${String(month).padStart(2, '0')}.xlsx`)
+  }
+
   const selectedItem = leafItems.find(i => i.id === entryForm.contractItemId)
 
   return (
@@ -287,6 +344,7 @@ export default function BillingPanel({ siteId, logId, currentUser }: { siteId: s
       <div className="flex gap-1 bg-[#ededed] p-1 rounded-lg w-fit">
         <button onClick={() => setSubTab('entry')} className={`px-3 py-1.5 rounded text-xs md:text-sm font-bold transition-colors ${subTab === 'entry' ? 'bg-[#ffffff] text-[#556b2f] shadow' : 'text-[#737373]'}`}>오늘 시공수량</button>
         <button onClick={() => setSubTab('items')} className={`px-3 py-1.5 rounded text-xs md:text-sm font-bold transition-colors ${subTab === 'items' ? 'bg-[#ffffff] text-[#556b2f] shadow' : 'text-[#737373]'}`}>계약품목{isAdmin ? ' 관리' : ''}</button>
+        <button onClick={() => setSubTab('cost')} className={`px-3 py-1.5 rounded text-xs md:text-sm font-bold transition-colors ${subTab === 'cost' ? 'bg-[#ffffff] text-[#556b2f] shadow' : 'text-[#737373]'}`}>월별 투입명세서</button>
         <button onClick={() => setSubTab('claim')} className={`px-3 py-1.5 rounded text-xs md:text-sm font-bold transition-colors ${subTab === 'claim' ? 'bg-[#ffffff] text-[#556b2f] shadow' : 'text-[#737373]'}`}>월별 기성청구서</button>
       </div>
 
@@ -433,6 +491,68 @@ export default function BillingPanel({ siteId, logId, currentUser }: { siteId: s
         </div>
       )}
 
+      {/* ===================== 월별 투입명세서(원가) ===================== */}
+      {subTab === 'cost' && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <select value={year} onChange={e => setYear(Number(e.target.value))} className="bg-[#f3f3f3] border border-[#e5e5e5] rounded px-3 py-2 text-[#1a1c1c] outline-none focus:border-[#556b2f]">
+              {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map(y => <option key={y} value={y}>{y}년</option>)}
+            </select>
+            <select value={month} onChange={e => setMonth(Number(e.target.value))} className="bg-[#f3f3f3] border border-[#e5e5e5] rounded px-3 py-2 text-[#1a1c1c] outline-none focus:border-[#556b2f]">
+              {Array.from({ length: 12 }, (_, i) => i + 1).map(m => <option key={m} value={m}>{m}월</option>)}
+            </select>
+            <button onClick={handleExportCostDetail} disabled={!costDetail} className="ml-auto flex items-center gap-1.5 bg-[#f3f3f3] border border-[#556b2f]/40 text-[#556b2f] font-bold px-3 py-2 rounded text-sm hover:bg-[#556b2f]/10 disabled:opacity-40">
+              <Download className="w-4 h-4" /> 엑셀로 내보내기
+            </button>
+          </div>
+
+          {costLoading ? (
+            <div className="text-center py-8 text-[#737373]">불러오는 중...</div>
+          ) : !costDetail ? null : (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+                {[
+                  ['노무', costDetail.totals.labor], ['장비', costDetail.totals.equipment], ['자재', costDetail.totals.material],
+                  ['경비', costDetail.totals.expense], ['외주', costDetail.totals.outsourcing],
+                ].map(([label, value]: any) => (
+                  <div key={label} className="bg-[#f3f3f3] border border-[#e5e5e5] rounded-xl p-3 text-center">
+                    <div className="text-xs text-[#6b6b6b]">{label}</div>
+                    <div className="text-sm font-bold text-[#1a1c1c]">{won(value)}</div>
+                  </div>
+                ))}
+              </div>
+              <div className="bg-[#556b2f]/10 border border-[#556b2f]/30 rounded-xl p-3 text-center">
+                <div className="text-xs text-[#556b2f]">이번달 총 투입원가</div>
+                <div className="text-xl font-bold text-[#556b2f]">{won(costDetail.grandTotal)}</div>
+              </div>
+
+              {[
+                { title: '노무', rows: costDetail.labors, cols: ['이름', '공종', '공수', '금액'], get: (r: any) => [r.name, r.jobType, r.amount, won(r.totalPrice)] },
+                { title: '장비', rows: costDetail.equipments, cols: ['장비명', '구분', '투입량', '금액'], get: (r: any) => [r.name, r.ownerType === 'DIRECT' ? '원청 직영' : '당사 투입', r.amount, won(r.totalPrice)] },
+                { title: '자재', rows: costDetail.materials, cols: ['자재명', '규격', '수량', '금액'], get: (r: any) => [r.name, `${r.spec || ''}${r.spec ? ' · ' : ''}${r.unit || ''}`, r.quantity, won(r.totalPrice)] },
+                { title: '경비', rows: costDetail.expenses, cols: ['항목', '', '', '금액'], get: (r: any) => [r.category, '', '', won(r.amount)] },
+                { title: '외주', rows: costDetail.outsourcings, cols: ['업체명', '작업내용', '', '금액'], get: (r: any) => [r.companyName, r.task, '', won(r.amount)] },
+              ].filter(sec => sec.rows.length > 0).map(sec => (
+                <div key={sec.title} className="bg-[#f3f3f3] border border-[#e5e5e5] rounded-xl overflow-hidden">
+                  <div className="px-3 py-2 bg-[#ededed] font-bold text-sm text-[#1a1c1c]">{sec.title} ({sec.rows.length}건)</div>
+                  <table className="w-full text-xs md:text-sm">
+                    <tbody>
+                      {sec.rows.map((r: any, i: number) => (
+                        <tr key={i} className="border-t border-[#e5e5e5]">
+                          {sec.get(r).map((v: any, j: number) => (
+                            <td key={j} className={`p-2 ${j === sec.get(r).length - 1 ? 'text-right font-bold text-[#1a1c1c]' : 'text-[#1a1c1c]'}`}>{v}</td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* ===================== 월별 기성청구서 ===================== */}
       {subTab === 'claim' && (
         <div className="space-y-4">
@@ -477,6 +597,17 @@ export default function BillingPanel({ siteId, logId, currentUser }: { siteId: s
                 <div className="bg-[#f3f3f3] border border-[#e5e5e5] rounded-xl p-3">
                   <div className="text-xs text-[#6b6b6b]">이번달 손익</div>
                   <div className={`text-base md:text-lg font-bold ${claim.profitAmount >= 0 ? 'text-[#16a34a]' : 'text-red-600'}`}>{won(claim.profitAmount)}</div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-[#ededed] border border-[#e5e5e5] rounded-xl p-3">
+                  <div className="text-xs text-[#6b6b6b]">누계 실투입원가 (착공~{month}월)</div>
+                  <div className="text-base md:text-lg font-bold text-[#1a1c1c]">{won(claim.cumulativeCostAmount)}</div>
+                </div>
+                <div className="bg-[#ededed] border border-[#e5e5e5] rounded-xl p-3">
+                  <div className="text-xs text-[#6b6b6b]">누계 손익</div>
+                  <div className={`text-base md:text-lg font-bold ${claim.cumulativeProfitAmount >= 0 ? 'text-[#16a34a]' : 'text-red-600'}`}>{won(claim.cumulativeProfitAmount)}</div>
                 </div>
               </div>
 
