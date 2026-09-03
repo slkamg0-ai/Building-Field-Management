@@ -51,7 +51,7 @@ export default function Home() {
   
   // 항목별 폼 상태
   const [laborForm, setLaborForm] = useState({ name: '', jobType: '', unitPrice: '', amount: '1', note: '' })
-  const [equipmentForm, setEquipmentForm] = useState({ name: '', spec: '', unitPrice: '', amount: '1', note: '' })
+  const [equipmentForm, setEquipmentForm] = useState({ name: '', spec: '', unitPrice: '', amount: '1', note: '', ownerType: 'DIRECT', taskDescription: '' })
   const [materialForm, setMaterialForm] = useState({ name: '', spec: '', unit: '', quantity: '1', note: '' })
   const [outsourcingForm, setOutsourcingForm] = useState({ company: '', task: '', amount: '', note: '' })
   const [expenseForm, setExpenseForm] = useState({ category: '', amount: '', note: '', assignedTo: '' })
@@ -397,7 +397,7 @@ export default function Home() {
     e.preventDefault()
     if (!logData || !currentUser) return
     await addEquipment(logData.id, equipmentForm, currentUser.name)
-    setEquipmentForm({ name: '', spec: '', unitPrice: '', amount: '1', note: '' })
+    setEquipmentForm({ name: '', spec: '', unitPrice: '', amount: '1', note: '', ownerType: 'DIRECT', taskDescription: '' })
     setShowAddForm(false)
     loadData()
     loadMonthlyData()
@@ -1000,61 +1000,61 @@ export default function Home() {
           </div>
         ) : (
           <>
-            {/* Status & Cost Summary - 항상 표시 */}
+            {/* Status & Cost Summary - 항상 표시 (인포그래픽 네이비+크림 테마) */}
             <section className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div className="p-4 bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] space-y-2.5 relative corner-markers">
+              <div className="dash-card p-4 bg-[#fffdf7] border border-[#2e3192] space-y-2.5 relative corner-markers">
                 <CornerMarkers />
                 <div className="flex justify-between items-start relative z-10">
                   <div>
-                    <p className="font-cond font-bold text-[#5980a6] text-[11px] tracking-wider uppercase mb-0.5">{monthName} 누적 지출</p>
-                    <h2 className="text-xl md:text-2xl font-bold text-[#1d1f20] tracking-tight">
+                    <p className="font-cond font-bold text-[#2e3192] text-[11px] tracking-wider uppercase mb-0.5">{monthName} 누적 지출</p>
+                    <h2 className="text-xl md:text-2xl font-bold text-[#23255c] tracking-tight">
                       ₩{monthlyStats?.summary?.grandTotal?.toLocaleString() || 0}
                     </h2>
                   </div>
-                  <span className="px-2 py-0.5 rounded-full bg-[#15803d]/20 text-[#16a34a] text-[10px] font-bold flex items-center gap-1 shrink-0">
+                  <span className="dash-pill px-2 py-0.5 bg-[#2e3192] text-[#fffdf7] text-[10px] font-bold flex items-center gap-1 shrink-0">
                     <span className="material-symbols-outlined text-[12px]">insights</span> 월간
                   </span>
                 </div>
-                <div className="h-2 w-full bg-[#f2f2f3] rounded-full overflow-hidden relative z-10 border border-[rgba(29,31,32,0.16)]">
+                <div className="dash-pill h-2 w-full bg-[#eef1ff] overflow-hidden relative z-10 border border-[#2e3192]/40">
                   <div className="h-full flex">
                     {monthlyStats?.summary?.grandTotal > 0 && (
                       <>
-                        <div className="h-full bg-[#5980a6]" style={{ width: `${(monthlyStats.summary.totalLabor / monthlyStats.summary.grandTotal) * 100}%` }} title={`노무비: ${monthlyStats.summary.totalLabor}`}></div>
-                        <div className="h-full bg-[#0284c7]" style={{ width: `${(monthlyStats.summary.totalEquipment / monthlyStats.summary.grandTotal) * 100}%` }} title={`장비대: ${monthlyStats.summary.totalEquipment}`}></div>
-                        <div className="h-full bg-[#7c3aed]" style={{ width: `${(monthlyStats.summary.totalOutsourcing / monthlyStats.summary.grandTotal) * 100}%` }} title={`외주비: ${monthlyStats.summary.totalOutsourcing}`}></div>
-                        <div className="h-full bg-[#16a34a]" style={{ width: `${(monthlyStats.summary.totalExpense / monthlyStats.summary.grandTotal) * 100}%` }} title={`경비: ${monthlyStats.summary.totalExpense}`}></div>
+                        <div className="h-full bg-[#2e3192]" style={{ width: `${(monthlyStats.summary.totalLabor / monthlyStats.summary.grandTotal) * 100}%` }} title={`노무비: ${monthlyStats.summary.totalLabor}`}></div>
+                        <div className="h-full bg-[#5b6fd6]" style={{ width: `${(monthlyStats.summary.totalEquipment / monthlyStats.summary.grandTotal) * 100}%` }} title={`장비대: ${monthlyStats.summary.totalEquipment}`}></div>
+                        <div className="h-full bg-[#93a5f0]" style={{ width: `${(monthlyStats.summary.totalOutsourcing / monthlyStats.summary.grandTotal) * 100}%` }} title={`외주비: ${monthlyStats.summary.totalOutsourcing}`}></div>
+                        <div className="h-full bg-[#c9d3fa]" style={{ width: `${(monthlyStats.summary.totalExpense / monthlyStats.summary.grandTotal) * 100}%` }} title={`경비: ${monthlyStats.summary.totalExpense}`}></div>
                       </>
                     )}
                   </div>
                 </div>
                 <div className="flex justify-between text-[9px] md:text-[11px] font-bold tracking-widest relative z-10">
-                  <span className="text-[#5980a6] flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-[#5980a6] inline-block"></span>노무: ₩{monthlyStats?.summary?.totalLabor?.toLocaleString() || 0}</span>
-                  <span className="text-[#0284c7] flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-[#0284c7] inline-block"></span>장비: ₩{monthlyStats?.summary?.totalEquipment?.toLocaleString() || 0}</span>
-                  <span className="text-[#7c3aed] flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-[#7c3aed] inline-block"></span>외주: ₩{monthlyStats?.summary?.totalOutsourcing?.toLocaleString() || 0}</span>
-                  <span className="text-[#16a34a] flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-[#16a34a] inline-block"></span>경비: ₩{monthlyStats?.summary?.totalExpense?.toLocaleString() || 0}</span>
+                  <span className="text-[#2e3192] flex items-center gap-1"><span className="w-1.5 h-1.5 dash-pill bg-[#2e3192] inline-block"></span>노무: ₩{monthlyStats?.summary?.totalLabor?.toLocaleString() || 0}</span>
+                  <span className="text-[#5b6fd6] flex items-center gap-1"><span className="w-1.5 h-1.5 dash-pill bg-[#5b6fd6] inline-block"></span>장비: ₩{monthlyStats?.summary?.totalEquipment?.toLocaleString() || 0}</span>
+                  <span className="text-[#7885d1] flex items-center gap-1"><span className="w-1.5 h-1.5 dash-pill bg-[#93a5f0] inline-block"></span>외주: ₩{monthlyStats?.summary?.totalOutsourcing?.toLocaleString() || 0}</span>
+                  <span className="text-[#9aa3c9] flex items-center gap-1"><span className="w-1.5 h-1.5 dash-pill bg-[#c9d3fa] inline-block"></span>경비: ₩{monthlyStats?.summary?.totalExpense?.toLocaleString() || 0}</span>
                 </div>
               </div>
 
               {/* 총 예산 대비 누적 지출 분석 카드 */}
               {siteTotalStats && (
-                <div className="p-4 bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] space-y-2.5 relative corner-markers">
+                <div className="dash-card p-4 bg-[#fffdf7] border border-[#2e3192] space-y-2.5 relative corner-markers">
                   <CornerMarkers />
                   <div className="flex justify-between items-start relative z-10">
                     <div>
-                      <p className="font-cond font-bold text-[#0284c7] text-[11px] tracking-wider uppercase mb-0.5">전체 예산 대비 실적</p>
-                      <h2 className="text-xl md:text-2xl font-bold text-[#1d1f20] tracking-tight">
+                      <p className="font-cond font-bold text-[#5b6fd6] text-[11px] tracking-wider uppercase mb-0.5">전체 예산 대비 실적</p>
+                      <h2 className="text-xl md:text-2xl font-bold text-[#23255c] tracking-tight">
                         ₩{siteTotalStats.totalSpent.toLocaleString()}
-                        <span className="text-xs text-[rgba(29,31,32,0.55)] font-normal ml-2">/ ₩{siteTotalStats.site.contractAmount.toLocaleString()}</span>
+                        <span className="text-xs text-[#6266a8] font-normal ml-2">/ ₩{siteTotalStats.site.contractAmount.toLocaleString()}</span>
                       </h2>
                     </div>
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 shrink-0 ${siteTotalStats.progressPercent > 100 ? 'bg-red-500/20 text-red-600' : 'bg-[#0284c7]/20 text-[#0284c7]'}`}>
+                    <span className={`dash-pill px-2 py-0.5 text-[10px] font-bold flex items-center gap-1 shrink-0 ${siteTotalStats.progressPercent > 100 ? 'bg-red-500/20 text-red-600' : 'bg-[#5b6fd6] text-[#fffdf7]'}`}>
                       <span className="material-symbols-outlined text-[12px]">flag</span> {siteTotalStats.progressPercent.toFixed(1)}%
                     </span>
                   </div>
-                  <div className="h-2 w-full bg-[#f2f2f3] rounded-full overflow-hidden relative z-10 border border-[rgba(29,31,32,0.16)]">
-                    <div className={`h-full ${siteTotalStats.progressPercent > 100 ? 'bg-red-500' : 'bg-[#0284c7]'}`} style={{ width: `${Math.min(siteTotalStats.progressPercent, 100)}%` }}></div>
+                  <div className="dash-pill h-2 w-full bg-[#eef1ff] overflow-hidden relative z-10 border border-[#2e3192]/40">
+                    <div className={`h-full ${siteTotalStats.progressPercent > 100 ? 'bg-red-500' : 'bg-[#5b6fd6]'}`} style={{ width: `${Math.min(siteTotalStats.progressPercent, 100)}%` }}></div>
                   </div>
-                  <div className="flex justify-between text-[9px] md:text-[11px] font-bold tracking-widest relative z-10 text-[rgba(29,31,32,0.6)]">
+                  <div className="flex justify-between text-[9px] md:text-[11px] font-bold tracking-widest relative z-10 text-[#6266a8]">
                     <span>공기: {siteTotalStats.totalDays}일 중 {siteTotalStats.passedDays}일 경과</span>
                     <span>잔여: ₩{Math.max(0, siteTotalStats.site.contractAmount - siteTotalStats.totalSpent).toLocaleString()}</span>
                   </div>
@@ -1087,35 +1087,35 @@ export default function Home() {
 
                   {/* 오늘의 요약 및 한계금액 분석 */}
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                    <div className="bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded-xl p-4">
-                      <h4 className="font-bold text-[#1d1f20] text-sm mb-2 flex items-center gap-2">
-                        <span className="material-symbols-outlined text-[#5980a6] text-[18px]">calendar_today</span> 오늘의 지출 요약 ({currentDate})
+                    <div className="dash-card bg-[#fffdf7] border border-[#2e3192]/60 p-4">
+                      <h4 className="font-cond font-bold text-[#23255c] text-sm mb-2 flex items-center gap-2">
+                        <span className="material-symbols-outlined text-[#2e3192] text-[18px]">calendar_today</span> 오늘의 지출 요약 ({currentDate})
                       </h4>
                       <div className="space-y-1.5">
-                        <div className="flex justify-between items-center py-1.5 border-b border-[rgba(29,31,32,0.16)]">
-                          <span className="text-[rgba(29,31,32,0.6)] text-sm">일일 총 지출</span>
-                          <span className={`font-bold ${isOverBudgetToday ? 'text-red-600' : 'text-[#1d1f20]'}`}>₩{grandTotal.toLocaleString()}</span>
+                        <div className="flex justify-between items-center py-1.5 border-b border-[#2e3192]/20">
+                          <span className="text-[#6266a8] text-sm">일일 총 지출</span>
+                          <span className={`font-bold ${isOverBudgetToday ? 'text-red-600' : 'text-[#23255c]'}`}>₩{grandTotal.toLocaleString()}</span>
                         </div>
-                        <div className="flex justify-between items-center py-1.5 border-b border-[rgba(29,31,32,0.16)]">
-                          <span className="text-[rgba(29,31,32,0.6)] text-sm">일일 권장 투입 한계</span>
-                          <span className="font-bold text-[#0284c7]">₩{siteTotalStats ? Math.round(siteTotalStats.dailyLimit).toLocaleString() : 0}</span>
+                        <div className="flex justify-between items-center py-1.5 border-b border-[#2e3192]/20">
+                          <span className="text-[#6266a8] text-sm">일일 권장 투입 한계</span>
+                          <span className="font-bold text-[#5b6fd6]">₩{siteTotalStats ? Math.round(siteTotalStats.dailyLimit).toLocaleString() : 0}</span>
                         </div>
                         <div className="flex justify-between items-center pt-1.5">
-                          <span className="text-[rgba(29,31,32,0.6)] text-sm">상태 분석</span>
+                          <span className="text-[#6266a8] text-sm">상태 분석</span>
                           {isOverBudgetToday ? (
-                            <span className="text-red-600 font-bold text-xs bg-red-400/10 px-2 py-1 rounded">한계선 초과 (주의)</span>
+                            <span className="dash-pill text-red-600 font-bold text-xs bg-red-400/10 px-2 py-1">한계선 초과 (주의)</span>
                           ) : (
-                            <span className="text-[#16a34a] font-bold text-xs bg-[#16a34a]/10 px-2 py-1 rounded">안정적 (예산 내)</span>
+                            <span className="dash-pill text-[#2e3192] font-bold text-xs bg-[#eef1ff] px-2 py-1">안정적 (예산 내)</span>
                           )}
                         </div>
                       </div>
                     </div>
 
-                    <div className="bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded-xl p-4 flex items-center gap-4">
-                      <span className="material-symbols-outlined text-3xl text-[rgba(29,31,32,0.5)] shrink-0">download</span>
+                    <div className="dash-card bg-[#fffdf7] border border-[#2e3192]/60 p-4 flex items-center gap-4">
+                      <span className="material-symbols-outlined text-3xl text-[#8489c4] shrink-0">download</span>
                       <div className="flex-1 min-w-0">
-                        <h4 className="font-bold text-[#1d1f20] text-sm mb-0.5">데이터 내보내기</h4>
-                        <p className="text-xs text-[rgba(29,31,32,0.6)] mb-2 truncate">월간 작업일보 및 투입 비용 명세서 (.xlsx)</p>
+                        <h4 className="font-cond font-bold text-[#23255c] text-sm mb-0.5">데이터 내보내기</h4>
+                        <p className="text-xs text-[#6266a8] mb-2 truncate">월간 작업일보 및 투입 비용 명세서 (.xlsx)</p>
                         <button
                           onClick={() => {
                             const selectedSite = sites.find(s => s.id === selectedSiteId)
@@ -1129,7 +1129,7 @@ export default function Home() {
                               siteTotalStats
                             )
                           }}
-                          className="py-1.5 px-4 rounded-lg bg-[#5980a6] text-[#f2f2f3] text-sm font-bold transition-colors flex items-center justify-center gap-1.5 hover:opacity-90 active:scale-95"
+                          className="dash-sm py-1.5 px-4 bg-[#2e3192] text-[#fffdf7] text-sm font-bold transition-colors flex items-center justify-center gap-1.5 hover:opacity-90 active:scale-95"
                         >
                           <span className="material-symbols-outlined text-sm">file_download</span>
                           엑셀 다운로드
@@ -1141,36 +1141,36 @@ export default function Home() {
                   {/* 차트 + 월간 상세 분석: 넓은 화면에서는 좌우로 배치해 스크롤을 줄임 */}
                   <div className="grid grid-cols-1 xl:grid-cols-5 gap-3">
                     {/* 일자별 지출 추이 바 차트 */}
-                    <div className="xl:col-span-3 bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded-xl p-4">
+                    <div className="xl:col-span-3 dash-card bg-[#fffdf7] border border-[#2e3192]/60 p-4">
                       <div className="flex justify-between items-center mb-2">
-                        <h3 className="font-bold text-[#1d1f20] text-sm flex items-center gap-2">
-                          <span className="material-symbols-outlined text-[#5980a6] text-[18px]">bar_chart</span>
+                        <h3 className="font-cond font-bold text-[#23255c] text-sm flex items-center gap-2">
+                          <span className="material-symbols-outlined text-[#2e3192] text-[18px]">bar_chart</span>
                           {monthName} 일자별 지출 추이
                         </h3>
-                        <span className="text-[10px] text-[rgba(29,31,32,0.55)]">단위: 원</span>
+                        <span className="text-[10px] text-[#6266a8]">단위: 원</span>
                       </div>
 
                       {monthlyLoading ? (
-                        <div className="h-56 flex items-center justify-center text-[rgba(29,31,32,0.55)] text-sm">데이터를 불러오는 중...</div>
+                        <div className="h-56 flex items-center justify-center text-[#6266a8] text-sm">데이터를 불러오는 중...</div>
                       ) : monthlyStats?.dailyData?.length === 0 ? (
-                        <div className="h-56 flex items-center justify-center text-[rgba(29,31,32,0.55)] text-sm">입력된 데이터가 없습니다.</div>
+                        <div className="h-56 flex items-center justify-center text-[#6266a8] text-sm">입력된 데이터가 없습니다.</div>
                       ) : (
                         <div className="h-56 w-full xl:h-[26rem]">
                           <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={monthlyStats.dailyData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
-                              <CartesianGrid strokeDasharray="3 3" stroke="rgba(29,31,32,0.16)" vertical={false} />
-                              <XAxis dataKey="name" stroke="#64748b" fontSize={11} tickLine={false} axisLine={false} />
-                              <YAxis stroke="#64748b" fontSize={11} tickFormatter={(val) => `₩${(val/10000).toFixed(0)}만`} tickLine={false} axisLine={false} />
+                              <CartesianGrid strokeDasharray="3 3" stroke="#2e3192" strokeOpacity={0.15} vertical={false} />
+                              <XAxis dataKey="name" stroke="#6266a8" fontSize={11} tickLine={false} axisLine={false} />
+                              <YAxis stroke="#6266a8" fontSize={11} tickFormatter={(val) => `₩${(val/10000).toFixed(0)}만`} tickLine={false} axisLine={false} />
                               <Tooltip
-                                contentStyle={{ backgroundColor: '#f2f2f3', borderColor: 'rgba(29,31,32,0.16)', borderRadius: '8px' }}
+                                contentStyle={{ backgroundColor: '#fffdf7', borderColor: '#2e3192', borderRadius: '10px' }}
                                 itemStyle={{ fontSize: '13px' }}
                                 formatter={(value: unknown) => [`₩${Number(value).toLocaleString()}`, undefined]}
                               />
                               <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} />
-                              <Bar dataKey="노무비" stackId="a" fill="#5980a6" radius={[0, 0, 4, 4]} />
-                              <Bar dataKey="장비대" stackId="a" fill="#0284c7" />
-                              <Bar dataKey="외주비" stackId="a" fill="#7c3aed" />
-                              <Bar dataKey="경비" stackId="a" fill="#16a34a" radius={[4, 4, 0, 0]} />
+                              <Bar dataKey="노무비" stackId="a" fill="#2e3192" radius={[0, 0, 4, 4]} />
+                              <Bar dataKey="장비대" stackId="a" fill="#5b6fd6" />
+                              <Bar dataKey="외주비" stackId="a" fill="#93a5f0" />
+                              <Bar dataKey="경비" stackId="a" fill="#c9d3fa" radius={[4, 4, 0, 0]} />
                             </BarChart>
                           </ResponsiveContainer>
                         </div>
@@ -1179,9 +1179,9 @@ export default function Home() {
 
                     <div className="xl:col-span-2 flex flex-col gap-3">
                       {/* 지출 비중 원형 차트 */}
-                      <div className="bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded-xl p-4">
-                        <h4 className="font-bold text-[#1d1f20] text-sm mb-2 flex items-center gap-2">
-                          <span className="material-symbols-outlined text-[#5980a6] text-[18px]">pie_chart</span> 카테고리별 지출 비중
+                      <div className="dash-card bg-[#fffdf7] border border-[#2e3192]/60 p-4">
+                        <h4 className="font-cond font-bold text-[#23255c] text-sm mb-2 flex items-center gap-2">
+                          <span className="material-symbols-outlined text-[#2e3192] text-[18px]">pie_chart</span> 카테고리별 지출 비중
                         </h4>
                         <div className="flex items-center gap-3">
                           <div className="w-28 h-28 shrink-0">
@@ -1189,10 +1189,10 @@ export default function Home() {
                               <PieChart>
                                 <Pie
                                   data={[
-                                    { name: '노무', value: monthlyStats?.summary?.totalLabor || 0, color: '#5980a6' },
-                                    { name: '장비', value: monthlyStats?.summary?.totalEquipment || 0, color: '#0284c7' },
-                                    { name: '외주', value: monthlyStats?.summary?.totalOutsourcing || 0, color: '#7c3aed' },
-                                    { name: '경비', value: monthlyStats?.summary?.totalExpense || 0, color: '#16a34a' },
+                                    { name: '노무', value: monthlyStats?.summary?.totalLabor || 0, color: '#2e3192' },
+                                    { name: '장비', value: monthlyStats?.summary?.totalEquipment || 0, color: '#5b6fd6' },
+                                    { name: '외주', value: monthlyStats?.summary?.totalOutsourcing || 0, color: '#93a5f0' },
+                                    { name: '경비', value: monthlyStats?.summary?.totalExpense || 0, color: '#c9d3fa' },
                                   ].filter(d => d.value > 0)}
                                   cx="50%"
                                   cy="50%"
@@ -1202,89 +1202,89 @@ export default function Home() {
                                   dataKey="value"
                                 >
                                   {[
-                                    { color: '#5980a6' },
-                                    { color: '#0284c7' },
-                                    { color: '#7c3aed' },
-                                    { color: '#16a34a' },
+                                    { color: '#2e3192' },
+                                    { color: '#5b6fd6' },
+                                    { color: '#93a5f0' },
+                                    { color: '#c9d3fa' },
                                   ].map((entry, index) => (
                                     <Cell key={`cell-${index}`} fill={entry.color} />
                                   ))}
                                 </Pie>
                                 <Tooltip
-                                  contentStyle={{ backgroundColor: '#f2f2f3', border: '1px solid rgba(29,31,32,0.16)', borderRadius: '8px' }}
-                                  itemStyle={{ color: '#fff' }}
+                                  contentStyle={{ backgroundColor: '#fffdf7', border: '1px solid #2e3192', borderRadius: '10px' }}
+                                  itemStyle={{ color: '#23255c' }}
                                 />
                               </PieChart>
                             </ResponsiveContainer>
                           </div>
                           <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 flex-1 min-w-0">
                             <div className="flex items-center gap-1.5">
-                              <div className="w-1.5 h-1.5 rounded-full bg-[#5980a6] shrink-0"></div>
-                              <span className="text-[10px] text-[rgba(29,31,32,0.6)] font-bold uppercase truncate">노무 {((monthlyStats?.summary?.totalLabor / monthlyStats?.summary?.grandTotal) * 100 || 0).toFixed(1)}%</span>
+                              <div className="w-1.5 h-1.5 dash-pill bg-[#2e3192] shrink-0"></div>
+                              <span className="text-[10px] text-[#6266a8] font-bold uppercase truncate">노무 {((monthlyStats?.summary?.totalLabor / monthlyStats?.summary?.grandTotal) * 100 || 0).toFixed(1)}%</span>
                             </div>
                             <div className="flex items-center gap-1.5">
-                              <div className="w-1.5 h-1.5 rounded-full bg-[#0284c7] shrink-0"></div>
-                              <span className="text-[10px] text-[rgba(29,31,32,0.6)] font-bold uppercase truncate">장비 {((monthlyStats?.summary?.totalEquipment / monthlyStats?.summary?.grandTotal) * 100 || 0).toFixed(1)}%</span>
+                              <div className="w-1.5 h-1.5 dash-pill bg-[#5b6fd6] shrink-0"></div>
+                              <span className="text-[10px] text-[#6266a8] font-bold uppercase truncate">장비 {((monthlyStats?.summary?.totalEquipment / monthlyStats?.summary?.grandTotal) * 100 || 0).toFixed(1)}%</span>
                             </div>
                             <div className="flex items-center gap-1.5">
-                              <div className="w-1.5 h-1.5 rounded-full bg-[#7c3aed] shrink-0"></div>
-                              <span className="text-[10px] text-[rgba(29,31,32,0.6)] font-bold uppercase truncate">외주 {((monthlyStats?.summary?.totalOutsourcing / monthlyStats?.summary?.grandTotal) * 100 || 0).toFixed(1)}%</span>
+                              <div className="w-1.5 h-1.5 dash-pill bg-[#93a5f0] shrink-0"></div>
+                              <span className="text-[10px] text-[#6266a8] font-bold uppercase truncate">외주 {((monthlyStats?.summary?.totalOutsourcing / monthlyStats?.summary?.grandTotal) * 100 || 0).toFixed(1)}%</span>
                             </div>
                             <div className="flex items-center gap-1.5">
-                              <div className="w-1.5 h-1.5 rounded-full bg-[#16a34a] shrink-0"></div>
-                              <span className="text-[10px] text-[rgba(29,31,32,0.6)] font-bold uppercase truncate">경비 {((monthlyStats?.summary?.totalExpense / monthlyStats?.summary?.grandTotal) * 100 || 0).toFixed(1)}%</span>
+                              <div className="w-1.5 h-1.5 dash-pill bg-[#c9d3fa] shrink-0"></div>
+                              <span className="text-[10px] text-[#6266a8] font-bold uppercase truncate">경비 {((monthlyStats?.summary?.totalExpense / monthlyStats?.summary?.grandTotal) * 100 || 0).toFixed(1)}%</span>
                             </div>
                           </div>
                         </div>
                       </div>
 
                       {/* 월간 상세 집계표 */}
-                      <div className="flex-1 bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded-xl p-4">
-                        <h4 className="font-bold text-[#1d1f20] text-sm mb-2 flex items-center gap-2">
-                          <span className="material-symbols-outlined text-[#5980a6] text-[18px]">analytics</span> 월간 상세 집계표 ({monthName})
+                      <div className="flex-1 dash-card bg-[#fffdf7] border border-[#2e3192]/60 p-4">
+                        <h4 className="font-cond font-bold text-[#23255c] text-sm mb-2 flex items-center gap-2">
+                          <span className="material-symbols-outlined text-[#2e3192] text-[18px]">analytics</span> 월간 상세 집계표 ({monthName})
                         </h4>
                         <div className="overflow-x-auto">
                           <table className="w-full text-left">
                             <thead>
-                              <tr className="border-b border-[rgba(29,31,32,0.16)] text-[9px] text-[rgba(29,31,32,0.55)] font-bold uppercase tracking-widest">
+                              <tr className="border-b border-[#2e3192]/40 text-[9px] text-[#6266a8] font-bold uppercase tracking-widest">
                                 <th className="pb-1.5 px-1">카테고리</th>
                                 <th className="pb-1.5 px-1 text-right">금액</th>
                                 <th className="pb-1.5 px-1 text-right">비중</th>
                               </tr>
                             </thead>
                             <tbody className="text-xs">
-                              <tr className="border-b border-[rgba(29,31,32,0.16)]/50">
-                                <td className="py-1.5 px-1 text-[#1d1f20] font-medium flex items-center gap-1.5">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-[#5980a6] shrink-0"></span> 노무비
+                              <tr className="border-b border-[#2e3192]/20">
+                                <td className="py-1.5 px-1 text-[#23255c] font-medium flex items-center gap-1.5">
+                                  <span className="w-1.5 h-1.5 dash-pill bg-[#2e3192] shrink-0"></span> 노무비
                                 </td>
-                                <td className="py-1.5 px-1 text-right text-[#1d1f20] font-bold">₩{monthlyStats?.summary?.totalLabor?.toLocaleString()}</td>
-                                <td className="py-1.5 px-1 text-right text-[rgba(29,31,32,0.6)]">{((monthlyStats?.summary?.totalLabor / monthlyStats?.summary?.grandTotal) * 100 || 0).toFixed(1)}%</td>
+                                <td className="py-1.5 px-1 text-right text-[#23255c] font-bold">₩{monthlyStats?.summary?.totalLabor?.toLocaleString()}</td>
+                                <td className="py-1.5 px-1 text-right text-[#6266a8]">{((monthlyStats?.summary?.totalLabor / monthlyStats?.summary?.grandTotal) * 100 || 0).toFixed(1)}%</td>
                               </tr>
-                              <tr className="border-b border-[rgba(29,31,32,0.16)]/50">
-                                <td className="py-1.5 px-1 text-[#1d1f20] font-medium flex items-center gap-1.5">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-[#0284c7] shrink-0"></span> 장비대
+                              <tr className="border-b border-[#2e3192]/20">
+                                <td className="py-1.5 px-1 text-[#23255c] font-medium flex items-center gap-1.5">
+                                  <span className="w-1.5 h-1.5 dash-pill bg-[#5b6fd6] shrink-0"></span> 장비대
                                 </td>
-                                <td className="py-1.5 px-1 text-right text-[#1d1f20] font-bold">₩{monthlyStats?.summary?.totalEquipment?.toLocaleString()}</td>
-                                <td className="py-1.5 px-1 text-right text-[rgba(29,31,32,0.6)]">{((monthlyStats?.summary?.totalEquipment / monthlyStats?.summary?.grandTotal) * 100 || 0).toFixed(1)}%</td>
+                                <td className="py-1.5 px-1 text-right text-[#23255c] font-bold">₩{monthlyStats?.summary?.totalEquipment?.toLocaleString()}</td>
+                                <td className="py-1.5 px-1 text-right text-[#6266a8]">{((monthlyStats?.summary?.totalEquipment / monthlyStats?.summary?.grandTotal) * 100 || 0).toFixed(1)}%</td>
                               </tr>
-                              <tr className="border-b border-[rgba(29,31,32,0.16)]/50">
-                                <td className="py-1.5 px-1 text-[#1d1f20] font-medium flex items-center gap-1.5">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-[#7c3aed] shrink-0"></span> 외주비
+                              <tr className="border-b border-[#2e3192]/20">
+                                <td className="py-1.5 px-1 text-[#23255c] font-medium flex items-center gap-1.5">
+                                  <span className="w-1.5 h-1.5 dash-pill bg-[#93a5f0] shrink-0"></span> 외주비
                                 </td>
-                                <td className="py-1.5 px-1 text-right text-[#1d1f20] font-bold">₩{monthlyStats?.summary?.totalOutsourcing?.toLocaleString()}</td>
-                                <td className="py-1.5 px-1 text-right text-[rgba(29,31,32,0.6)]">{((monthlyStats?.summary?.totalOutsourcing / monthlyStats?.summary?.grandTotal) * 100 || 0).toFixed(1)}%</td>
+                                <td className="py-1.5 px-1 text-right text-[#23255c] font-bold">₩{monthlyStats?.summary?.totalOutsourcing?.toLocaleString()}</td>
+                                <td className="py-1.5 px-1 text-right text-[#6266a8]">{((monthlyStats?.summary?.totalOutsourcing / monthlyStats?.summary?.grandTotal) * 100 || 0).toFixed(1)}%</td>
                               </tr>
-                              <tr className="border-b border-[rgba(29,31,32,0.16)]/50">
-                                <td className="py-1.5 px-1 text-[#1d1f20] font-medium flex items-center gap-1.5">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-[#16a34a] shrink-0"></span> 경비
+                              <tr className="border-b border-[#2e3192]/20">
+                                <td className="py-1.5 px-1 text-[#23255c] font-medium flex items-center gap-1.5">
+                                  <span className="w-1.5 h-1.5 dash-pill bg-[#c9d3fa] shrink-0"></span> 경비
                                 </td>
-                                <td className="py-1.5 px-1 text-right text-[#1d1f20] font-bold">₩{monthlyStats?.summary?.totalExpense?.toLocaleString()}</td>
-                                <td className="py-1.5 px-1 text-right text-[rgba(29,31,32,0.6)]">{((monthlyStats?.summary?.totalExpense / monthlyStats?.summary?.grandTotal) * 100 || 0).toFixed(1)}%</td>
+                                <td className="py-1.5 px-1 text-right text-[#23255c] font-bold">₩{monthlyStats?.summary?.totalExpense?.toLocaleString()}</td>
+                                <td className="py-1.5 px-1 text-right text-[#6266a8]">{((monthlyStats?.summary?.totalExpense / monthlyStats?.summary?.grandTotal) * 100 || 0).toFixed(1)}%</td>
                               </tr>
-                              <tr className="bg-[#5980a6]/5">
-                                <td className="py-2 px-1 text-[#5980a6] font-bold">합계</td>
-                                <td className="py-2 px-1 text-right text-[#5980a6] font-bold">₩{monthlyStats?.summary?.grandTotal?.toLocaleString()}</td>
-                                <td className="py-2 px-1 text-right text-[#5980a6] font-bold">100%</td>
+                              <tr className="bg-[#2e3192]/5">
+                                <td className="py-2 px-1 text-[#2e3192] font-bold">합계</td>
+                                <td className="py-2 px-1 text-right text-[#2e3192] font-bold">₩{monthlyStats?.summary?.grandTotal?.toLocaleString()}</td>
+                                <td className="py-2 px-1 text-right text-[#2e3192] font-bold">100%</td>
                               </tr>
                             </tbody>
                           </table>
@@ -1433,6 +1433,14 @@ export default function Home() {
                     <div><label className="text-xs text-[rgba(29,31,32,0.6)] mb-1 block">규격 / 장비번호</label><input type="text" className="w-full bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded px-3 py-2 text-[#1d1f20] outline-none focus:border-[#5980a6]" value={equipmentForm.spec} onChange={e => setEquipmentForm({...equipmentForm, spec: e.target.value})} /></div>
                     <div><label className="text-xs text-[rgba(29,31,32,0.6)] mb-1 block">단가 (원)</label><input type="number" required className="w-full bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded px-3 py-2 text-[#1d1f20] outline-none focus:border-[#5980a6]" value={equipmentForm.unitPrice} onChange={e => setEquipmentForm({...equipmentForm, unitPrice: e.target.value})} /></div>
                     <div><label className="text-xs text-[rgba(29,31,32,0.6)] mb-1 block">투입 일/시간</label><input type="number" step="0.1" required className="w-full bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded px-3 py-2 text-[#1d1f20] outline-none focus:border-[#5980a6]" value={equipmentForm.amount} onChange={e => setEquipmentForm({...equipmentForm, amount: e.target.value})} /></div>
+                    <div>
+                      <label className="text-xs text-[rgba(29,31,32,0.6)] mb-1 block">투입 구분</label>
+                      <div className="flex border border-[rgba(29,31,32,0.16)] rounded overflow-hidden">
+                        <button type="button" onClick={() => setEquipmentForm({...equipmentForm, ownerType: 'DIRECT'})} className={`flex-1 py-2 text-xs font-bold transition-colors ${equipmentForm.ownerType === 'DIRECT' ? 'bg-[#5980a6] text-[#f2f2f3]' : 'bg-[#f2f2f3] text-[#1d1f20]'}`}>원청 직영</button>
+                        <button type="button" onClick={() => setEquipmentForm({...equipmentForm, ownerType: 'SUBCONTRACT'})} className={`flex-1 py-2 text-xs font-bold transition-colors border-l border-[rgba(29,31,32,0.16)] ${equipmentForm.ownerType === 'SUBCONTRACT' ? 'bg-[#5980a6] text-[#f2f2f3]' : 'bg-[#f2f2f3] text-[#1d1f20]'}`}>당사 투입</button>
+                      </div>
+                    </div>
+                    <div className="md:col-span-2"><label className="text-xs text-[rgba(29,31,32,0.6)] mb-1 block">작업 내용 (예: 터파기, 되메우기, 자재 운반 등)</label><input type="text" className="w-full bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded px-3 py-2 text-[#1d1f20] outline-none focus:border-[#5980a6]" value={equipmentForm.taskDescription} onChange={e => setEquipmentForm({...equipmentForm, taskDescription: e.target.value})} /></div>
                     <div className="md:col-span-2 mt-2"><button type="submit" className="w-full bg-[#5980a6] text-[#f2f2f3] font-bold py-2 rounded hover:opacity-90">추가하기</button></div>
                   </form>
                 </div>
@@ -1452,6 +1460,9 @@ export default function Home() {
                             <div className="overflow-hidden">
                               <div className="flex items-center gap-2 flex-wrap">
                                 <h4 className="font-bold text-[#1d1f20] truncate text-sm md:text-base">{eq.name}</h4>
+                                <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold ${eq.ownerType === 'DIRECT' ? 'bg-[#5980a6]/15 text-[#416180]' : 'bg-[rgba(29,31,32,0.08)] text-[rgba(29,31,32,0.6)]'}`}>
+                                  {eq.ownerType === 'DIRECT' ? '원청 직영' : '당사 투입'}
+                                </span>
                                 {eq.createdBy && (
                                   <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#ededed] text-[rgba(29,31,32,0.55)] font-bold">BY {eq.createdBy}</span>
                                 )}
@@ -1462,6 +1473,9 @@ export default function Home() {
                                 )}
                               </div>
                               <p className="text-[10px] md:text-xs text-[rgba(29,31,32,0.6)] uppercase truncate mt-0.5">{eq.spec} • {eq.amount} 시간/일</p>
+                              {eq.taskDescription && (
+                                <p className="text-[10px] md:text-xs text-[rgba(29,31,32,0.55)] truncate mt-0.5 normal-case">작업: {eq.taskDescription}</p>
+                              )}
                             </div>
                           </div>
                           <div className="text-right shrink-0 flex items-center gap-2">

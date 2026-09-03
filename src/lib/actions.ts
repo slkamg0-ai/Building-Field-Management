@@ -264,11 +264,13 @@ export async function deleteLabor(id: string) {
 
 export async function addEquipment(logId: string, data: any, creatorName: string) {
   const user = await requireUser()
+  const ownerType = ['DIRECT', 'SUBCONTRACT'].includes(data.ownerType) ? data.ownerType : 'SUBCONTRACT'
   await prisma.equipment.create({ data: {
     logId, name: data.name, spec: data.spec || null,
     unitPrice: parseInt(data.unitPrice), amount: parseFloat(data.amount),
     totalPrice: parseInt(data.unitPrice) * parseFloat(data.amount),
     note: data.note || null, createdBy: user.name,
+    ownerType, taskDescription: data.taskDescription || data.task || null,
   } })
   revalidatePath('/')
 }

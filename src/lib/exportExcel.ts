@@ -77,15 +77,15 @@ export function exportMonthlyReport(
   }
 
   // ===== 시트 3: 장비 명세 (월 전체 + 날짜) =====
-  const eqRows: any[][] = [['날짜', '장비명', '규격', '단가', '투입량', '금액', '비고']]
+  const eqRows: any[][] = [['날짜', '장비명', '규격', '구분', '작업내용', '단가', '투입량', '금액', '비고']]
   logs.forEach((log: any) => {
     const d = fmtDate(log.date)
     ;(log.equipments || []).forEach((e: any) =>
-      eqRows.push([d, e.name, e.spec || '', e.unitPrice, e.amount, e.totalPrice, e.note || '']))
+      eqRows.push([d, e.name, e.spec || '', e.ownerType === 'DIRECT' ? '원청 직영' : '당사 투입', e.taskDescription || '', e.unitPrice, e.amount, e.totalPrice, e.note || '']))
   })
   if (eqRows.length > 1) {
     const ws3 = XLSX.utils.aoa_to_sheet(eqRows)
-    ws3['!cols'] = [{ wch: 12 }, { wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 10 }, { wch: 12 }, { wch: 20 }]
+    ws3['!cols'] = [{ wch: 12 }, { wch: 14 }, { wch: 14 }, { wch: 10 }, { wch: 20 }, { wch: 12 }, { wch: 10 }, { wch: 12 }, { wch: 20 }]
     XLSX.utils.book_append_sheet(wb, ws3, '장비명세')
   }
 

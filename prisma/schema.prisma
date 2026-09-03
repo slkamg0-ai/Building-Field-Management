@@ -154,6 +154,7 @@ model Equipment {
   note           String?
   createdBy      String?
   ownerType      String   @default("SUBCONTRACT") // DIRECT(원청 직영) / SUBCONTRACT(당사 투입) — 원가·기성 집계 시 구분
+  taskDescription String? // 작업내용 (예: 터파기, 되메우기, 자재 운반 등)
   documentStatus String   @default("UNKNOWN") // UNKNOWN/INCOMPLETE/COMPLETE/REVIEW — 장비 안전서류 충족여부
   documentUrl    String?  // 안전서류(보험, 장비등록증 등) 첨부 링크
   expenses       Expense[] // 이 장비에 연결된 지출(주유비 등)

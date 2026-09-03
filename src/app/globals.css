@@ -29,6 +29,11 @@ body {
   border-radius: 9999px !important;
 }
 
+/* 대시보드 전용: 인포그래픽(네이비+크림) 테마 카드 라운딩 오버라이드 */
+.dash-card { border-radius: 18px !important; }
+.dash-pill { border-radius: 9999px !important; }
+.dash-sm { border-radius: 10px !important; }
+
 /* 11x11 십자 코너 마커 (카드 4모서리 장식) */
 .corner-markers {
   position: relative;
