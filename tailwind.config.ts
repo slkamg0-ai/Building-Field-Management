@@ -10,6 +10,16 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        // ── Industry 디자인 시스템 (스틸블루 블루프린트) ────
+        "ind-bg":        "#e9e9ea",
+        "ind-panel":     "#f2f2f3",
+        "ind-text":      "#1d1f20",
+        "ind-primary":   "#5980a6",
+        "ind-primary-dark": "#416180",
+        "ind-header":    "#181a1d",
+        "ind-header-sub":"#94bce3",
+        "ind-border":    "rgba(29,31,32,0.16)",
+        "ind-border-lt": "rgba(29,31,32,0.1)",
         // ── 무채색 시스템 ─────────────────────────────────
         "background":                "#F5F5F5",
         "surface":                   "#FFFFFF",
@@ -93,7 +103,9 @@ const config: Config = {
         "body-md":     ["Inter", "sans-serif"],
         "headline-md": ["Inter", "sans-serif"],
         "metric-num":  ["Space Grotesk", "sans-serif"],
-        "body-lg":     ["Inter", "sans-serif"]
+        "body-lg":     ["Inter", "sans-serif"],
+        "body":        ["Barlow", "sans-serif"],
+        "cond":        ["Barlow Condensed", "sans-serif"],
       },
       fontSize: {
         "display-xl":  ["36px", { lineHeight: "1.1", letterSpacing: "-0.02em", fontWeight: "700" }],

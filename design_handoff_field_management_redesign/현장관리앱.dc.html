@@ -1,0 +1,1086 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="./image-slot.js"></script>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0}
+  input,textarea,select,button{font-family:inherit}
+  ::placeholder{color:rgba(29,31,32,0.4)}
+</style>
+</helmet>
+
+<div style="min-height:100vh;background:#e9e9ea;background-image:linear-gradient(rgba(29,31,32,0.07) 1px, transparent 1px),linear-gradient(90deg, rgba(29,31,32,0.07) 1px, transparent 1px);background-size:22px 22px;display:flex;align-items:flex-start;justify-content:center;padding:36px 16px;font-family:Barlow,sans-serif;color:#1d1f20">
+
+<sc-if value="{{ isLogin }}" hint-placeholder-val="{{ true }}">
+<div style="position:relative;width:412px;max-width:100%;">
+  <i style="position:absolute;top:-6px;left:-6px;width:11px;height:11px;background:url('data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2711%27 height=%2711%27%3E%3Crect x=%275%27 width=%271%27 height=%2711%27 fill=%27%236b6d6e%27/%3E%3Crect y=%275%27 width=%2711%27 height=%271%27 fill=%27%236b6d6e%27/%3E%3C/svg%3E') no-repeat;pointer-events:none"></i>
+  <i style="position:absolute;top:-6px;right:-6px;width:11px;height:11px;background:url('data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2711%27 height=%2711%27%3E%3Crect x=%275%27 width=%271%27 height=%2711%27 fill=%27%236b6d6e%27/%3E%3Crect y=%275%27 width=%2711%27 height=%271%27 fill=%27%236b6d6e%27/%3E%3C/svg%3E') no-repeat;pointer-events:none"></i>
+  <i style="position:absolute;bottom:-6px;left:-6px;width:11px;height:11px;background:url('data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2711%27 height=%2711%27%3E%3Crect x=%275%27 width=%271%27 height=%2711%27 fill=%27%236b6d6e%27/%3E%3Crect y=%275%27 width=%2711%27 height=%271%27 fill=%27%236b6d6e%27/%3E%3C/svg%3E') no-repeat;pointer-events:none"></i>
+  <i style="position:absolute;bottom:-6px;right:-6px;width:11px;height:11px;background:url('data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2711%27 height=%2711%27%3E%3Crect x=%275%27 width=%271%27 height=%2711%27 fill=%27%236b6d6e%27/%3E%3Crect y=%275%27 width=%2711%27 height=%271%27 fill=%27%236b6d6e%27/%3E%3C/svg%3E') no-repeat;pointer-events:none"></i>
+  <div style="border:1px solid rgba(29,31,32,0.16);background:#f2f2f3;padding:36px 30px;display:flex;flex-direction:column;gap:22px">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center">
+      <div style="width:56px;height:56px;border:1px solid #5980a6;display:flex;align-items:center;justify-content:center;color:#416180">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10" width="14" height="10" rx="1.5"></rect><path d="M8 10V7a4 4 0 018 0v3"></path></svg>
+      </div>
+      <div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:#5980a6;margin-bottom:6px">Field Manage</div>
+        <h1 style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:24px;margin:0;letter-spacing:-0.01em">현장관리 시스템</h1>
+        <p style="font-size:13px;color:rgba(29,31,32,0.6);margin:6px 0 0">이름과 PIN 번호를 입력하세요</p>
+      </div>
+    </div>
+
+    <div>
+      <label style="display:block;font-size:11px;color:rgba(29,31,32,0.7);margin-bottom:5px">접속자 이름</label>
+      <input value="{{ loginName }}" onChange="{{ setLoginName }}" placeholder="이름을 입력하세요" style="width:100%;min-height:44px;padding:8px 12px;font-size:15px;color:#1d1f20;background:#e9e9ea;border:1px solid rgba(29,31,32,0.16);border-radius:0" />
+    </div>
+
+    <div style="display:flex;justify-content:center;gap:8px">
+      <sc-for list="{{ pinDots }}" as="dot" hint-placeholder-count="8">
+        <sc-if value="{{ dot.filled }}" hint-placeholder-val="{{ false }}">
+          <div style="width:12px;height:12px;border-radius:50%;background:#5980a6"></div>
+        </sc-if>
+        <sc-if value="{{ dot.filled }}" hint-placeholder-val="{{ true }}">
+        </sc-if>
+      </sc-for>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+      <button onClick="{{ onPinKey }}" data-d="1" style="height:52px;border:1px solid rgba(29,31,32,0.16);background:#e9e9ea;font-size:18px;font-weight:600;cursor:pointer">1</button>
+      <button onClick="{{ onPinKey }}" style="height:52px;border:1px solid rgba(29,31,32,0.16);background:#e9e9ea;font-size:18px;font-weight:600;cursor:pointer">2</button>
+      <button onClick="{{ onPinKey }}" style="height:52px;border:1px solid rgba(29,31,32,0.16);background:#e9e9ea;font-size:18px;font-weight:600;cursor:pointer">3</button>
+      <button onClick="{{ onPinKey }}" style="height:52px;border:1px solid rgba(29,31,32,0.16);background:#e9e9ea;font-size:18px;font-weight:600;cursor:pointer">4</button>
+      <button onClick="{{ onPinKey }}" style="height:52px;border:1px solid rgba(29,31,32,0.16);background:#e9e9ea;font-size:18px;font-weight:600;cursor:pointer">5</button>
+      <button onClick="{{ onPinKey }}" style="height:52px;border:1px solid rgba(29,31,32,0.16);background:#e9e9ea;font-size:18px;font-weight:600;cursor:pointer">6</button>
+      <button onClick="{{ onPinKey }}" style="height:52px;border:1px solid rgba(29,31,32,0.16);background:#e9e9ea;font-size:18px;font-weight:600;cursor:pointer">7</button>
+      <button onClick="{{ onPinKey }}" style="height:52px;border:1px solid rgba(29,31,32,0.16);background:#e9e9ea;font-size:18px;font-weight:600;cursor:pointer">8</button>
+      <button onClick="{{ onPinKey }}" style="height:52px;border:1px solid rgba(29,31,32,0.16);background:#e9e9ea;font-size:18px;font-weight:600;cursor:pointer">9</button>
+      <button onClick="{{ clearPin }}" style="height:52px;border:1px solid rgba(29,31,32,0.16);background:transparent;font-size:12px;font-weight:700;color:rgba(29,31,32,0.55);cursor:pointer">C</button>
+      <button onClick="{{ onPinKey }}" style="height:52px;border:1px solid rgba(29,31,32,0.16);background:#e9e9ea;font-size:18px;font-weight:600;cursor:pointer">0</button>
+      <button onClick="{{ backspacePin }}" style="height:52px;border:1px solid rgba(29,31,32,0.16);background:transparent;font-size:16px;font-weight:700;color:rgba(29,31,32,0.55);cursor:pointer">⌫</button>
+    </div>
+
+    <div>
+      <div style="font-size:11px;color:rgba(29,31,32,0.5);margin-bottom:6px;text-align:center">데모 체험 역할</div>
+      <div style="display:flex;border:1px solid rgba(29,31,32,0.16)">
+        <sc-if value="{{ loginRoleIsAdmin }}" hint-placeholder-val="{{ true }}">
+          <button onClick="{{ setLoginRoleAdmin }}" style="flex:1;padding:9px;font-size:12px;font-weight:700;background:#5980a6;color:#f2f2f3;border:none;cursor:pointer">관리자(ADMIN)</button>
+        </sc-if>
+        <sc-if value="{{ loginRoleIsAdmin }}" hint-placeholder-val="{{ false }}">
+        </sc-if>
+        <sc-if value="{{ loginRoleIsWorker }}" hint-placeholder-val="{{ false }}">
+          <button onClick="{{ setLoginRoleAdmin }}" style="flex:1;padding:9px;font-size:12px;font-weight:700;background:transparent;color:rgba(29,31,32,0.6);border:none;cursor:pointer;border-right:1px solid rgba(29,31,32,0.16)">관리자(ADMIN)</button>
+        </sc-if>
+        <sc-if value="{{ loginRoleIsWorker }}" hint-placeholder-val="{{ true }}">
+          <button onClick="{{ setLoginRoleWorker }}" style="flex:1;padding:9px;font-size:12px;font-weight:700;background:#5980a6;color:#f2f2f3;border:none;cursor:pointer">직원(WORKER)</button>
+        </sc-if>
+        <sc-if value="{{ loginRoleIsAdmin }}" hint-placeholder-val="{{ true }}">
+          <button onClick="{{ setLoginRoleWorker }}" style="flex:1;padding:9px;font-size:12px;font-weight:700;background:transparent;color:rgba(29,31,32,0.6);border:none;cursor:pointer;border-left:1px solid rgba(29,31,32,0.16)">직원(WORKER)</button>
+        </sc-if>
+      </div>
+    </div>
+
+    <sc-if value="{{ canLogin }}" hint-placeholder-val="{{ false }}">
+      <button onClick="{{ doLogin }}" style="width:100%;background:#5980a6;color:#f2f2f3;border:1px solid #5980a6;border-radius:0;padding:14px;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:15px;letter-spacing:0.03em;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px">
+        접속하기
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"></path></svg>
+      </button>
+    </sc-if>
+    <sc-if value="{{ cannotLogin }}" hint-placeholder-val="{{ true }}">
+      <button style="width:100%;background:rgba(89,128,166,0.35);color:#f2f2f3;border:1px solid rgba(89,128,166,0.35);border-radius:0;padding:14px;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:15px;letter-spacing:0.03em;cursor:not-allowed;display:flex;align-items:center;justify-content:center;gap:6px">접속하기</button>
+    </sc-if>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isApp }}" hint-placeholder-val="{{ false }}">
+<div style="position:relative;width:412px;max-width:100%;height:860px;background:#f2f2f3;border:1px solid rgba(29,31,32,0.16);display:flex;flex-direction:column;overflow:hidden">
+  <i style="position:absolute;top:-6px;left:-6px;width:11px;height:11px;background:url('data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2711%27 height=%2711%27%3E%3Crect x=%275%27 width=%271%27 height=%2711%27 fill=%27%236b6d6e%27/%3E%3Crect y=%275%27 width=%2711%27 height=%271%27 fill=%27%236b6d6e%27/%3E%3C/svg%3E') no-repeat;pointer-events:none;z-index:20"></i>
+  <i style="position:absolute;top:-6px;right:-6px;width:11px;height:11px;background:url('data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2711%27 height=%2711%27%3E%3Crect x=%275%27 width=%271%27 height=%2711%27 fill=%27%236b6d6e%27/%3E%3Crect y=%275%27 width=%2711%27 height=%271%27 fill=%27%236b6d6e%27/%3E%3C/svg%3E') no-repeat;pointer-events:none;z-index:20"></i>
+  <i style="position:absolute;bottom:-6px;left:-6px;width:11px;height:11px;background:url('data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2711%27 height=%2711%27%3E%3Crect x=%275%27 width=%271%27 height=%2711%27 fill=%27%236b6d6e%27/%3E%3Crect y=%275%27 width=%2711%27 height=%271%27 fill=%27%236b6d6e%27/%3E%3C/svg%3E') no-repeat;pointer-events:none;z-index:20"></i>
+  <i style="position:absolute;bottom:-6px;right:-6px;width:11px;height:11px;background:url('data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2711%27 height=%2711%27%3E%3Crect x=%275%27 width=%271%27 height=%2711%27 fill=%27%236b6d6e%27/%3E%3Crect y=%275%27 width=%2711%27 height=%271%27 fill=%27%236b6d6e%27/%3E%3C/svg%3E') no-repeat;pointer-events:none;z-index:20"></i>
+
+  <div style="background:#181a1d;color:#f2f2f3;padding:14px 16px 12px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+    <div style="display:flex;align-items:center;gap:8px;min-width:0">
+      <div style="width:26px;height:26px;background:#5980a6;color:#f2f2f3;display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:11px;flex-shrink:0">FM</div>
+      <div style="display:flex;flex-direction:column;min-width:0">
+        <span style="font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:9px;letter-spacing:0.14em;text-transform:uppercase;color:#94bce3">Field Manage</span>
+        <span style="font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ siteName }}</span>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
+      <span style="font-size:9px;color:#94bce3;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;border:1px solid rgba(148,188,227,0.4);padding:3px 6px">{{ roleLabel }}</span>
+      <button onClick="{{ logout }}" title="로그아웃" style="background:none;border:none;color:#b7b7ba;cursor:pointer;padding:2px;display:flex">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h5v16h-5"></path><path d="M9 8l-5 4 5 4"></path><path d="M4 12h11"></path></svg>
+      </button>
+    </div>
+  </div>
+
+  <div style="flex:1;overflow-y:auto;position:relative">
+
+    <sc-if value="{{ tabIsDashboard }}" hint-placeholder-val="{{ true }}">
+      <div id="screen-dashboard" data-screen-label="대시보드" style="padding:16px;display:flex;flex-direction:column;gap:16px">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div>
+            <div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#5980a6">현장</div>
+            <div style="font-size:14px;font-weight:600;margin-top:2px">{{ siteName }}</div>
+          </div>
+          <span style="font-size:10px;border:1px solid rgba(29,31,32,0.16);padding:4px 8px;color:rgba(29,31,32,0.6)">원청 {{ contractor }}</span>
+        </div>
+
+        <div style="position:relative;border:1px solid rgba(29,31,32,0.16);padding:16px;display:flex;flex-direction:column;gap:10px">
+          <i style="position:absolute;top:-6px;left:-6px;width:11px;height:11px;background:url('data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2711%27 height=%2711%27%3E%3Crect x=%275%27 width=%271%27 height=%2711%27 fill=%27%236b6d6e%27/%3E%3Crect y=%275%27 width=%2711%27 height=%271%27 fill=%27%236b6d6e%27/%3E%3C/svg%3E') no-repeat;pointer-events:none"></i>
+          <i style="position:absolute;top:-6px;right:-6px;width:11px;height:11px;background:url('data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2711%27 height=%2711%27%3E%3Crect x=%275%27 width=%271%27 height=%2711%27 fill=%27%236b6d6e%27/%3E%3Crect y=%275%27 width=%2711%27 height=%271%27 fill=%27%236b6d6e%27/%3E%3C/svg%3E') no-repeat;pointer-events:none"></i>
+          <i style="position:absolute;bottom:-6px;left:-6px;width:11px;height:11px;background:url('data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2711%27 height=%2711%27%3E%3Crect x=%275%27 width=%271%27 height=%2711%27 fill=%27%236b6d6e%27/%3E%3Crect y=%275%27 width=%2711%27 height=%271%27 fill=%27%236b6d6e%27/%3E%3C/svg%3E') no-repeat;pointer-events:none"></i>
+          <i style="position:absolute;bottom:-6px;right:-6px;width:11px;height:11px;background:url('data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2711%27 height=%2711%27%3E%3Crect x=%275%27 width=%271%27 height=%2711%27 fill=%27%236b6d6e%27/%3E%3Crect y=%275%27 width=%2711%27 height=%271%27 fill=%27%236b6d6e%27/%3E%3C/svg%3E') no-repeat;pointer-events:none"></i>
+          <div style="display:flex;justify-content:space-between;align-items:flex-start">
+            <div>
+              <div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#5980a6">{{ monthName }} 누적 지출</div>
+              <div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:26px;margin-top:2px">{{ monthlyGrandFmt }}</div>
+            </div>
+            <span style="font-size:10px;color:rgba(29,31,32,0.5)">도급액 {{ budgetFmt }}</span>
+          </div>
+          <div style="height:6px;width:100%;background:#e9e9ea;border:1px solid rgba(29,31,32,0.12);position:relative">
+            <div style="height:100%;background:#5980a6;width:{{ monthlyPctWidth }}"></div>
+          </div>
+          <div style="font-size:11px;color:rgba(29,31,32,0.55)">예산 대비 {{ monthlyPct }}% 사용</div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;background:rgba(29,31,32,0.16);border:1px solid rgba(29,31,32,0.16)">
+          <div style="background:#f2f2f3;padding:12px">
+            <div style="font-size:10px;color:rgba(29,31,32,0.55);text-transform:uppercase;letter-spacing:0.05em">노무비</div>
+            <div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:16px;margin-top:3px">{{ laborMonthlyFmt }}</div>
+          </div>
+          <div style="background:#f2f2f3;padding:12px">
+            <div style="font-size:10px;color:rgba(29,31,32,0.55);text-transform:uppercase;letter-spacing:0.05em">장비비</div>
+            <div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:16px;margin-top:3px">{{ equipmentMonthlyFmt }}</div>
+          </div>
+          <div style="background:#f2f2f3;padding:12px">
+            <div style="font-size:10px;color:rgba(29,31,32,0.55);text-transform:uppercase;letter-spacing:0.05em">외주비</div>
+            <div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:16px;margin-top:3px">{{ outsourcingMonthlyFmt }}</div>
+          </div>
+          <div style="background:#f2f2f3;padding:12px">
+            <div style="font-size:10px;color:rgba(29,31,32,0.55);text-transform:uppercase;letter-spacing:0.05em">경비</div>
+            <div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:16px;margin-top:3px">{{ expenseMonthlyFmt }}</div>
+          </div>
+        </div>
+
+        <div style="border:1px solid rgba(29,31,32,0.16);padding:14px;display:flex;flex-direction:column;gap:10px">
+          <div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:rgba(29,31,32,0.6)">오늘 투입 현황</div>
+          <div style="display:flex;justify-content:space-between;font-size:13px"><span>노무 {{ laborTotalFmt }}</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:13px"><span>장비 {{ equipmentTotalFmt }}</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:13px"><span>외주 {{ outsourcingTotalFmt }}</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:13px"><span>경비 {{ expenseTotalFmt }}</span></div>
+          <div style="border-top:1px solid rgba(29,31,32,0.12);padding-top:8px;display:flex;justify-content:space-between;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:14px"><span>합계</span><span>{{ grandTotalTodayFmt }}</span></div>
+        </div>
+
+        <div style="border:1px solid rgba(29,31,32,0.16);padding:14px;display:flex;flex-direction:column;gap:10px">
+          <div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:rgba(29,31,32,0.6)">오늘 작업내용</div>
+          <p style="font-size:13px;line-height:1.6;margin:0;color:rgba(29,31,32,0.85)">{{ workDescription }}</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
+            <image-slot id="dash-photo-1" shape="rect" placeholder="현장 사진" style="width:100%;height:70px"></image-slot>
+            <image-slot id="dash-photo-2" shape="rect" placeholder="현장 사진" style="width:100%;height:70px"></image-slot>
+            <image-slot id="dash-photo-3" shape="rect" placeholder="현장 사진" style="width:100%;height:70px"></image-slot>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ tabIsDailyLog }}" hint-placeholder-val="{{ false }}">
+<div id="screen-dailylog" data-screen-label="일일 작업일보" style="padding:16px;display:flex;flex-direction:column;gap:14px">
+  <div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#5980a6">일일 작업일보 · 2026-09-03</div>
+
+  <div style="display:flex;gap:1px;background:rgba(29,31,32,0.16);border:1px solid rgba(29,31,32,0.16);overflow-x:auto">
+    <sc-for list="{{ dailyTabsList }}" as="dt" hint-placeholder-count="5">
+      <button onClick="{{ dt.onClick }}" style="flex:1;white-space:nowrap;padding:9px 10px;background:{{ dt.bg }};color:{{ dt.fg }};border:none;font-size:12px;font-weight:700;cursor:pointer">{{ dt.label }}</button>
+    </sc-for>
+  </div>
+
+  <sc-if value="{{ dtLabor }}" hint-placeholder-val="{{ true }}">
+    <div style="display:flex;flex-direction:column;gap:0;border:1px solid rgba(29,31,32,0.16)">
+      <sc-for list="{{ laborRows }}" as="row" hint-placeholder-count="3">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 12px;border-bottom:1px solid rgba(29,31,32,0.1);gap:8px">
+          <div style="min-width:0">
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+              <span style="font-weight:700;font-size:13px">{{ row.name }}</span>
+              <span style="font-size:11px;color:rgba(29,31,32,0.55)">{{ row.jobType }}</span>
+              <sc-if value="{{ row.hasWarn }}" hint-placeholder-val="{{ false }}">
+                <span style="display:inline-flex;align-items:center;gap:3px;font-size:9px;font-weight:700;padding:2px 6px;border:1px solid #5980a6;color:#416180">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9.5 17H2.5z"></path><path d="M12 10v4M12 17.5h.01"></path></svg>
+                  {{ row.warnText }}
+                </span>
+              </sc-if>
+            </div>
+            <div style="font-size:11px;color:rgba(29,31,32,0.55);margin-top:2px">단가 {{ row.unitPriceFmt }} · {{ row.amount }}공수 = {{ row.totalFmt }}</div>
+          </div>
+          <button onClick="{{ row.del }}" style="flex-shrink:0;font-size:11px;color:rgba(29,31,32,0.45);background:none;border:none;cursor:pointer;text-decoration:underline">삭제</button>
+        </div>
+      </sc-for>
+    </div>
+    <sc-if value="{{ showAddForm }}" hint-placeholder-val="{{ false }}">
+      <div style="border:1px solid #5980a6;padding:14px;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:13px">노무 추가</span><button onClick="{{ closeAdd }}" style="background:none;border:none;cursor:pointer;color:rgba(29,31,32,0.5)">✕</button></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <input value="{{ laborForm.name }}" onChange="{{ onLaborName }}" placeholder="근로자명" style="grid-column:1/3;min-height:38px;padding:8px 10px;font-size:13px;background:#e9e9ea;border:1px solid rgba(29,31,32,0.16);border-radius:0" />
+          <input value="{{ laborForm.jobType }}" onChange="{{ onLaborJobType }}" placeholder="공종" style="min-height:38px;padding:8px 10px;font-size:13px;background:#e9e9ea;border:1px solid rgba(29,31,32,0.16);border-radius:0" />
+          <input type="number" value="{{ laborForm.unitPrice }}" onChange="{{ onLaborUnitPrice }}" placeholder="단가(원)" style="min-height:38px;padding:8px 10px;font-size:13px;background:#e9e9ea;border:1px solid rgba(29,31,32,0.16);border-radius:0" />
+          <input type="number" step="0.1" value="{{ laborForm.amount }}" onChange="{{ onLaborAmount }}" placeholder="공수" style="grid-column:1/3;min-height:38px;padding:8px 10px;font-size:13px;background:#e9e9ea;border:1px solid rgba(29,31,32,0.16);border-radius:0" />
+        </div>
+        <button onClick="{{ submitLabor }}" style="background:#5980a6;color:#f2f2f3;border:1px solid #5980a6;padding:11px;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:13px;cursor:pointer">저장</button>
+      </div>
+    </sc-if>
+    <sc-if value="{{ showAddForm }}" hint-placeholder-val="{{ true }}">
+      <button onClick="{{ openAdd }}" style="border:1px dashed rgba(29,31,32,0.3);background:none;padding:12px;font-size:13px;font-weight:600;color:#416180;cursor:pointer">+ 노무 추가</button>
+    </sc-if>
+  </sc-if>
+
+  <sc-if value="{{ dtEquipment }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;flex-direction:column;gap:0;border:1px solid rgba(29,31,32,0.16)">
+      <sc-for list="{{ equipmentRows }}" as="row" hint-placeholder-count="3">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 12px;border-bottom:1px solid rgba(29,31,32,0.1);gap:8px">
+          <div style="min-width:0">
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+              <span style="font-weight:700;font-size:13px">{{ row.name }}</span>
+              <span style="font-size:10px;border:1px solid rgba(29,31,32,0.2);padding:2px 6px;color:rgba(29,31,32,0.6)">{{ row.type }}</span>
+              <sc-if value="{{ row.docWarn }}" hint-placeholder-val="{{ false }}">
+                <span style="display:inline-flex;align-items:center;gap:3px;font-size:9px;font-weight:700;padding:2px 6px;border:1px solid #5980a6;color:#416180">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9.5 17H2.5z"></path><path d="M12 10v4M12 17.5h.01"></path></svg>
+                  서류 확인필요
+                </span>
+              </sc-if>
+            </div>
+            <div style="font-size:11px;color:rgba(29,31,32,0.55);margin-top:2px">{{ row.spec }} · 단가 {{ row.unitPriceFmt }} · {{ row.amount }}일 = {{ row.totalFmt }}</div>
+          </div>
+          <button onClick="{{ row.del }}" style="flex-shrink:0;font-size:11px;color:rgba(29,31,32,0.45);background:none;border:none;cursor:pointer;text-decoration:underline">삭제</button>
+        </div>
+      </sc-for>
+    </div>
+    <sc-if value="{{ showAddForm }}" hint-placeholder-val="{{ false }}">
+      <div style="border:1px solid #5980a6;padding:14px;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:13px">장비 추가</span><button onClick="{{ closeAdd }}" style="background:none;border:none;cursor:pointer;color:rgba(29,31,32,0.5)">✕</button></div>
+        <input value="{{ equipmentForm.name }}" onChange="{{ onEquipName }}" placeholder="장비명" style="min-height:38px;padding:8px 10px;font-size:13px;background:#e9e9ea;border:1px solid rgba(29,31,32,0.16);border-radius:0" />
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <input value="{{ equipmentForm.spec }}" onChange="{{ onEquipSpec }}" placeholder="규격/장비번호" style="min-height:38px;padding:8px 10px;font-size:13px;background:#e9e9ea;border:1px solid rgba(29,31,32,0.16);border-radius:0" />
+          <input type="number" value="{{ equipmentForm.unitPrice }}" onChange="{{ onEquipUnitPrice }}" placeholder="단가(원)" style="min-height:38px;padding:8px 10px;font-size:13px;background:#e9e9ea;border:1px solid rgba(29,31,32,0.16);border-radius:0" />
+        </div>
+        <input type="number" value="{{ equipmentForm.amount }}" onChange="{{ onEquipAmount }}" placeholder="투입시간(일)" style="min-height:38px;padding:8px 10px;font-size:13px;background:#e9e9ea;border:1px solid rgba(29,31,32,0.16);border-radius:0" />
+        <div style="display:flex;border:1px solid rgba(29,31,32,0.16)">
+          <sc-if value="{{ equipIsDirect }}" hint-placeholder-val="{{ true }}"><button onClick="{{ setEquipTypeDirect }}" style="flex:1;padding:8px;font-size:12px;font-weight:700;background:#5980a6;color:#f2f2f3;border:none;cursor:pointer">원청 직영</button></sc-if>
+          <sc-if value="{{ equipIsDirect }}" hint-placeholder-val="{{ false }}"><button onClick="{{ setEquipTypeDirect }}" style="flex:1;padding:8px;font-size:12px;font-weight:700;background:none;color:#1d1f20;border:none;border-right:1px solid rgba(29,31,32,0.16);cursor:pointer">원청 직영</button></sc-if>
+          <sc-if value="{{ equipIsSub }}" hint-placeholder-val="{{ false }}"><button onClick="{{ setEquipTypeSub }}" style="flex:1;padding:8px;font-size:12px;font-weight:700;background:#5980a6;color:#f2f2f3;border:none;cursor:pointer">당사 투입</button></sc-if>
+          <sc-if value="{{ equipIsSub }}" hint-placeholder-val="{{ true }}"><button onClick="{{ setEquipTypeSub }}" style="flex:1;padding:8px;font-size:12px;font-weight:700;background:none;color:#1d1f20;border:none;border-left:1px solid rgba(29,31,32,0.16);cursor:pointer">당사 투입</button></sc-if>
+        </div>
+        <button onClick="{{ submitEquipment }}" style="background:#5980a6;color:#f2f2f3;border:1px solid #5980a6;padding:11px;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:13px;cursor:pointer">저장</button>
+      </div>
+    </sc-if>
+    <sc-if value="{{ showAddForm }}" hint-placeholder-val="{{ true }}">
+      <button onClick="{{ openAdd }}" style="border:1px dashed rgba(29,31,32,0.3);background:none;padding:12px;font-size:13px;font-weight:600;color:#416180;cursor:pointer">+ 장비 추가</button>
+    </sc-if>
+  </sc-if>
+
+  <sc-if value="{{ dtMaterial }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;flex-direction:column;gap:0;border:1px solid rgba(29,31,32,0.16)">
+      <sc-for list="{{ materialRows }}" as="row" hint-placeholder-count="3">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 12px;border-bottom:1px solid rgba(29,31,32,0.1);gap:8px">
+          <div>
+            <span style="font-weight:700;font-size:13px">{{ row.name }}</span>
+            <div style="font-size:11px;color:rgba(29,31,32,0.55);margin-top:2px">{{ row.spec }} · {{ row.quantity }} {{ row.unit }}</div>
+          </div>
+          <button onClick="{{ row.del }}" style="flex-shrink:0;font-size:11px;color:rgba(29,31,32,0.45);background:none;border:none;cursor:pointer;text-decoration:underline">삭제</button>
+        </div>
+      </sc-for>
+    </div>
+    <sc-if value="{{ showAddForm }}" hint-placeholder-val="{{ false }}">
+      <div style="border:1px solid #5980a6;padding:14px;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:13px">자재 추가</span><button onClick="{{ closeAdd }}" style="background:none;border:none;cursor:pointer;color:rgba(29,31,32,0.5)">✕</button></div>
+        <input value="{{ materialForm.name }}" onChange="{{ onMaterialName }}" placeholder="자재명" style="min-height:38px;padding:8px 10px;font-size:13px;background:#e9e9ea;border:1px solid rgba(29,31,32,0.16);border-radius:0" />
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+          <input value="{{ materialForm.spec }}" onChange="{{ onMaterialSpec }}" placeholder="규격" style="min-height:38px;padding:8px 10px;font-size:13px;background:#e9e9ea;border:1px solid rgba(29,31,32,0.16);border-radius:0" />
+          <input value="{{ materialForm.unit }}" onChange="{{ onMaterialUnit }}" placeholder="단위" style="min-height:38px;padding:8px 10px;font-size:13px;background:#e9e9ea;border:1px solid rgba(29,31,32,0.16);border-radius:0" />
+          <input type="number" value="{{ materialForm.quantity }}" onChange="{{ onMaterialQty }}" placeholder="수량" style="min-height:38px;padding:8px 10px;font-size:13px;background:#e9e9ea;border:1px solid rgba(29,31,32,0.16);border-radius:0" />
+        </div>
+        <button onClick="{{ submitMaterial }}" style="background:#5980a6;color:#f2f2f3;border:1px solid #5980a6;padding:11px;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:13px;cursor:pointer">저장</button>
+      </div>
+    </sc-if>
+    <sc-if value="{{ showAddForm }}" hint-placeholder-val="{{ true }}">
+      <button onClick="{{ openAdd }}" style="border:1px dashed rgba(29,31,32,0.3);background:none;padding:12px;font-size:13px;font-weight:600;color:#416180;cursor:pointer">+ 자재 추가</button>
+    </sc-if>
+  </sc-if>
+
+  <sc-if value="{{ dtExpense }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;flex-direction:column;gap:0;border:1px solid rgba(29,31,32,0.16)">
+      <sc-for list="{{ expenseRows }}" as="row" hint-placeholder-count="3">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 12px;border-bottom:1px solid rgba(29,31,32,0.1);gap:8px">
+          <div>
+            <div style="display:flex;align-items:center;gap:6px"><span style="font-weight:700;font-size:13px">{{ row.category }}</span><span style="font-size:11px;color:rgba(29,31,32,0.5)">담당 {{ row.assignedTo }}</span></div>
+            <div style="font-size:11px;color:rgba(29,31,32,0.55);margin-top:2px">{{ row.amountFmt }}</div>
+          </div>
+          <sc-if value="{{ row.canDelete }}" hint-placeholder-val="{{ true }}"><button onClick="{{ row.del }}" style="flex-shrink:0;font-size:11px;color:rgba(29,31,32,0.45);background:none;border:none;cursor:pointer;text-decoration:underline">삭제</button></sc-if>
+          <sc-if value="{{ row.canDelete }}" hint-placeholder-val="{{ false }}"><span style="flex-shrink:0;font-size:10px;color:rgba(29,31,32,0.4);border:1px solid rgba(29,31,32,0.16);padding:2px 6px">정산완료</span></sc-if>
+        </div>
+      </sc-for>
+    </div>
+    <sc-if value="{{ showAddForm }}" hint-placeholder-val="{{ false }}">
+      <div style="border:1px solid #5980a6;padding:14px;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:13px">경비 추가</span><button onClick="{{ closeAdd }}" style="background:none;border:none;cursor:pointer;color:rgba(29,31,32,0.5)">✕</button></div>
+        <input value="{{ expenseForm.category }}" onChange="{{ onExpenseCategory }}" placeholder="항목 (예: 유류비)" style="min-height:38px;padding:8px 10px;font-size:13px;background:#e9e9ea;border:1px solid rgba(29,31,32,0.16);border-radius:0" />
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <input type="number" value="{{ expenseForm.amount }}" onChange="{{ onExpenseAmount }}" placeholder="금액(원)" style="min-height:38px;padding:8px 10px;font-size:13px;background:#e9e9ea;border:1px solid rgba(29,31,32,0.16);border-radius:0" />
+          <input value="{{ expenseForm.assignedTo }}" onChange="{{ onExpenseAssignee }}" placeholder="담당자" style="min-height:38px;padding:8px 10px;font-size:13px;background:#e9e9ea;border:1px solid rgba(29,31,32,0.16);border-radius:0" />
+        </div>
+        <button onClick="{{ submitExpense }}" style="background:#5980a6;color:#f2f2f3;border:1px solid #5980a6;padding:11px;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:13px;cursor:pointer">저장</button>
+      </div>
+    </sc-if>
+    <sc-if value="{{ showAddForm }}" hint-placeholder-val="{{ true }}">
+      <button onClick="{{ openAdd }}" style="border:1px dashed rgba(29,31,32,0.3);background:none;padding:12px;font-size:13px;font-weight:600;color:#416180;cursor:pointer">+ 경비 추가</button>
+    </sc-if>
+  </sc-if>
+
+  <sc-if value="{{ dtOutsourcing }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;flex-direction:column;gap:0;border:1px solid rgba(29,31,32,0.16)">
+      <sc-for list="{{ outsourcingRows }}" as="row" hint-placeholder-count="2">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 12px;border-bottom:1px solid rgba(29,31,32,0.1);gap:8px">
+          <div>
+            <span style="font-weight:700;font-size:13px">{{ row.company }}</span>
+            <div style="font-size:11px;color:rgba(29,31,32,0.55);margin-top:2px">{{ row.task }} · {{ row.amountFmt }}</div>
+          </div>
+          <button onClick="{{ row.del }}" style="flex-shrink:0;font-size:11px;color:rgba(29,31,32,0.45);background:none;border:none;cursor:pointer;text-decoration:underline">삭제</button>
+        </div>
+      </sc-for>
+    </div>
+    <sc-if value="{{ showAddForm }}" hint-placeholder-val="{{ false }}">
+      <div style="border:1px solid #5980a6;padding:14px;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:13px">외주 추가</span><button onClick="{{ closeAdd }}" style="background:none;border:none;cursor:pointer;color:rgba(29,31,32,0.5)">✕</button></div>
+        <input value="{{ outsourcingForm.company }}" onChange="{{ onOutCompany }}" placeholder="업체명" style="min-height:38px;padding:8px 10px;font-size:13px;background:#e9e9ea;border:1px solid rgba(29,31,32,0.16);border-radius:0" />
+        <input value="{{ outsourcingForm.task }}" onChange="{{ onOutTask }}" placeholder="작업내용" style="min-height:38px;padding:8px 10px;font-size:13px;background:#e9e9ea;border:1px solid rgba(29,31,32,0.16);border-radius:0" />
+        <input type="number" value="{{ outsourcingForm.amount }}" onChange="{{ onOutAmount }}" placeholder="금액(원)" style="min-height:38px;padding:8px 10px;font-size:13px;background:#e9e9ea;border:1px solid rgba(29,31,32,0.16);border-radius:0" />
+        <button onClick="{{ submitOutsourcing }}" style="background:#5980a6;color:#f2f2f3;border:1px solid #5980a6;padding:11px;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:13px;cursor:pointer">저장</button>
+      </div>
+    </sc-if>
+    <sc-if value="{{ showAddForm }}" hint-placeholder-val="{{ true }}">
+      <button onClick="{{ openAdd }}" style="border:1px dashed rgba(29,31,32,0.3);background:none;padding:12px;font-size:13px;font-weight:600;color:#416180;cursor:pointer">+ 외주 추가</button>
+    </sc-if>
+  </sc-if>
+
+  <div style="border:1px solid rgba(29,31,32,0.16);padding:14px;display:flex;flex-direction:column;gap:10px">
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <span style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:rgba(29,31,32,0.6)">작업내용 및 현장 사진</span>
+      <span style="display:flex;align-items:center;gap:4px;font-size:10px;color:rgba(29,31,32,0.5)">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"></rect><path d="M8 7l1.4-2h5.2L16 7"></path><circle cx="12" cy="13.5" r="3.2"></circle></svg>
+        문서 스캔
+      </span>
+    </div>
+    <textarea style="width:100%;min-height:60px;padding:8px 10px;font-size:13px;font-family:Barlow,sans-serif;background:#e9e9ea;border:1px solid rgba(29,31,32,0.16);border-radius:0;resize:vertical">오수관로 D400 30m 매설, 되메우기 완료. 굴착기·덤프 투입.</textarea>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
+      <image-slot id="log-photo-1" shape="rect" placeholder="현장 사진" style="width:100%;height:74px"></image-slot>
+      <image-slot id="log-photo-2" shape="rect" placeholder="현장 사진" style="width:100%;height:74px"></image-slot>
+      <image-slot id="log-photo-3" shape="rect" placeholder="영수증/명세서" style="width:100%;height:74px"></image-slot>
+    </div>
+  </div>
+
+  <div style="border-top:1px solid rgba(29,31,32,0.16);padding-top:10px;display:flex;justify-content:space-between;align-items:center;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:14px">
+    <span>오늘 총 투입비용</span><span>{{ grandTotalTodayFmt }}</span>
+  </div>
+</div>
+</sc-if>
+    <sc-if value="{{ tabIsWorkers }}" hint-placeholder-val="{{ false }}">
+<div id="screen-workers" data-screen-label="근로자 관리" style="padding:16px;display:flex;flex-direction:column;gap:14px">
+  <div style="display:flex;border:1px solid rgba(29,31,32,0.16)">
+    <sc-if value="{{ wtList }}" hint-placeholder-val="{{ true }}"><button onClick="{{ setWorkersTabList }}" style="flex:1;padding:9px;background:#5980a6;color:#f2f2f3;border:none;font-size:12px;font-weight:700;cursor:pointer">근로자</button></sc-if>
+    <sc-if value="{{ wtList }}" hint-placeholder-val="{{ false }}"><button onClick="{{ setWorkersTabList }}" style="flex:1;padding:9px;background:none;color:#1d1f20;border:none;border-right:1px solid rgba(29,31,32,0.16);font-size:12px;font-weight:700;cursor:pointer">근로자</button></sc-if>
+    <sc-if value="{{ wtAttendance }}" hint-placeholder-val="{{ false }}"><button onClick="{{ setWorkersTabAttendance }}" style="flex:1;padding:9px;background:#5980a6;color:#f2f2f3;border:none;font-size:12px;font-weight:700;cursor:pointer">출퇴근 현황</button></sc-if>
+    <sc-if value="{{ wtAttendance }}" hint-placeholder-val="{{ true }}"><button onClick="{{ setWorkersTabAttendance }}" style="flex:1;padding:9px;background:none;color:#1d1f20;border:none;border-left:1px solid rgba(29,31,32,0.16);font-size:12px;font-weight:700;cursor:pointer">출퇴근 현황</button></sc-if>
+  </div>
+
+  <sc-if value="{{ wtList }}" hint-placeholder-val="{{ true }}">
+    <sc-if value="{{ showWorkerForm }}" hint-placeholder-val="{{ false }}">
+      <button onClick="{{ openWorkerCreate }}" style="border:1px dashed rgba(29,31,32,0.3);background:none;padding:12px;font-size:13px;font-weight:600;color:#416180;cursor:pointer">+ 근로자 등록</button>
+    </sc-if>
+
+    <sc-if value="{{ showWorkerForm }}" hint-placeholder-val="{{ true }}">
+      <div style="border:1px solid #5980a6;padding:14px;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:13px">근로자 등록/수정</span><button onClick="{{ closeWorkerForm }}" style="background:none;border:none;cursor:pointer;color:rgba(29,31,32,0.5)">✕</button></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div><label style="display:block;font-size:10px;color:rgba(29,31,32,0.6);margin-bottom:3px">이름*</label><input value="{{ workerForm.name }}" onChange="{{ onWorkerName }}" style="width:100%;min-height:38px;padding:8px 10px;font-size:13px;background:#e9e9ea;border:1px solid rgba(29,31,32,0.16);border-radius:0" /></div>
+          <div><label style="display:block;font-size:10px;color:rgba(29,31,32,0.6);margin-bottom:3px">연락처</label><input value="{{ workerForm.phone }}" onChange="{{ onWorkerPhone }}" style="width:100%;min-height:38px;padding:8px 10px;font-size:13px;background:#e9e9ea;border:1px solid rgba(29,31,32,0.16);border-radius:0" /></div>
+          <div><label style="display:block;font-size:10px;color:rgba(29,31,32,0.6);margin-bottom:3px">소속 업체</label><input value="{{ workerForm.company }}" onChange="{{ onWorkerCompany }}" style="width:100%;min-height:38px;padding:8px 10px;font-size:13px;background:#e9e9ea;border:1px solid rgba(29,31,32,0.16);border-radius:0" /></div>
+          <div><label style="display:block;font-size:10px;color:rgba(29,31,32,0.6);margin-bottom:3px">직종/공종</label><input value="{{ workerForm.jobType }}" onChange="{{ onWorkerJobType }}" style="width:100%;min-height:38px;padding:8px 10px;font-size:13px;background:#e9e9ea;border:1px solid rgba(29,31,32,0.16);border-radius:0" /></div>
+          <div><label style="display:block;font-size:10px;color:rgba(29,31,32,0.6);margin-bottom:3px">생년월일 6자리</label><input value="{{ workerForm.birth }}" onChange="{{ onWorkerBirth }}" placeholder="예: 800312" style="width:100%;min-height:38px;padding:8px 10px;font-size:13px;background:#e9e9ea;border:1px solid rgba(29,31,32,0.16);border-radius:0" /></div>
+          <div><label style="display:block;font-size:10px;color:rgba(29,31,32,0.6);margin-bottom:3px">은행</label><input value="{{ workerForm.bank }}" onChange="{{ onWorkerBank }}" style="width:100%;min-height:38px;padding:8px 10px;font-size:13px;background:#e9e9ea;border:1px solid rgba(29,31,32,0.16);border-radius:0" /></div>
+          <div><label style="display:block;font-size:10px;color:rgba(29,31,32,0.6);margin-bottom:3px">계좌번호</label><input value="{{ workerForm.account }}" onChange="{{ onWorkerAccount }}" style="width:100%;min-height:38px;padding:8px 10px;font-size:13px;background:#e9e9ea;border:1px solid rgba(29,31,32,0.16);border-radius:0" /></div>
+          <div><label style="display:block;font-size:10px;color:rgba(29,31,32,0.6);margin-bottom:3px">안전교육일</label><input type="date" value="{{ workerForm.safetyEduDate }}" onChange="{{ onWorkerSafetyDate }}" style="width:100%;min-height:38px;padding:8px 10px;font-size:13px;background:#e9e9ea;border:1px solid rgba(29,31,32,0.16);border-radius:0" /></div>
+          <div><label style="display:block;font-size:10px;color:rgba(29,31,32,0.6);margin-bottom:3px">안전교육번호</label><input value="{{ workerForm.safetyEduNumber }}" onChange="{{ onWorkerSafetyNumber }}" style="width:100%;min-height:38px;padding:8px 10px;font-size:13px;background:#e9e9ea;border:1px solid rgba(29,31,32,0.16);border-radius:0" /></div>
+        </div>
+        <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:rgba(29,31,32,0.7)"><input type="checkbox" checked="{{ workerForm.basicSafetyEdu }}" onChange="{{ onWorkerSafetyCheck }}" style="width:16px;height:16px;accent-color:#5980a6" /> 기초안전보건교육 이수</label>
+        <button onClick="{{ submitWorker }}" style="background:#5980a6;color:#f2f2f3;border:1px solid #5980a6;padding:11px;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:13px;cursor:pointer">저장</button>
+      </div>
+    </sc-if>
+
+    <div style="border:1px solid rgba(29,31,32,0.16);padding:12px;display:flex;flex-direction:column;gap:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:12px;font-weight:700">중복 근로자 병합</span>
+        <sc-if value="{{ mergeMode }}" hint-placeholder-val="{{ false }}"><button onClick="{{ toggleMergeMode }}" style="font-size:11px;font-weight:700;color:rgba(29,31,32,0.5);background:none;border:1px solid rgba(29,31,32,0.16);padding:5px 10px;cursor:pointer">취소</button></sc-if>
+        <sc-if value="{{ mergeMode }}" hint-placeholder-val="{{ true }}"><button onClick="{{ toggleMergeMode }}" style="font-size:11px;font-weight:700;color:#416180;background:none;border:1px solid #5980a6;padding:5px 10px;cursor:pointer">병합</button></sc-if>
+      </div>
+      <sc-if value="{{ mergeMode }}" hint-placeholder-val="{{ false }}">
+        <select value="{{ mergeTargetId }}" onChange="{{ setMergeTarget }}" style="width:100%;min-height:36px;padding:6px 8px;font-size:12px;background:#e9e9ea;border:1px solid rgba(29,31,32,0.16)">
+          <option value="">기준 근로자 선택</option>
+          <sc-for list="{{ mergeTargetOptions }}" as="opt" hint-placeholder-count="4"><option value="{{ opt.id }}">{{ opt.name }}</option></sc-for>
+        </select>
+        <div style="font-size:11px;color:rgba(29,31,32,0.5)">아래 목록에서 합칠 중복 항목을 체크한 뒤 실행하세요. ({{ mergeSourceCount }}명 선택됨)</div>
+        <button onClick="{{ runMerge }}" style="background:#1d1f20;color:#f2f2f3;border:none;padding:9px;font-size:12px;font-weight:700;cursor:pointer">병합 실행</button>
+      </sc-if>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:0;border:1px solid rgba(29,31,32,0.16)">
+      <sc-for list="{{ workerRows }}" as="w" hint-placeholder-count="4">
+        <div style="display:flex;align-items:center;gap:10px;padding:11px 12px;border-bottom:1px solid rgba(29,31,32,0.1)">
+          <sc-if value="{{ mergeMode }}" hint-placeholder-val="{{ false }}"><input type="checkbox" checked="{{ w.isMergeSource }}" disabled="{{ w.mergeDisabled }}" onChange="{{ w.toggleSource }}" style="width:16px;height:16px;accent-color:#5980a6" /></sc-if>
+          <div style="width:34px;height:34px;border-radius:50%;background:#e9e9ea;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:11px;color:rgba(29,31,32,0.5)">{{ w.name }}</div>
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;align-items:center;gap:6px">
+              <span style="font-weight:700;font-size:13px">{{ w.name }}</span>
+              <sc-if value="{{ w.docOk }}" hint-placeholder-val="{{ true }}"><span style="font-size:9px;background:#eef6ff;color:#2c455d;padding:2px 6px;font-weight:600">{{ w.statusLabel }}</span></sc-if>
+              <sc-if value="{{ w.docOk }}" hint-placeholder-val="{{ false }}"><span style="font-size:9px;border:1px solid #5980a6;color:#416180;padding:2px 6px;font-weight:600">{{ w.statusLabel }}</span></sc-if>
+            </div>
+            <div style="font-size:11px;color:rgba(29,31,32,0.5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ w.metaLine }}</div>
+          </div>
+          <button onClick="{{ w.edit }}" style="font-size:11px;color:#416180;background:none;border:none;cursor:pointer;flex-shrink:0">수정</button>
+          <button onClick="{{ w.del }}" style="font-size:11px;color:rgba(29,31,32,0.4);background:none;border:none;cursor:pointer;flex-shrink:0">삭제</button>
+        </div>
+      </sc-for>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ wtAttendance }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;align-items:center;gap:8px">
+      <input type="date" value="{{ attDate }}" style="min-height:38px;padding:8px 10px;font-size:12px;background:#e9e9ea;border:1px solid rgba(29,31,32,0.16)" />
+      <span style="font-size:11px;color:rgba(29,31,32,0.5)">{{ siteName }}</span>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <sc-for list="{{ attendance }}" as="a" hint-placeholder-count="3">
+        <div style="border:1px solid rgba(29,31,32,0.16);padding:11px 12px;display:flex;flex-direction:column;gap:6px">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-weight:700;font-size:13px">{{ a.name }}</span>
+            <span style="font-size:9px;border:1px solid rgba(29,31,32,0.2);padding:2px 6px;color:rgba(29,31,32,0.55)">{{ a.status }}</span>
+          </div>
+          <div style="font-size:11px;color:rgba(29,31,32,0.55)">출근 {{ a.in }} / 퇴근 {{ a.out }}</div>
+          <sc-if value="{{ a.isPending }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;gap:8px">
+              <button onClick="{{ a.confirm }}" style="flex:1;font-size:11px;font-weight:700;color:#416180;border:1px solid #5980a6;background:none;padding:6px;cursor:pointer">확인</button>
+              <button onClick="{{ a.reject }}" style="flex:1;font-size:11px;font-weight:700;color:rgba(29,31,32,0.5);border:1px solid rgba(29,31,32,0.16);background:none;padding:6px;cursor:pointer">반려</button>
+            </div>
+          </sc-if>
+        </div>
+      </sc-for>
+    </div>
+  </sc-if>
+</div>
+</sc-if>
+    <sc-if value="{{ tabIsBilling }}" hint-placeholder-val="{{ false }}">
+<div id="screen-billing" data-screen-label="기성관리" style="padding:16px;display:flex;flex-direction:column;gap:14px">
+  <div style="display:flex;gap:1px;background:rgba(29,31,32,0.16);border:1px solid rgba(29,31,32,0.16);overflow-x:auto">
+    <sc-if value="{{ btItems }}" hint-placeholder-val="{{ true }}"><button onClick="{{ setBillingItems }}" style="flex:1;white-space:nowrap;padding:9px 8px;background:#5980a6;color:#f2f2f3;border:none;font-size:11px;font-weight:700;cursor:pointer">계약품목</button></sc-if>
+    <sc-if value="{{ btItems }}" hint-placeholder-val="{{ false }}"><button onClick="{{ setBillingItems }}" style="flex:1;white-space:nowrap;padding:9px 8px;background:#f2f2f3;color:#1d1f20;border:none;font-size:11px;font-weight:700;cursor:pointer">계약품목</button></sc-if>
+    <sc-if value="{{ btEntry }}" hint-placeholder-val="{{ false }}"><button onClick="{{ setBillingEntry }}" style="flex:1;white-space:nowrap;padding:9px 8px;background:#5980a6;color:#f2f2f3;border:none;font-size:11px;font-weight:700;cursor:pointer">시공수량</button></sc-if>
+    <sc-if value="{{ btEntry }}" hint-placeholder-val="{{ true }}"><button onClick="{{ setBillingEntry }}" style="flex:1;white-space:nowrap;padding:9px 8px;background:#f2f2f3;color:#1d1f20;border:none;font-size:11px;font-weight:700;cursor:pointer">시공수량</button></sc-if>
+    <sc-if value="{{ btClaim }}" hint-placeholder-val="{{ false }}"><button onClick="{{ setBillingClaim }}" style="flex:1;white-space:nowrap;padding:9px 8px;background:#5980a6;color:#f2f2f3;border:none;font-size:11px;font-weight:700;cursor:pointer">기성청구서</button></sc-if>
+    <sc-if value="{{ btClaim }}" hint-placeholder-val="{{ true }}"><button onClick="{{ setBillingClaim }}" style="flex:1;white-space:nowrap;padding:9px 8px;background:#f2f2f3;color:#1d1f20;border:none;font-size:11px;font-weight:700;cursor:pointer">기성청구서</button></sc-if>
+    <sc-if value="{{ btStatement }}" hint-placeholder-val="{{ false }}"><button onClick="{{ setBillingStatement }}" style="flex:1;white-space:nowrap;padding:9px 8px;background:#5980a6;color:#f2f2f3;border:none;font-size:11px;font-weight:700;cursor:pointer">투입명세서</button></sc-if>
+    <sc-if value="{{ btStatement }}" hint-placeholder-val="{{ true }}"><button onClick="{{ setBillingStatement }}" style="flex:1;white-space:nowrap;padding:9px 8px;background:#f2f2f3;color:#1d1f20;border:none;font-size:11px;font-weight:700;cursor:pointer">투입명세서</button></sc-if>
+    <sc-if value="{{ btProfit }}" hint-placeholder-val="{{ false }}"><button onClick="{{ setBillingProfit }}" style="flex:1;white-space:nowrap;padding:9px 8px;background:#5980a6;color:#f2f2f3;border:none;font-size:11px;font-weight:700;cursor:pointer">수지분석</button></sc-if>
+    <sc-if value="{{ btProfit }}" hint-placeholder-val="{{ true }}"><button onClick="{{ setBillingProfit }}" style="flex:1;white-space:nowrap;padding:9px 8px;background:#f2f2f3;color:#1d1f20;border:none;font-size:11px;font-weight:700;cursor:pointer">수지분석</button></sc-if>
+  </div>
+
+  <sc-if value="{{ btItems }}" hint-placeholder-val="{{ true }}">
+    <sc-if value="{{ isAdmin }}" hint-placeholder-val="{{ true }}">
+      <button style="border:1px dashed rgba(29,31,32,0.3);background:none;padding:11px;font-size:12px;font-weight:600;color:#416180;cursor:pointer">견적내역서(BOQ) 엑셀 업로드</button>
+    </sc-if>
+    <sc-for list="{{ contractGroups }}" as="g" hint-placeholder-count="2">
+      <div style="display:flex;flex-direction:column;gap:0;border:1px solid rgba(29,31,32,0.16)">
+        <div style="background:#e9e9ea;padding:8px 12px;font-size:11px;font-weight:700;letter-spacing:0.03em">{{ g.group }}</div>
+        <sc-for list="{{ g.items }}" as="it" hint-placeholder-count="2">
+          <div style="padding:10px 12px;border-bottom:1px solid rgba(29,31,32,0.1);display:flex;flex-direction:column;gap:3px">
+            <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:600"><span>{{ it.name }}</span><span>{{ it.amountFmt }}</span></div>
+            <div style="font-size:11px;color:rgba(29,31,32,0.55)">{{ it.spec }} · {{ it.qty }} {{ it.unit }} · 단가 {{ it.priceFmt }}</div>
+            <div style="font-size:11px;color:rgba(29,31,32,0.55)">누적 {{ it.cumQty }} {{ it.unit }} · 이번달 {{ it.monthQty }} {{ it.unit }} · 잔량 {{ it.remain }} {{ it.unit }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </sc-for>
+  </sc-if>
+
+  <sc-if value="{{ btEntry }}" hint-placeholder-val="{{ false }}">
+    <div style="border:1px solid rgba(29,31,32,0.16);padding:14px;display:flex;flex-direction:column;gap:10px">
+      <div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:12px">오늘 시공수량 입력</div>
+      <select value="{{ qtyForm.itemId }}" onChange="{{ setQtyItem }}" style="min-height:38px;padding:8px;font-size:13px;background:#e9e9ea;border:1px solid rgba(29,31,32,0.16)">
+        <option value="">계약품목 검색/선택</option>
+        <sc-for list="{{ contractItemOptions }}" as="opt" hint-placeholder-count="4"><option value="{{ opt.id }}">{{ opt.name }}</option></sc-for>
+      </select>
+      <input type="number" value="{{ qtyForm.qty }}" onChange="{{ setQtyValue }}" placeholder="오늘 시공수량" style="min-height:38px;padding:8px 10px;font-size:13px;background:#e9e9ea;border:1px solid rgba(29,31,32,0.16)" />
+      <button onClick="{{ submitQty }}" style="background:#5980a6;color:#f2f2f3;border:1px solid #5980a6;padding:11px;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:13px;cursor:pointer">입력</button>
+    </div>
+    <div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:rgba(29,31,32,0.6)">오늘 입력한 시공수량</div>
+    <div style="display:flex;flex-direction:column;gap:0;border:1px solid rgba(29,31,32,0.16)">
+      <sc-for list="{{ qtyEntries }}" as="q" hint-placeholder-count="2">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-bottom:1px solid rgba(29,31,32,0.1)">
+          <span style="font-size:13px">{{ q.itemName }} · {{ q.qty }} {{ q.unit }}</span>
+          <button onClick="{{ q.del }}" style="font-size:11px;color:rgba(29,31,32,0.45);background:none;border:none;cursor:pointer;text-decoration:underline">삭제</button>
+        </div>
+      </sc-for>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ btClaim }}" hint-placeholder-val="{{ false }}">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;background:rgba(29,31,32,0.16);border:1px solid rgba(29,31,32,0.16)">
+      <div style="background:#f2f2f3;padding:12px"><div style="font-size:10px;color:rgba(29,31,32,0.55)">이번달 기성청구액</div><div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:16px;margin-top:3px">{{ claimMonthFmt }}</div></div>
+      <div style="background:#f2f2f3;padding:12px"><div style="font-size:10px;color:rgba(29,31,32,0.55)">누적 기성고</div><div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:16px;margin-top:3px">{{ claimCumFmt }}</div></div>
+      <div style="background:#f2f2f3;padding:12px;grid-column:1/3"><div style="font-size:10px;color:rgba(29,31,32,0.55)">전월 기성고</div><div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:16px;margin-top:3px">{{ claimPrevFmt }}</div></div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:0;border:1px solid rgba(29,31,32,0.16)">
+      <sc-for list="{{ contractGroups }}" as="g" hint-placeholder-count="2">
+        <sc-for list="{{ g.items }}" as="it" hint-placeholder-count="2">
+          <div style="padding:10px 12px;border-bottom:1px solid rgba(29,31,32,0.1);display:flex;justify-content:space-between;font-size:12px">
+            <span>{{ it.name }}</span><span>{{ it.amountFmt }}</span>
+          </div>
+        </sc-for>
+      </sc-for>
+    </div>
+    <sc-if value="{{ isAdmin }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;gap:8px">
+        <button style="flex:1;border:1px solid rgba(29,31,32,0.16);background:none;padding:10px;font-size:12px;font-weight:700;cursor:pointer">원청 제출</button>
+        <button style="flex:1;background:#5980a6;color:#f2f2f3;border:1px solid #5980a6;padding:10px;font-size:12px;font-weight:700;cursor:pointer">지급확정</button>
+      </div>
+    </sc-if>
+    <button style="border:1px dashed rgba(29,31,32,0.3);background:none;padding:10px;font-size:12px;font-weight:600;color:#416180;cursor:pointer">엑셀로 내보내기</button>
+  </sc-if>
+
+  <sc-if value="{{ btStatement }}" hint-placeholder-val="{{ false }}">
+    <div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:rgba(29,31,32,0.6)">노무 투입명세 (일자별 공수)</div>
+    <div style="overflow-x:auto;border:1px solid rgba(29,31,32,0.16)">
+      <table style="width:100%;border-collapse:collapse;font-size:11px;min-width:480px">
+        <tr style="background:#e9e9ea"><th style="padding:6px 8px;text-align:left">이름</th><th style="padding:6px 4px">1</th><th style="padding:6px 4px">2</th><th style="padding:6px 4px">3</th><th style="padding:6px 4px">4</th><th style="padding:6px 4px">5</th><th style="padding:6px 8px">합계공수</th><th style="padding:6px 8px">금액</th></tr>
+        <tr style="border-top:1px solid rgba(29,31,32,0.1)"><td style="padding:6px 8px">김민수</td><td style="text-align:center">1</td><td style="text-align:center">1</td><td style="text-align:center">-</td><td style="text-align:center">1</td><td style="text-align:center">1</td><td style="text-align:center;font-weight:700">4</td><td style="padding:6px 8px;text-align:right">720,000</td></tr>
+        <tr style="border-top:1px solid rgba(29,31,32,0.1)"><td style="padding:6px 8px">이재호</td><td style="text-align:center">1</td><td style="text-align:center">-</td><td style="text-align:center">1</td><td style="text-align:center">1</td><td style="text-align:center">1</td><td style="text-align:center;font-weight:700">4</td><td style="padding:6px 8px;text-align:right">600,000</td></tr>
+        <tr style="border-top:1px solid rgba(29,31,32,0.1)"><td style="padding:6px 8px">박성진</td><td style="text-align:center">0.5</td><td style="text-align:center">1</td><td style="text-align:center">1</td><td style="text-align:center">-</td><td style="text-align:center">1</td><td style="text-align:center;font-weight:700">3.5</td><td style="padding:6px 8px;text-align:right">490,000</td></tr>
+      </table>
+    </div>
+    <div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:rgba(29,31,32,0.6)">자재 · 경비 · 외주 집계</div>
+    <div style="display:flex;flex-direction:column;gap:0;border:1px solid rgba(29,31,32,0.16)">
+      <div style="padding:9px 12px;border-bottom:1px solid rgba(29,31,32,0.1);display:flex;justify-content:space-between;font-size:12px"><span>자재비</span><span>2,180,000</span></div>
+      <div style="padding:9px 12px;border-bottom:1px solid rgba(29,31,32,0.1);display:flex;justify-content:space-between;font-size:12px"><span>경비</span><span>{{ expenseMonthlyFmt }}</span></div>
+      <div style="padding:9px 12px;display:flex;justify-content:space-between;font-size:12px"><span>외주비</span><span>{{ outsourcingMonthlyFmt }}</span></div>
+    </div>
+    <button style="border:1px dashed rgba(29,31,32,0.3);background:none;padding:10px;font-size:12px;font-weight:600;color:#416180;cursor:pointer">엑셀로 내보내기</button>
+  </sc-if>
+
+  <sc-if value="{{ btProfit }}" hint-placeholder-val="{{ false }}">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;background:rgba(29,31,32,0.16);border:1px solid rgba(29,31,32,0.16)">
+      <div style="background:#f2f2f3;padding:12px"><div style="font-size:10px;color:rgba(29,31,32,0.55)">이번달 기성청구액</div><div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:15px;margin-top:3px">{{ claimMonthFmt }}</div></div>
+      <div style="background:#f2f2f3;padding:12px"><div style="font-size:10px;color:rgba(29,31,32,0.55)">이번달 실투입원가</div><div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:15px;margin-top:3px">{{ costMonthFmt }}</div></div>
+      <div style="background:#f2f2f3;padding:12px"><div style="font-size:10px;color:#5980a6">이번달 손익</div><div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:18px;margin-top:3px;color:#416180">+{{ profitMonthFmt }}</div></div>
+      <div style="background:#f2f2f3;padding:12px"><div style="font-size:10px;color:#5980a6">착공~현재 누계 손익</div><div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:18px;margin-top:3px;color:#416180">+{{ profitCumFmt }}</div></div>
+    </div>
+    <div style="font-size:11px;color:rgba(29,31,32,0.5);line-height:1.6">수지분석은 계약(견적) 기준 기성청구액과 실제 투입원가(노무+장비+자재+경비+외주)를 비교해 자동 계산됩니다.</div>
+  </sc-if>
+</div>
+</sc-if>
+    <sc-if value="{{ tabIsFeedback }}" hint-placeholder-val="{{ false }}">
+<div id="screen-feedback" data-screen-label="건의사항" style="padding:16px;display:flex;flex-direction:column;gap:14px">
+  <button onClick="{{ goDashboard }}" style="align-self:flex-start;font-size:11px;color:rgba(29,31,32,0.5);background:none;border:none;cursor:pointer">‹ 대시보드로</button>
+  <div style="display:flex;justify-content:space-between;align-items:center">
+    <span style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:16px">건의사항</span>
+    <button onClick="{{ openFeedbackForm }}" style="font-size:12px;font-weight:700;color:#f2f2f3;background:#5980a6;border:none;padding:7px 12px;cursor:pointer">+ 작성</button>
+  </div>
+
+  <div style="display:flex;gap:1px;background:rgba(29,31,32,0.16);border:1px solid rgba(29,31,32,0.16)">
+    <sc-if value="{{ ffAll }}" hint-placeholder-val="{{ true }}"><button onClick="{{ setFilterAll }}" style="flex:1;padding:8px 4px;background:#5980a6;color:#f2f2f3;border:none;font-size:11px;font-weight:700;cursor:pointer">전체</button></sc-if>
+    <sc-if value="{{ ffAll }}" hint-placeholder-val="{{ false }}"><button onClick="{{ setFilterAll }}" style="flex:1;padding:8px 4px;background:#f2f2f3;color:#1d1f20;border:none;font-size:11px;font-weight:700;cursor:pointer">전체</button></sc-if>
+    <sc-if value="{{ ffOpen }}" hint-placeholder-val="{{ false }}"><button onClick="{{ setFilterOpen }}" style="flex:1;padding:8px 4px;background:#5980a6;color:#f2f2f3;border:none;font-size:11px;font-weight:700;cursor:pointer">대기</button></sc-if>
+    <sc-if value="{{ ffOpen }}" hint-placeholder-val="{{ true }}"><button onClick="{{ setFilterOpen }}" style="flex:1;padding:8px 4px;background:#f2f2f3;color:#1d1f20;border:none;font-size:11px;font-weight:700;cursor:pointer">대기</button></sc-if>
+    <sc-if value="{{ ffProg }}" hint-placeholder-val="{{ false }}"><button onClick="{{ setFilterProg }}" style="flex:1;padding:8px 4px;background:#5980a6;color:#f2f2f3;border:none;font-size:11px;font-weight:700;cursor:pointer">진행중</button></sc-if>
+    <sc-if value="{{ ffProg }}" hint-placeholder-val="{{ true }}"><button onClick="{{ setFilterProg }}" style="flex:1;padding:8px 4px;background:#f2f2f3;color:#1d1f20;border:none;font-size:11px;font-weight:700;cursor:pointer">진행중</button></sc-if>
+    <sc-if value="{{ ffDone }}" hint-placeholder-val="{{ false }}"><button onClick="{{ setFilterDone }}" style="flex:1;padding:8px 4px;background:#5980a6;color:#f2f2f3;border:none;font-size:11px;font-weight:700;cursor:pointer">완료</button></sc-if>
+    <sc-if value="{{ ffDone }}" hint-placeholder-val="{{ true }}"><button onClick="{{ setFilterDone }}" style="flex:1;padding:8px 4px;background:#f2f2f3;color:#1d1f20;border:none;font-size:11px;font-weight:700;cursor:pointer">완료</button></sc-if>
+  </div>
+
+  <sc-if value="{{ showFeedbackForm }}" hint-placeholder-val="{{ false }}">
+    <div style="border:1px solid #5980a6;padding:14px;display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:13px">건의사항 작성</span><button onClick="{{ closeFeedbackForm }}" style="background:none;border:none;cursor:pointer;color:rgba(29,31,32,0.5)">✕</button></div>
+      <div style="display:flex;border:1px solid rgba(29,31,32,0.16)">
+        <sc-if value="{{ fcIsReq }}" hint-placeholder-val="{{ true }}"><button onClick="{{ setFcReq }}" style="flex:1;padding:7px;background:#5980a6;color:#f2f2f3;border:none;font-size:11px;font-weight:700;cursor:pointer">요구사항</button></sc-if>
+        <sc-if value="{{ fcIsReq }}" hint-placeholder-val="{{ false }}"><button onClick="{{ setFcReq }}" style="flex:1;padding:7px;background:none;color:#1d1f20;border:none;border-right:1px solid rgba(29,31,32,0.16);font-size:11px;font-weight:700;cursor:pointer">요구사항</button></sc-if>
+        <sc-if value="{{ fcIsBug }}" hint-placeholder-val="{{ false }}"><button onClick="{{ setFcBug }}" style="flex:1;padding:7px;background:#5980a6;color:#f2f2f3;border:none;font-size:11px;font-weight:700;cursor:pointer">버그</button></sc-if>
+        <sc-if value="{{ fcIsBug }}" hint-placeholder-val="{{ true }}"><button onClick="{{ setFcBug }}" style="flex:1;padding:7px;background:none;color:#1d1f20;border:none;border-right:1px solid rgba(29,31,32,0.16);border-left:1px solid rgba(29,31,32,0.16);font-size:11px;font-weight:700;cursor:pointer">버그</button></sc-if>
+        <sc-if value="{{ fcIsEtc }}" hint-placeholder-val="{{ false }}"><button onClick="{{ setFcEtc }}" style="flex:1;padding:7px;background:#5980a6;color:#f2f2f3;border:none;font-size:11px;font-weight:700;cursor:pointer">기타</button></sc-if>
+        <sc-if value="{{ fcIsEtc }}" hint-placeholder-val="{{ true }}"><button onClick="{{ setFcEtc }}" style="flex:1;padding:7px;background:none;color:#1d1f20;border:none;border-left:1px solid rgba(29,31,32,0.16);font-size:11px;font-weight:700;cursor:pointer">기타</button></sc-if>
+      </div>
+      <textarea value="{{ feedbackForm.content }}" onChange="{{ setFeedbackContent }}" placeholder="내용을 입력하세요" style="width:100%;min-height:80px;padding:8px 10px;font-size:13px;font-family:Barlow,sans-serif;background:#e9e9ea;border:1px solid rgba(29,31,32,0.16);resize:vertical"></textarea>
+      <button onClick="{{ submitFeedback }}" style="background:#5980a6;color:#f2f2f3;border:1px solid #5980a6;padding:11px;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:13px;cursor:pointer">등록</button>
+    </div>
+  </sc-if>
+
+  <div style="display:flex;flex-direction:column;gap:8px">
+    <sc-for list="{{ feedbackRows }}" as="f" hint-placeholder-count="3">
+      <div style="border:1px solid rgba(29,31,32,0.16);padding:12px;display:flex;flex-direction:column;gap:6px">
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="font-size:10px;background:#f5f5f8;color:#424244;padding:2px 7px;font-weight:600">{{ f.category }}</span>
+          <span style="font-size:10px;border:1px solid #5980a6;color:#416180;padding:2px 7px;font-weight:600">{{ f.statusLabel }}</span>
+          <span style="margin-left:auto;font-size:10px;color:rgba(29,31,32,0.45)">{{ f.author }} · {{ f.date }}</span>
+        </div>
+        <p style="margin:0;font-size:13px;line-height:1.5">{{ f.content }}</p>
+        <sc-if value="{{ isAdmin }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;gap:6px;margin-top:2px">
+            <button onClick="{{ f.setOpen }}" style="font-size:10px;border:1px solid rgba(29,31,32,0.16);background:none;padding:4px 8px;cursor:pointer">대기</button>
+            <button onClick="{{ f.setProg }}" style="font-size:10px;border:1px solid rgba(29,31,32,0.16);background:none;padding:4px 8px;cursor:pointer">진행중</button>
+            <button onClick="{{ f.setDone }}" style="font-size:10px;border:1px solid rgba(29,31,32,0.16);background:none;padding:4px 8px;cursor:pointer">완료</button>
+            <button onClick="{{ f.del }}" style="margin-left:auto;font-size:10px;color:rgba(29,31,32,0.4);background:none;border:none;cursor:pointer;text-decoration:underline">삭제</button>
+          </div>
+        </sc-if>
+      </div>
+    </sc-for>
+  </div>
+</div>
+</sc-if>
+    <sc-if value="{{ tabIsAdmin }}" hint-placeholder-val="{{ false }}">
+<div id="screen-admin" data-screen-label="사용자 관리" style="padding:16px;display:flex;flex-direction:column;gap:14px">
+  <button onClick="{{ goDashboard }}" style="align-self:flex-start;font-size:11px;color:rgba(29,31,32,0.5);background:none;border:none;cursor:pointer">‹ 대시보드로</button>
+  <span style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:16px">사용자 및 권한 관리</span>
+
+  <div style="border:1px solid rgba(29,31,32,0.16);padding:14px;display:flex;flex-direction:column;gap:10px">
+    <div style="font-size:12px;font-weight:700;color:#416180">신규 접속자 등록</div>
+    <input value="{{ newUserForm.name }}" onChange="{{ onNewUserName }}" placeholder="이름" style="min-height:38px;padding:8px 10px;font-size:13px;background:#e9e9ea;border:1px solid rgba(29,31,32,0.16)" />
+    <input value="{{ newUserForm.pin }}" onChange="{{ onNewUserPin }}" placeholder="PIN (4~8자리)" style="min-height:38px;padding:8px 10px;font-size:13px;background:#e9e9ea;border:1px solid rgba(29,31,32,0.16)" />
+    <div style="display:flex;border:1px solid rgba(29,31,32,0.16)">
+      <sc-if value="{{ newUserRoleIsWorker }}" hint-placeholder-val="{{ true }}"><button onClick="{{ setNewUserRoleWorker }}" style="flex:1;padding:8px;background:#5980a6;color:#f2f2f3;border:none;font-size:12px;font-weight:700;cursor:pointer">작업자(WORKER)</button></sc-if>
+      <sc-if value="{{ newUserRoleIsWorker }}" hint-placeholder-val="{{ false }}"><button onClick="{{ setNewUserRoleWorker }}" style="flex:1;padding:8px;background:none;color:#1d1f20;border:none;border-right:1px solid rgba(29,31,32,0.16);font-size:12px;font-weight:700;cursor:pointer">작업자(WORKER)</button></sc-if>
+      <sc-if value="{{ newUserRoleIsWorker }}" hint-placeholder-val="{{ false }}"><button onClick="{{ setNewUserRoleAdmin }}" style="flex:1;padding:8px;background:#5980a6;color:#f2f2f3;border:none;font-size:12px;font-weight:700;cursor:pointer">관리자(ADMIN)</button></sc-if>
+      <sc-if value="{{ newUserRoleIsWorker }}" hint-placeholder-val="{{ true }}"><button onClick="{{ setNewUserRoleAdmin }}" style="flex:1;padding:8px;background:none;color:#1d1f20;border:none;border-left:1px solid rgba(29,31,32,0.16);font-size:12px;font-weight:700;cursor:pointer">관리자(ADMIN)</button></sc-if>
+    </div>
+    <button onClick="{{ submitNewUser }}" style="background:#5980a6;color:#f2f2f3;border:1px solid #5980a6;padding:11px;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:13px;cursor:pointer">등록</button>
+  </div>
+
+  <div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:rgba(29,31,32,0.6)">등록된 접속자 목록</div>
+  <div style="display:flex;flex-direction:column;gap:8px">
+    <sc-for list="{{ users }}" as="u" hint-placeholder-count="3">
+      <div style="border:1px solid rgba(29,31,32,0.16);padding:11px 12px;display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-weight:700;font-size:13px">{{ u.name }}</span>
+            <sc-if value="{{ u.isLocked }}" hint-placeholder-val="{{ false }}"><span style="font-size:9px;border:1px solid #5980a6;color:#416180;padding:2px 6px;font-weight:700">{{ u.role }}</span></sc-if>
+            <sc-if value="{{ u.isLocked }}" hint-placeholder-val="{{ true }}"><button onClick="{{ u.toggleRole }}" style="font-size:9px;border:1px solid #5980a6;color:#416180;padding:2px 6px;font-weight:700;background:none;cursor:pointer">{{ u.role }}</button></sc-if>
+          </div>
+          <button onClick="{{ u.toggleActive }}" style="font-size:10px;color:rgba(29,31,32,0.55);background:none;border:1px solid rgba(29,31,32,0.16);padding:4px 8px;cursor:pointer">{{ u.activeLabel }}</button>
+        </div>
+        <sc-if value="{{ u.changing }}" hint-placeholder-val="{{ false }}">
+          <button onClick="{{ u.startPin }}" style="align-self:flex-start;font-size:11px;color:#416180;background:none;border:none;cursor:pointer;text-decoration:underline">PIN 변경</button>
+        </sc-if>
+        <sc-if value="{{ u.changing }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;gap:6px">
+            <input value="{{ newPinInput }}" onChange="{{ setNewPinInput }}" placeholder="새 PIN" style="flex:1;min-height:34px;padding:6px 8px;font-size:12px;background:#e9e9ea;border:1px solid #5980a6" />
+            <button onClick="{{ saveChangePin }}" style="font-size:11px;font-weight:700;color:#f2f2f3;background:#5980a6;border:none;padding:6px 10px;cursor:pointer">저장</button>
+            <button onClick="{{ cancelChangePin }}" style="font-size:11px;color:rgba(29,31,32,0.5);background:none;border:1px solid rgba(29,31,32,0.16);padding:6px 10px;cursor:pointer">취소</button>
+          </div>
+        </sc-if>
+        <sc-if value="{{ u.isLocked }}" hint-placeholder-val="{{ false }}">
+          <button onClick="{{ u.del }}" style="align-self:flex-end;font-size:11px;color:rgba(29,31,32,0.4);background:none;border:none;cursor:pointer;text-decoration:underline">삭제</button>
+        </sc-if>
+      </div>
+    </sc-for>
+  </div>
+</div>
+</sc-if>
+
+  </div>
+
+  <div style="flex-shrink:0;display:flex;border-top:1px solid rgba(29,31,32,0.16);background:#f2f2f3">
+    <button onClick="{{ goDashboard }}" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:9px 0;background:none;border:none;cursor:pointer;position:relative;color:#1d1f20">
+      <sc-if value="{{ tabIsDashboard }}" hint-placeholder-val="{{ true }}"><div style="position:absolute;top:0;left:20%;right:20%;height:2px;background:#5980a6"></div></sc-if>
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect></svg>
+      <span style="font-size:10px;font-weight:600">대시보드</span>
+    </button>
+    <button onClick="{{ goDailyLog }}" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:9px 0;background:none;border:none;cursor:pointer;position:relative;color:#1d1f20">
+      <sc-if value="{{ tabIsDailyLog }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:0;left:20%;right:20%;height:2px;background:#5980a6"></div></sc-if>
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="17" rx="1"></rect><path d="M9 4V2h6v2"></path><path d="M9 10h6M9 14h6M9 18h4"></path></svg>
+      <span style="font-size:10px;font-weight:600">일보</span>
+    </button>
+    <sc-if value="{{ isAdmin }}" hint-placeholder-val="{{ true }}">
+      <button onClick="{{ goWorkers }}" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:9px 0;background:none;border:none;cursor:pointer;position:relative;color:#1d1f20">
+        <sc-if value="{{ tabIsWorkers }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:0;left:20%;right:20%;height:2px;background:#5980a6"></div></sc-if>
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"></circle><path d="M3.5 20c0-3.3 2.5-5.5 5.5-5.5s5.5 2.2 5.5 5.5"></path><circle cx="17" cy="9" r="2.3"></circle><path d="M15 20c0-2.2 1.1-3.8 3-4.4"></path></svg>
+        <span style="font-size:10px;font-weight:600">근로자</span>
+      </button>
+    </sc-if>
+    <button onClick="{{ goBilling }}" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:9px 0;background:none;border:none;cursor:pointer;position:relative;color:#1d1f20">
+      <sc-if value="{{ tabIsBilling }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:0;left:20%;right:20%;height:2px;background:#5980a6"></div></sc-if>
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h14v18l-2.2-1.6L14.6 21l-2.2-1.6L10.2 21 8 19.4 5.8 21 5 21z"></path><path d="M8.5 9h7M8.5 13h4.5"></path></svg>
+      <span style="font-size:10px;font-weight:600">기성</span>
+    </button>
+    <button onClick="{{ toggleMore }}" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:9px 0;background:none;border:none;cursor:pointer;position:relative;color:#1d1f20">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="5" cy="12" r="1.6"></circle><circle cx="12" cy="12" r="1.6"></circle><circle cx="19" cy="12" r="1.6"></circle></svg>
+      <span style="font-size:10px;font-weight:600">더보기</span>
+    </button>
+  </div>
+
+  <sc-if value="{{ showMore }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;inset:0;background:rgba(29,31,32,0.45);z-index:30;display:flex;align-items:flex-end" onClick="{{ closeMore }}">
+      <div style="background:#f2f2f3;width:100%;border-top:1px solid rgba(29,31,32,0.2);padding:10px 16px 20px;display:flex;flex-direction:column;gap:2px">
+        <div style="width:32px;height:3px;background:rgba(29,31,32,0.2);border-radius:2px;margin:0 auto 10px"></div>
+        <button onClick="{{ goFeedback }}" style="text-align:left;padding:13px 4px;background:none;border:none;border-bottom:1px solid rgba(29,31,32,0.1);font-size:14px;font-weight:600;color:#1d1f20;cursor:pointer">건의사항</button>
+        <button onClick="{{ goAttendanceSheet }}" style="text-align:left;padding:13px 4px;background:none;border:none;border-bottom:1px solid rgba(29,31,32,0.1);font-size:14px;font-weight:600;color:#1d1f20;cursor:pointer">출퇴근 체크</button>
+        <sc-if value="{{ isAdmin }}" hint-placeholder-val="{{ true }}">
+          <button onClick="{{ goAdminUsers }}" style="text-align:left;padding:13px 4px;background:none;border:none;border-bottom:1px solid rgba(29,31,32,0.1);font-size:14px;font-weight:600;color:#1d1f20;cursor:pointer">사용자 및 권한 관리</button>
+        </sc-if>
+        <button onClick="{{ logout }}" style="text-align:left;padding:13px 4px;background:none;border:none;font-size:14px;font-weight:600;color:#416180;cursor:pointer">로그아웃</button>
+      </div>
+    </div>
+  </sc-if>
+
+</div>
+</sc-if>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = {
+    screen: 'login',
+    loginName: '', loginPin: '', loginRole: 'ADMIN', role: 'ADMIN',
+    tab: 'dashboard', showMore: false,
+
+    dailyTab: 'labor', showAddForm: false, nextId: 100,
+    laborForm: { name: '', jobType: '', unitPrice: '', amount: '1' },
+    equipmentForm: { name: '', spec: '', unitPrice: '', amount: '1', type: 'DIRECT' },
+    materialForm: { name: '', spec: '', unit: '', quantity: '1' },
+    expenseForm: { category: '', amount: '', assignedTo: '' },
+    outsourcingForm: { company: '', task: '', amount: '' },
+
+    labors: [
+      { id: 'l1', name: '김민수', jobType: '배관공', unitPrice: 180000, amount: 1 },
+      { id: 'l2', name: '이재호', jobType: '보통인부', unitPrice: 150000, amount: 1 },
+      { id: 'l3', name: '박성진', jobType: '신호수', unitPrice: 140000, amount: 0.5 },
+      { id: 'l4', name: '최영수', jobType: '오퍼레이터', unitPrice: 200000, amount: 1 },
+      { id: 'l5', name: '강태식', jobType: '형틀공', unitPrice: 160000, amount: 1 }
+    ],
+    equipments: [
+      { id: 'e1', name: '굴착기 0.6㎥', spec: 'EX-200', type: 'DIRECT', unitPrice: 450000, amount: 1, docWarn: false },
+      { id: 'e2', name: '덤프트럭 15톤', spec: '', type: 'SUBCONTRACT', unitPrice: 320000, amount: 1, docWarn: true },
+      { id: 'e3', name: '콤팩터', spec: '', type: 'DIRECT', unitPrice: 90000, amount: 1, docWarn: false }
+    ],
+    materials: [
+      { id: 'm1', name: 'PVC관 φ400', spec: 'KS M3404', unit: 'M', quantity: 30 },
+      { id: 'm2', name: '세척사', spec: '', unit: '㎥', quantity: 12 },
+      { id: 'm3', name: '되메우기 잔토', spec: '', unit: '㎥', quantity: 45 }
+    ],
+    expenses: [
+      { id: 'x1', category: '유류비', amount: 125000, assignedTo: '임석인', settled: false },
+      { id: 'x2', category: '식대', amount: 84000, assignedTo: '김민수', settled: true },
+      { id: 'x3', category: '소모품비', amount: 32000, assignedTo: '이재호', settled: false }
+    ],
+    outsourcings: [
+      { id: 'o1', company: '대한계측', task: '측량 용역', amount: 450000 },
+      { id: 'o2', company: '삼일산업', task: '되메우기 다짐 보강', amount: 780000 }
+    ],
+    workDescription: '오수관로 D400 30m 매설, 되메우기 완료. 굴착기·덤프 투입.',
+
+    workersTab: 'workers', showWorkerForm: false, editWorkerId: null,
+    workerForm: { name: '', phone: '', company: '', jobType: '', birth: '', bank: '', account: '', safetyEduDate: '', safetyEduNumber: '', basicSafetyEdu: false },
+    mergeMode: false, mergeTargetId: '', mergeSourceIds: [],
+    workers: [
+      { id: 'w1', name: '김민수', phone: '010-2211-4487', company: '㈜대성설비', jobType: '배관공', birth: '800312', bank: '국민', account: '123-456', safetyEduDate: '2026-02-14', docStatus: 'COMPLETE' },
+      { id: 'w2', name: '이재호', phone: '010-8842-1190', company: '개인', jobType: '보통인부', birth: '880721', bank: '농협', account: '987-654', safetyEduDate: '', docStatus: 'INCOMPLETE' },
+      { id: 'w3', name: '박성진', phone: '010-3345-7712', company: '개인', jobType: '신호수', birth: '750508', bank: '신한', account: '555-221', safetyEduDate: '2025-11-02', docStatus: 'COMPLETE' },
+      { id: 'w4', name: '최영수', phone: '010-9921-3345', company: '㈜한울건기', jobType: '오퍼레이터', birth: '820119', bank: '하나', account: '773-119', safetyEduDate: '2026-01-20', docStatus: 'REVIEW' },
+      { id: 'w5', name: '정다운', phone: '010-1123-9987', company: '개인', jobType: '목공', birth: '910603', bank: '국민', account: '221-887', safetyEduDate: '2025-09-30', docStatus: 'COMPLETE' },
+      { id: 'w6', name: '한승우', phone: '010-6634-2201', company: '개인', jobType: '철근공', birth: '870227', bank: '우리', account: '440-118', safetyEduDate: '', docStatus: 'UNKNOWN' }
+    ],
+    attDate: '2026-09-03',
+    attendance: [
+      { id: 'a1', name: '김민수', status: 'CONFIRMED', in: '07:42', out: '17:05' },
+      { id: 'a2', name: '이재호', status: 'PENDING', in: '07:55', out: '-' },
+      { id: 'a3', name: '박성진', status: 'CONFIRMED', in: '07:38', out: '17:10' }
+    ],
+
+    billingTab: 'items',
+    qtyForm: { itemId: '', qty: '' },
+    qtyEntries: [
+      { id: 'q1', itemName: '오수관 매설(PVC D400)', qty: 80, unit: 'M' },
+      { id: 'q2', itemName: '터파기', qty: 420, unit: '㎥' }
+    ],
+
+    feedbackFilter: 'ALL', showFeedbackForm: false,
+    feedbackForm: { category: '요구사항', content: '' },
+    feedbacks: [
+      { id: 'f1', category: '버그', content: '장비 입력 후 저장하면 자재 탭으로 화면이 넘어갑니다.', author: '이재호', date: '09.01', status: 'OPEN' },
+      { id: 'f2', category: '요구사항', content: '노무 자동완성에 최근 3일 이력도 같이 보여주면 좋겠습니다.', author: '박성진', date: '08.29', status: 'IN_PROGRESS' },
+      { id: 'f3', category: '기타', content: '안전교육 이수증 만료 임박 알림 기능이 있으면 좋겠어요.', author: '임석인', date: '08.24', status: 'DONE' }
+    ],
+
+    newUserForm: { name: '', pin: '', role: 'WORKER' },
+    changingPinId: null, newPinInput: '',
+    users: [
+      { id: 'u1', name: '임석인', role: 'ADMIN', active: true },
+      { id: 'u2', name: '김민수', role: 'WORKER', active: true },
+      { id: 'u3', name: '이재호', role: 'WORKER', active: true }
+    ]
+  };
+
+  setLoginName = (e) => this.setState({ loginName: e.target.value });
+  onPinKey = (e) => { const d = e.currentTarget.textContent.trim(); if (this.state.loginPin.length < 8) this.setState((s) => ({ loginPin: s.loginPin + d })); };
+  clearPin = () => this.setState({ loginPin: '' });
+  backspacePin = () => this.setState((s) => ({ loginPin: s.loginPin.slice(0, -1) }));
+  setLoginRoleAdmin = () => this.setState({ loginRole: 'ADMIN' });
+  setLoginRoleWorker = () => this.setState({ loginRole: 'WORKER' });
+  doLogin = () => { if (!this.state.loginName.trim() || this.state.loginPin.length < 4) return; this.setState({ screen: 'app', role: this.state.loginRole, tab: 'dashboard' }); };
+  logout = () => this.setState({ screen: 'login', loginName: '', loginPin: '', showMore: false, tab: 'dashboard' });
+
+  goDashboard = () => this.setState({ tab: 'dashboard', showMore: false });
+  goDailyLog = () => this.setState({ tab: 'dailylog', showMore: false });
+  goWorkers = () => this.setState({ tab: 'workers', showMore: false });
+  goBilling = () => this.setState({ tab: 'billing', showMore: false });
+  goFeedback = () => this.setState({ tab: 'feedback', showMore: false });
+  goAdminUsers = () => this.setState({ tab: 'admin', showMore: false });
+  goAttendanceSheet = () => this.setState({ tab: 'workers', workersTab: 'attendance', showMore: false });
+  toggleMore = () => this.setState((s) => ({ showMore: !s.showMore }));
+  closeMore = () => this.setState({ showMore: false });
+
+  setDailyTabLabor = () => this.setState({ dailyTab: 'labor', showAddForm: false });
+  setDailyTabEquipment = () => this.setState({ dailyTab: 'equipment', showAddForm: false });
+  setDailyTabMaterial = () => this.setState({ dailyTab: 'material', showAddForm: false });
+  setDailyTabExpense = () => this.setState({ dailyTab: 'expense', showAddForm: false });
+  setDailyTabOutsourcing = () => this.setState({ dailyTab: 'outsourcing', showAddForm: false });
+  openAdd = () => this.setState({ showAddForm: true });
+  closeAdd = () => this.setState({ showAddForm: false });
+
+  mkField = (formKey, field) => (e) => { const val = e && e.target ? e.target.value : e; this.setState((s) => ({ [formKey]: { ...s[formKey], [field]: val } })); };
+  mkCheck = (formKey, field) => (e) => { this.setState((s) => ({ [formKey]: { ...s[formKey], [field]: e.target.checked } })); };
+
+  submitLabor = () => {
+    const f = this.state.laborForm; if (!f.name.trim() || !f.unitPrice) return;
+    const id = 'l' + this.state.nextId;
+    this.setState((s) => ({ labors: [...s.labors, { id, name: f.name, jobType: f.jobType, unitPrice: Number(f.unitPrice), amount: Number(f.amount || 1) }], laborForm: { name: '', jobType: '', unitPrice: '', amount: '1' }, showAddForm: false, nextId: s.nextId + 1 }));
+  };
+  deleteLabor = (id) => this.setState((s) => ({ labors: s.labors.filter((x) => x.id !== id) }));
+
+  setEquipTypeDirect = () => this.setState((s) => ({ equipmentForm: { ...s.equipmentForm, type: 'DIRECT' } }));
+  setEquipTypeSub = () => this.setState((s) => ({ equipmentForm: { ...s.equipmentForm, type: 'SUBCONTRACT' } }));
+  submitEquipment = () => {
+    const f = this.state.equipmentForm; if (!f.name.trim() || !f.unitPrice) return;
+    const id = 'e' + this.state.nextId;
+    this.setState((s) => ({ equipments: [...s.equipments, { id, name: f.name, spec: f.spec, type: f.type, unitPrice: Number(f.unitPrice), amount: Number(f.amount || 1), docWarn: false }], equipmentForm: { name: '', spec: '', unitPrice: '', amount: '1', type: 'DIRECT' }, showAddForm: false, nextId: s.nextId + 1 }));
+  };
+  deleteEquipment = (id) => this.setState((s) => ({ equipments: s.equipments.filter((x) => x.id !== id) }));
+
+  submitMaterial = () => {
+    const f = this.state.materialForm; if (!f.name.trim()) return;
+    const id = 'm' + this.state.nextId;
+    this.setState((s) => ({ materials: [...s.materials, { id, name: f.name, spec: f.spec, unit: f.unit, quantity: Number(f.quantity || 1) }], materialForm: { name: '', spec: '', unit: '', quantity: '1' }, showAddForm: false, nextId: s.nextId + 1 }));
+  };
+  deleteMaterial = (id) => this.setState((s) => ({ materials: s.materials.filter((x) => x.id !== id) }));
+
+  submitExpense = () => {
+    const f = this.state.expenseForm; if (!f.category.trim() || !f.amount) return;
+    const id = 'x' + this.state.nextId;
+    this.setState((s) => ({ expenses: [...s.expenses, { id, category: f.category, amount: Number(f.amount), assignedTo: f.assignedTo, settled: false }], expenseForm: { category: '', amount: '', assignedTo: '' }, showAddForm: false, nextId: s.nextId + 1 }));
+  };
+  deleteExpense = (id) => this.setState((s) => ({ expenses: s.expenses.filter((x) => x.id !== id) }));
+
+  submitOutsourcing = () => {
+    const f = this.state.outsourcingForm; if (!f.company.trim() || !f.amount) return;
+    const id = 'o' + this.state.nextId;
+    this.setState((s) => ({ outsourcings: [...s.outsourcings, { id, company: f.company, task: f.task, amount: Number(f.amount) }], outsourcingForm: { company: '', task: '', amount: '' }, showAddForm: false, nextId: s.nextId + 1 }));
+  };
+  deleteOutsourcing = (id) => this.setState((s) => ({ outsourcings: s.outsourcings.filter((x) => x.id !== id) }));
+
+  setWorkersTabList = () => this.setState({ workersTab: 'workers' });
+  setWorkersTabAttendance = () => this.setState({ workersTab: 'attendance' });
+  openWorkerCreate = () => this.setState({ showWorkerForm: true, editWorkerId: null, workerForm: { name: '', phone: '', company: '', jobType: '', birth: '', bank: '', account: '', safetyEduDate: '', safetyEduNumber: '', basicSafetyEdu: false } });
+  openWorkerEdit = (w) => this.setState({ showWorkerForm: true, editWorkerId: w.id, workerForm: { name: w.name, phone: w.phone, company: w.company, jobType: w.jobType, birth: w.birth, bank: w.bank, account: w.account, safetyEduDate: w.safetyEduDate, safetyEduNumber: w.safetyEduNumber || '', basicSafetyEdu: !!w.basicSafetyEdu } });
+  closeWorkerForm = () => this.setState({ showWorkerForm: false });
+  submitWorker = () => {
+    const f = this.state.workerForm; if (!f.name.trim()) return;
+    this.setState((s) => {
+      if (s.editWorkerId) return { workers: s.workers.map((w) => (w.id === s.editWorkerId ? { ...w, ...f } : w)), showWorkerForm: false };
+      const id = 'w' + s.nextId;
+      return { workers: [...s.workers, { id, ...f, docStatus: 'UNKNOWN' }], showWorkerForm: false, nextId: s.nextId + 1 };
+    });
+  };
+  deleteWorker = (id) => this.setState((s) => ({ workers: s.workers.filter((w) => w.id !== id) }));
+  toggleMergeMode = () => this.setState((s) => ({ mergeMode: !s.mergeMode, mergeTargetId: '', mergeSourceIds: [] }));
+  setMergeTarget = (e) => this.setState((s) => ({ mergeTargetId: e.target.value, mergeSourceIds: s.mergeSourceIds.filter((id) => id !== e.target.value) }));
+  toggleMergeSource = (id) => this.setState((s) => ({ mergeSourceIds: s.mergeSourceIds.includes(id) ? s.mergeSourceIds.filter((x) => x !== id) : [...s.mergeSourceIds, id] }));
+  runMerge = () => { if (!this.state.mergeTargetId || this.state.mergeSourceIds.length === 0) return; this.setState((s) => ({ workers: s.workers.filter((w) => !s.mergeSourceIds.includes(w.id)), mergeMode: false, mergeTargetId: '', mergeSourceIds: [] })); };
+  setAttVerify = (id, status) => this.setState((s) => ({ attendance: s.attendance.map((a) => (a.id === id ? { ...a, status } : a)) }));
+
+  setBillingTab = (t) => this.setState({ billingTab: t });
+  setQtyItem = (e) => this.setState((s) => ({ qtyForm: { ...s.qtyForm, itemId: e.target.value } }));
+  setQtyValue = (e) => this.setState((s) => ({ qtyForm: { ...s.qtyForm, qty: e.target.value } }));
+  contractLeafItems = () => ([{ id: 'c1', name: '오수관 매설(PVC D400)', unit: 'M' }, { id: 'c2', name: '맨홀 설치', unit: '개소' }, { id: 'c3', name: '터파기', unit: '㎥' }, { id: 'c4', name: '되메우기다짐', unit: '㎥' }]);
+  submitQty = () => {
+    const f = this.state.qtyForm; const item = this.contractLeafItems().find((i) => i.id === f.itemId); if (!item || !f.qty) return;
+    const id = 'q' + this.state.nextId;
+    this.setState((s) => ({ qtyEntries: [...s.qtyEntries, { id, itemName: item.name, qty: Number(f.qty), unit: item.unit }], qtyForm: { itemId: '', qty: '' }, nextId: s.nextId + 1 }));
+  };
+  deleteQty = (id) => this.setState((s) => ({ qtyEntries: s.qtyEntries.filter((x) => x.id !== id) }));
+
+  setFeedbackFilter = (f) => this.setState({ feedbackFilter: f });
+  openFeedbackForm = () => this.setState({ showFeedbackForm: true });
+  closeFeedbackForm = () => this.setState({ showFeedbackForm: false });
+  setFeedbackCategory = (c) => this.setState((s) => ({ feedbackForm: { ...s.feedbackForm, category: c } }));
+  setFeedbackContent = (e) => this.setState((s) => ({ feedbackForm: { ...s.feedbackForm, content: e.target.value } }));
+  submitFeedback = () => {
+    const f = this.state.feedbackForm; if (!f.content.trim()) return;
+    const id = 'f' + this.state.nextId;
+    this.setState((s) => ({ feedbacks: [{ id, category: f.category, content: f.content, author: '나', date: '오늘', status: 'OPEN' }, ...s.feedbacks], feedbackForm: { category: '요구사항', content: '' }, showFeedbackForm: false, nextId: s.nextId + 1 }));
+  };
+  deleteFeedback = (id) => this.setState((s) => ({ feedbacks: s.feedbacks.filter((x) => x.id !== id) }));
+  setFeedbackStatus = (id, status) => this.setState((s) => ({ feedbacks: s.feedbacks.map((x) => (x.id === id ? { ...x, status } : x)) }));
+
+  setNewUserName = (e) => this.setState((s) => ({ newUserForm: { ...s.newUserForm, name: e.target.value } }));
+  setNewUserPin = (e) => this.setState((s) => ({ newUserForm: { ...s.newUserForm, pin: e.target.value.replace(/\D/g, '').slice(0, 8) } }));
+  setNewUserRoleWorker = () => this.setState((s) => ({ newUserForm: { ...s.newUserForm, role: 'WORKER' } }));
+  setNewUserRoleAdmin = () => this.setState((s) => ({ newUserForm: { ...s.newUserForm, role: 'ADMIN' } }));
+  submitNewUser = () => {
+    const f = this.state.newUserForm; if (!f.name.trim() || !/^\d{4,8}$/.test(f.pin)) return;
+    const id = 'u' + this.state.nextId;
+    this.setState((s) => ({ users: [...s.users, { id, name: f.name, role: f.role, active: true }], newUserForm: { name: '', pin: '', role: 'WORKER' }, nextId: s.nextId + 1 }));
+  };
+  toggleUserActive = (id) => this.setState((s) => ({ users: s.users.map((u) => (u.id === id ? { ...u, active: !u.active } : u)) }));
+  deleteUserRow = (id) => this.setState((s) => ({ users: s.users.filter((u) => u.id !== id) }));
+  toggleUserRole = (id) => this.setState((s) => ({ users: s.users.map((u) => (u.id === id ? { ...u, role: u.role === 'ADMIN' ? 'WORKER' : 'ADMIN' } : u)) }));
+  startChangePin = (id) => this.setState({ changingPinId: id, newPinInput: '' });
+  setNewPinInput = (e) => this.setState({ newPinInput: e.target.value.replace(/\D/g, '').slice(0, 8) });
+  cancelChangePin = () => this.setState({ changingPinId: null, newPinInput: '' });
+  saveChangePin = () => { if (!/^\d{4,8}$/.test(this.state.newPinInput)) return; this.setState({ changingPinId: null, newPinInput: '' }); };
+
+  renderVals() {
+    const s = this.state;
+    const fmt = (n) => '₩' + Math.round(Number(n || 0)).toLocaleString('en-US');
+    const isAdmin = s.role === 'ADMIN';
+
+    const laborRows = s.labors.map((l) => {
+      const w = s.workers.find((w2) => w2.name === l.name);
+      const warn = !w ? '근로자 미등록' : (w.docStatus !== 'COMPLETE' ? '서류 미비' : null);
+      return { ...l, totalFmt: fmt(l.unitPrice * l.amount), unitPriceFmt: fmt(l.unitPrice), hasWarn: !!warn, warnText: warn || '', del: () => this.deleteLabor(l.id) };
+    });
+    const equipmentRows = s.equipments.map((e) => ({ ...e, totalFmt: fmt(e.unitPrice * e.amount), unitPriceFmt: fmt(e.unitPrice), isDirect: e.type === 'DIRECT', del: () => this.deleteEquipment(e.id) }));
+    const materialRows = s.materials.map((m) => ({ ...m, del: () => this.deleteMaterial(m.id) }));
+    const expenseRows = s.expenses.map((x) => ({ ...x, amountFmt: fmt(x.amount), canDelete: !x.settled, del: () => this.deleteExpense(x.id) }));
+    const outsourcingRows = s.outsourcings.map((o) => ({ ...o, amountFmt: fmt(o.amount), del: () => this.deleteOutsourcing(o.id) }));
+
+    const laborTotal = laborRows.reduce((a, c) => a + c.unitPrice * c.amount, 0);
+    const equipmentTotal = equipmentRows.reduce((a, c) => a + c.unitPrice * c.amount, 0);
+    const outsourcingTotal = outsourcingRows.reduce((a, c) => a + c.amount, 0);
+    const expenseTotal = expenseRows.reduce((a, c) => a + c.amount, 0);
+    const grandTotalToday = laborTotal + equipmentTotal + outsourcingTotal + expenseTotal;
+
+    const budget = 1200000000;
+    const monthlyGrand = 63000000;
+    const monthlyPct = Math.min(100, (monthlyGrand / budget) * 100);
+
+    const workerRows = s.workers.map((w) => ({
+      ...w,
+      statusLabel: w.docStatus === 'COMPLETE' ? '서류완비' : w.docStatus === 'REVIEW' ? '검토필요' : w.docStatus === 'INCOMPLETE' ? '서류미비' : '확인필요',
+      docOk: w.docStatus === 'COMPLETE',
+      metaLine: [w.birth, w.company, w.jobType, w.phone].filter(Boolean).join(' · '),
+      isMergeTarget: w.id === s.mergeTargetId, isMergeSource: s.mergeSourceIds.includes(w.id),
+      mergeDisabled: w.id === s.mergeTargetId,
+      edit: () => this.openWorkerEdit(w), del: () => this.deleteWorker(w.id), toggleSource: () => this.toggleMergeSource(w.id)
+    }));
+    const mergeTargetOptions = s.workers.filter((w) => !s.mergeSourceIds.includes(w.id));
+
+    const attendanceRows = s.attendance.map((a) => ({ ...a, isPending: a.status === 'PENDING', confirm: () => this.setAttVerify(a.id, 'CONFIRMED'), reject: () => this.setAttVerify(a.id, 'REJECTED') }));
+
+    const feedbackFiltered = s.feedbacks.filter((f) => s.feedbackFilter === 'ALL' || f.status === s.feedbackFilter);
+    const feedbackRows = feedbackFiltered.map((f) => ({ ...f, statusLabel: f.status === 'OPEN' ? '대기' : f.status === 'IN_PROGRESS' ? '진행중' : '완료', del: () => this.deleteFeedback(f.id), setOpen: () => this.setFeedbackStatus(f.id, 'OPEN'), setProg: () => this.setFeedbackStatus(f.id, 'IN_PROGRESS'), setDone: () => this.setFeedbackStatus(f.id, 'DONE') }));
+
+    const qtyEntriesRows = s.qtyEntries.map((q) => ({ ...q, del: () => this.deleteQty(q.id) }));
+
+    const userRows = s.users.map((u) => ({ ...u, activeLabel: u.active ? '활성' : '비활성', changing: s.changingPinId === u.id, toggleActive: () => this.toggleUserActive(u.id), del: () => this.deleteUserRow(u.id), startPin: () => this.startChangePin(u.id), toggleRole: () => this.toggleUserRole(u.id), isLocked: u.name === '임석인' }));
+
+    return {
+      isLogin: s.screen === 'login', isApp: s.screen === 'app',
+      loginName: s.loginName, loginPin: s.loginPin,
+      pinDots: Array.from({ length: 8 }, (_, i) => ({ filled: i < s.loginPin.length })),
+      loginRoleIsAdmin: s.loginRole === 'ADMIN', loginRoleIsWorker: s.loginRole === 'WORKER',
+      canLogin: !!(s.loginName.trim() && s.loginPin.length >= 4), cannotLogin: !(s.loginName.trim() && s.loginPin.length >= 4),
+      setLoginName: this.setLoginName, onPinKey: this.onPinKey, clearPin: this.clearPin, backspacePin: this.backspacePin,
+      setLoginRoleAdmin: this.setLoginRoleAdmin, setLoginRoleWorker: this.setLoginRoleWorker, doLogin: this.doLogin, logout: this.logout,
+
+      siteName: '송산그린시티 1-2공구 우오수공', contractor: '극동건설',
+      roleLabel: isAdmin ? 'ADMIN' : 'WORKER', isAdmin: isAdmin, isWorker: !isAdmin,
+
+      tab: s.tab, tabIsDashboard: s.tab === 'dashboard', tabIsDailyLog: s.tab === 'dailylog', tabIsWorkers: s.tab === 'workers', tabIsBilling: s.tab === 'billing', tabIsFeedback: s.tab === 'feedback', tabIsAdmin: s.tab === 'admin',
+      showMore: s.showMore, toggleMore: this.toggleMore, closeMore: this.closeMore,
+      goDashboard: this.goDashboard, goDailyLog: this.goDailyLog, goWorkers: this.goWorkers, goBilling: this.goBilling, goFeedback: this.goFeedback, goAdminUsers: this.goAdminUsers, goAttendanceSheet: this.goAttendanceSheet,
+
+      monthName: '9월', monthlyGrandFmt: fmt(monthlyGrand), budgetFmt: fmt(budget), monthlyPct: monthlyPct.toFixed(1), monthlyPctWidth: monthlyPct.toFixed(1) + '%',
+      laborMonthlyFmt: fmt(24800000), equipmentMonthlyFmt: fmt(15200000), outsourcingMonthlyFmt: fmt(18900000), expenseMonthlyFmt: fmt(4100000),
+      workDescription: s.workDescription,
+      grandTotalTodayFmt: fmt(grandTotalToday), laborTotalFmt: fmt(laborTotal), equipmentTotalFmt: fmt(equipmentTotal), outsourcingTotalFmt: fmt(outsourcingTotal), expenseTotalFmt: fmt(expenseTotal),
+
+      dailyTab: s.dailyTab, dtLabor: s.dailyTab === 'labor', dtEquipment: s.dailyTab === 'equipment', dtMaterial: s.dailyTab === 'material', dtExpense: s.dailyTab === 'expense', dtOutsourcing: s.dailyTab === 'outsourcing',
+      setDailyTabLabor: this.setDailyTabLabor, setDailyTabEquipment: this.setDailyTabEquipment, setDailyTabMaterial: this.setDailyTabMaterial, setDailyTabExpense: this.setDailyTabExpense, setDailyTabOutsourcing: this.setDailyTabOutsourcing,
+      dailyTabsList: [
+        { key: 'labor', label: '노무', onClick: this.setDailyTabLabor, bg: s.dailyTab === 'labor' ? '#5980a6' : '#f2f2f3', fg: s.dailyTab === 'labor' ? '#f2f2f3' : '#1d1f20' },
+        { key: 'equipment', label: '장비', onClick: this.setDailyTabEquipment, bg: s.dailyTab === 'equipment' ? '#5980a6' : '#f2f2f3', fg: s.dailyTab === 'equipment' ? '#f2f2f3' : '#1d1f20' },
+        { key: 'material', label: '자재', onClick: this.setDailyTabMaterial, bg: s.dailyTab === 'material' ? '#5980a6' : '#f2f2f3', fg: s.dailyTab === 'material' ? '#f2f2f3' : '#1d1f20' },
+        { key: 'expense', label: '경비', onClick: this.setDailyTabExpense, bg: s.dailyTab === 'expense' ? '#5980a6' : '#f2f2f3', fg: s.dailyTab === 'expense' ? '#f2f2f3' : '#1d1f20' },
+        { key: 'outsourcing', label: '외주', onClick: this.setDailyTabOutsourcing, bg: s.dailyTab === 'outsourcing' ? '#5980a6' : '#f2f2f3', fg: s.dailyTab === 'outsourcing' ? '#f2f2f3' : '#1d1f20' }
+      ],
+      showAddForm: s.showAddForm, openAdd: this.openAdd, closeAdd: this.closeAdd,
+
+      laborRows, equipmentRows, materialRows, expenseRows, outsourcingRows,
+      laborForm: s.laborForm, onLaborName: this.mkField('laborForm', 'name'), onLaborJobType: this.mkField('laborForm', 'jobType'), onLaborUnitPrice: this.mkField('laborForm', 'unitPrice'), onLaborAmount: this.mkField('laborForm', 'amount'), submitLabor: this.submitLabor,
+      equipmentForm: s.equipmentForm, equipIsDirect: s.equipmentForm.type === 'DIRECT', equipIsSub: s.equipmentForm.type === 'SUBCONTRACT', setEquipTypeDirect: this.setEquipTypeDirect, setEquipTypeSub: this.setEquipTypeSub,
+      onEquipName: this.mkField('equipmentForm', 'name'), onEquipSpec: this.mkField('equipmentForm', 'spec'), onEquipUnitPrice: this.mkField('equipmentForm', 'unitPrice'), onEquipAmount: this.mkField('equipmentForm', 'amount'), submitEquipment: this.submitEquipment,
+      materialForm: s.materialForm, onMaterialName: this.mkField('materialForm', 'name'), onMaterialSpec: this.mkField('materialForm', 'spec'), onMaterialUnit: this.mkField('materialForm', 'unit'), onMaterialQty: this.mkField('materialForm', 'quantity'), submitMaterial: this.submitMaterial,
+      expenseForm: s.expenseForm, onExpenseCategory: this.mkField('expenseForm', 'category'), onExpenseAmount: this.mkField('expenseForm', 'amount'), onExpenseAssignee: this.mkField('expenseForm', 'assignedTo'), submitExpense: this.submitExpense,
+      outsourcingForm: s.outsourcingForm, onOutCompany: this.mkField('outsourcingForm', 'company'), onOutTask: this.mkField('outsourcingForm', 'task'), onOutAmount: this.mkField('outsourcingForm', 'amount'), submitOutsourcing: this.submitOutsourcing,
+
+      workersTab: s.workersTab, wtList: s.workersTab === 'workers', wtAttendance: s.workersTab === 'attendance', setWorkersTabList: this.setWorkersTabList, setWorkersTabAttendance: this.setWorkersTabAttendance,
+      workerRows, showWorkerForm: s.showWorkerForm, editWorkerId: s.editWorkerId, openWorkerCreate: this.openWorkerCreate, closeWorkerForm: this.closeWorkerForm,
+      workerForm: s.workerForm, onWorkerName: this.mkField('workerForm', 'name'), onWorkerPhone: this.mkField('workerForm', 'phone'), onWorkerCompany: this.mkField('workerForm', 'company'), onWorkerJobType: this.mkField('workerForm', 'jobType'), onWorkerBirth: this.mkField('workerForm', 'birth'), onWorkerBank: this.mkField('workerForm', 'bank'), onWorkerAccount: this.mkField('workerForm', 'account'), onWorkerSafetyDate: this.mkField('workerForm', 'safetyEduDate'), onWorkerSafetyNumber: this.mkField('workerForm', 'safetyEduNumber'), onWorkerSafetyCheck: this.mkCheck('workerForm', 'basicSafetyEdu'), submitWorker: this.submitWorker,
+      mergeMode: s.mergeMode, toggleMergeMode: this.toggleMergeMode, mergeTargetId: s.mergeTargetId, setMergeTarget: this.setMergeTarget, runMerge: this.runMerge, mergeSourceCount: s.mergeSourceIds.length, mergeTargetOptions,
+      attDate: s.attDate, attendance: attendanceRows,
+
+      billingTab: s.billingTab, btItems: s.billingTab === 'items', btEntry: s.billingTab === 'entry', btClaim: s.billingTab === 'claim', btStatement: s.billingTab === 'statement', btProfit: s.billingTab === 'profit',
+      setBillingItems: () => this.setBillingTab('items'), setBillingEntry: () => this.setBillingTab('entry'), setBillingClaim: () => this.setBillingTab('claim'), setBillingStatement: () => this.setBillingTab('statement'), setBillingProfit: () => this.setBillingTab('profit'),
+      contractGroups: [
+        { group: '관로공사', items: [
+          { name: '오수관 매설(PVC D400)', spec: 'KS M3404', unit: 'M', qty: 1200, priceFmt: fmt(185000), amountFmt: fmt(222000000), monthQty: 80, cumQty: 640, remain: 560 },
+          { name: '맨홀 설치', spec: '원형1호', unit: '개소', qty: 42, priceFmt: fmt(1250000), amountFmt: fmt(52500000), monthQty: 3, cumQty: 24, remain: 18 }
+        ] },
+        { group: '토공사', items: [
+          { name: '터파기', spec: '기계굴착', unit: '㎥', qty: 8600, priceFmt: fmt(12500), amountFmt: fmt(107500000), monthQty: 420, cumQty: 5180, remain: 3420 },
+          { name: '되메우기다짐', spec: '', unit: '㎥', qty: 8600, priceFmt: fmt(9800), amountFmt: fmt(84280000), monthQty: 380, cumQty: 4760, remain: 3840 }
+        ] }
+      ],
+      contractItemOptions: this.contractLeafItems(), qtyForm: s.qtyForm, setQtyItem: this.setQtyItem, setQtyValue: this.setQtyValue, submitQty: this.submitQty, qtyEntries: qtyEntriesRows,
+      claimMonthFmt: fmt(71500000), claimCumFmt: fmt(812400000), claimPrevFmt: fmt(740900000), costMonthFmt: fmt(63000000), profitMonthFmt: fmt(8500000), profitCumFmt: fmt(77500000),
+
+      feedbackFilter: s.feedbackFilter, ffAll: s.feedbackFilter === 'ALL', ffOpen: s.feedbackFilter === 'OPEN', ffProg: s.feedbackFilter === 'IN_PROGRESS', ffDone: s.feedbackFilter === 'DONE',
+      setFilterAll: () => this.setFeedbackFilter('ALL'), setFilterOpen: () => this.setFeedbackFilter('OPEN'), setFilterProg: () => this.setFeedbackFilter('IN_PROGRESS'), setFilterDone: () => this.setFeedbackFilter('DONE'),
+      feedbackRows, showFeedbackForm: s.showFeedbackForm, openFeedbackForm: this.openFeedbackForm, closeFeedbackForm: this.closeFeedbackForm,
+      feedbackForm: s.feedbackForm, fcIsReq: s.feedbackForm.category === '요구사항', fcIsBug: s.feedbackForm.category === '버그', fcIsEtc: s.feedbackForm.category === '기타',
+      setFcReq: () => this.setFeedbackCategory('요구사항'), setFcBug: () => this.setFeedbackCategory('버그'), setFcEtc: () => this.setFeedbackCategory('기타'), setFeedbackContent: this.setFeedbackContent, submitFeedback: this.submitFeedback,
+
+      newUserForm: s.newUserForm, onNewUserName: this.setNewUserName, onNewUserPin: this.setNewUserPin, newUserRoleIsWorker: s.newUserForm.role === 'WORKER', setNewUserRoleWorker: this.setNewUserRoleWorker, setNewUserRoleAdmin: this.setNewUserRoleAdmin, submitNewUser: this.submitNewUser,
+      users: userRows, changingPinId: s.changingPinId, newPinInput: s.newPinInput, setNewPinInput: this.setNewPinInput, cancelChangePin: this.cancelChangePin, saveChangePin: this.saveChangePin
+    };
+  }
+}
+</script>
+</body>
+</html>

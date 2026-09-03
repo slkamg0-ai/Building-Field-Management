@@ -29,7 +29,7 @@ const STATUS_LABEL: Record<string, string> = {
   DRAFT: '작성중', SUBMITTED: '원청 제출', CONFIRMED: '지급 확정',
 }
 const STATUS_COLOR: Record<string, string> = {
-  DRAFT: 'text-[#737373] bg-[#ededed]', SUBMITTED: 'text-[#0284c7] bg-[#0284c7]/10', CONFIRMED: 'text-[#16a34a] bg-[#16a34a]/10',
+  DRAFT: 'text-[rgba(29,31,32,0.55)] bg-[#ededed]', SUBMITTED: 'text-[#0284c7] bg-[#0284c7]/10', CONFIRMED: 'text-[#16a34a] bg-[#16a34a]/10',
 }
 
 export default function BillingPanel({ siteId, logId, currentUser }: { siteId: string; logId?: string | null; currentUser: any }) {
@@ -350,41 +350,41 @@ export default function BillingPanel({ siteId, logId, currentUser }: { siteId: s
   return (
     <div className="space-y-4">
       <div className="flex gap-1 bg-[#ededed] p-1 rounded-lg w-fit">
-        <button onClick={() => setSubTab('entry')} className={`px-3 py-1.5 rounded text-xs md:text-sm font-bold transition-colors ${subTab === 'entry' ? 'bg-[#ffffff] text-[#556b2f] shadow' : 'text-[#737373]'}`}>오늘 시공수량</button>
-        <button onClick={() => setSubTab('items')} className={`px-3 py-1.5 rounded text-xs md:text-sm font-bold transition-colors ${subTab === 'items' ? 'bg-[#ffffff] text-[#556b2f] shadow' : 'text-[#737373]'}`}>계약품목{isAdmin ? ' 관리' : ''}</button>
-        <button onClick={() => setSubTab('cost')} className={`px-3 py-1.5 rounded text-xs md:text-sm font-bold transition-colors ${subTab === 'cost' ? 'bg-[#ffffff] text-[#556b2f] shadow' : 'text-[#737373]'}`}>월별 투입명세서</button>
-        <button onClick={() => setSubTab('claim')} className={`px-3 py-1.5 rounded text-xs md:text-sm font-bold transition-colors ${subTab === 'claim' ? 'bg-[#ffffff] text-[#556b2f] shadow' : 'text-[#737373]'}`}>월별 기성청구서</button>
+        <button onClick={() => setSubTab('entry')} className={`px-3 py-1.5 rounded text-xs md:text-sm font-bold transition-colors ${subTab === 'entry' ? 'bg-[#f2f2f3] text-[#5980a6] shadow' : 'text-[rgba(29,31,32,0.55)]'}`}>오늘 시공수량</button>
+        <button onClick={() => setSubTab('items')} className={`px-3 py-1.5 rounded text-xs md:text-sm font-bold transition-colors ${subTab === 'items' ? 'bg-[#f2f2f3] text-[#5980a6] shadow' : 'text-[rgba(29,31,32,0.55)]'}`}>계약품목{isAdmin ? ' 관리' : ''}</button>
+        <button onClick={() => setSubTab('cost')} className={`px-3 py-1.5 rounded text-xs md:text-sm font-bold transition-colors ${subTab === 'cost' ? 'bg-[#f2f2f3] text-[#5980a6] shadow' : 'text-[rgba(29,31,32,0.55)]'}`}>월별 투입명세서</button>
+        <button onClick={() => setSubTab('claim')} className={`px-3 py-1.5 rounded text-xs md:text-sm font-bold transition-colors ${subTab === 'claim' ? 'bg-[#f2f2f3] text-[#5980a6] shadow' : 'text-[rgba(29,31,32,0.55)]'}`}>월별 기성청구서</button>
       </div>
 
       {/* ===================== 오늘 시공수량 입력 ===================== */}
       {subTab === 'entry' && (
         <div className="space-y-4">
           {leafItems.length === 0 ? (
-            <div className="bg-[#f3f3f3] border border-[#e5e5e5] rounded-xl p-8 text-center text-[#737373]">
+            <div className="bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded-xl p-8 text-center text-[rgba(29,31,32,0.55)]">
               등록된 계약품목이 없습니다. {isAdmin ? "'계약품목 관리' 탭에서 견적내역서를 업로드해주세요." : '관리자에게 계약품목 등록을 요청해주세요.'}
             </div>
           ) : (
-            <div className="bg-[#f3f3f3] border border-[#e5e5e5] rounded-xl p-4">
-              <h4 className="font-bold text-[#556b2f] mb-3 flex items-center gap-2"><span className="material-symbols-outlined text-sm">construction</span> 오늘 시공수량 입력</h4>
+            <div className="bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded-xl p-4">
+              <h4 className="font-bold text-[#5980a6] mb-3 flex items-center gap-2"><span className="material-symbols-outlined text-sm">construction</span> 오늘 시공수량 입력</h4>
               <form onSubmit={handleAddQuantity} className="space-y-3">
                 <div className="relative">
-                  <label className="text-xs text-[#6b6b6b] mb-1 block">계약품목 검색</label>
+                  <label className="text-xs text-[rgba(29,31,32,0.6)] mb-1 block">계약품목 검색</label>
                   <input
                     type="text"
                     placeholder="품목명, 규격, 구분코드로 검색"
-                    className="w-full bg-[#ffffff] border border-[#e5e5e5] rounded px-3 py-2 text-[#1a1c1c] outline-none focus:border-[#556b2f]"
+                    className="w-full bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded px-3 py-2 text-[#1d1f20] outline-none focus:border-[#5980a6]"
                     value={selectedItem ? `${selectedItem.name} ${selectedItem.spec ? `(${selectedItem.spec})` : ''}` : entrySearch}
                     onChange={e => { setEntrySearch(e.target.value); setEntryForm(f => ({ ...f, contractItemId: '' })) }}
                   />
                   {!entryForm.contractItemId && entrySearch && (
-                    <div className="absolute top-full left-0 right-0 mt-1 bg-[#ffffff] z-50 border border-[#e5e5e5] rounded max-h-56 overflow-y-auto shadow-xl">
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-[#f2f2f3] z-50 border border-[rgba(29,31,32,0.16)] rounded max-h-56 overflow-y-auto shadow-xl">
                       {filteredLeafItems.length === 0 ? (
-                        <div className="p-3 text-sm text-[#737373]">일치하는 품목이 없습니다.</div>
+                        <div className="p-3 text-sm text-[rgba(29,31,32,0.55)]">일치하는 품목이 없습니다.</div>
                       ) : filteredLeafItems.map(item => (
                         <div key={item.id} onClick={() => { setEntryForm(f => ({ ...f, contractItemId: item.id })); setEntrySearch('') }}
-                          className="p-3 border-b border-[#e5e5e5] hover:bg-[#f3f3f3] cursor-pointer">
-                          <div className="font-medium text-[#1a1c1c] text-sm">{item.name} {item.spec && <span className="text-xs text-[#556b2f] ml-1">{item.spec}</span>}</div>
-                          <div className="text-[10px] text-[#6b6b6b] mt-0.5">단위 {item.unit} · 계약 {item.contractQuantity ?? '-'} · 잔량 {item.remainQuantity ?? '-'}</div>
+                          className="p-3 border-b border-[rgba(29,31,32,0.16)] hover:bg-[#f2f2f3] cursor-pointer">
+                          <div className="font-medium text-[#1d1f20] text-sm">{item.name} {item.spec && <span className="text-xs text-[#5980a6] ml-1">{item.spec}</span>}</div>
+                          <div className="text-[10px] text-[rgba(29,31,32,0.6)] mt-0.5">단위 {item.unit} · 계약 {item.contractQuantity ?? '-'} · 잔량 {item.remainQuantity ?? '-'}</div>
                         </div>
                       ))}
                     </div>
@@ -392,32 +392,32 @@ export default function BillingPanel({ siteId, logId, currentUser }: { siteId: s
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs text-[#6b6b6b] mb-1 block">시공수량 {selectedItem ? `(${selectedItem.unit})` : ''}</label>
-                    <input type="number" step="0.01" required className="w-full bg-[#ffffff] border border-[#e5e5e5] rounded px-3 py-2 text-[#1a1c1c] outline-none focus:border-[#556b2f]"
+                    <label className="text-xs text-[rgba(29,31,32,0.6)] mb-1 block">시공수량 {selectedItem ? `(${selectedItem.unit})` : ''}</label>
+                    <input type="number" step="0.01" required className="w-full bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded px-3 py-2 text-[#1d1f20] outline-none focus:border-[#5980a6]"
                       value={entryForm.quantity} onChange={e => setEntryForm(f => ({ ...f, quantity: e.target.value }))} />
                   </div>
                   <div>
-                    <label className="text-xs text-[#6b6b6b] mb-1 block">비고</label>
-                    <input type="text" className="w-full bg-[#ffffff] border border-[#e5e5e5] rounded px-3 py-2 text-[#1a1c1c] outline-none focus:border-[#556b2f]"
+                    <label className="text-xs text-[rgba(29,31,32,0.6)] mb-1 block">비고</label>
+                    <input type="text" className="w-full bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded px-3 py-2 text-[#1d1f20] outline-none focus:border-[#5980a6]"
                       value={entryForm.note} onChange={e => setEntryForm(f => ({ ...f, note: e.target.value }))} />
                   </div>
                 </div>
-                <button type="submit" disabled={!entryForm.contractItemId} className="w-full bg-[#556b2f] text-[#ffffff] font-bold py-2 rounded hover:opacity-90 disabled:opacity-40">추가하기</button>
+                <button type="submit" disabled={!entryForm.contractItemId} className="w-full bg-[#5980a6] text-[#f2f2f3] font-bold py-2 rounded hover:opacity-90 disabled:opacity-40">추가하기</button>
               </form>
             </div>
           )}
 
           <div className="space-y-2">
-            <h4 className="font-bold text-[#1a1c1c] px-1">오늘 입력한 시공수량</h4>
+            <h4 className="font-bold text-[#1d1f20] px-1">오늘 입력한 시공수량</h4>
             {todayQuantities.length === 0 ? (
-              <div className="bg-[#f3f3f3] border border-[#e5e5e5] rounded-xl p-6 text-center text-[#737373] text-sm">아직 입력된 시공수량이 없습니다.</div>
+              <div className="bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded-xl p-6 text-center text-[rgba(29,31,32,0.55)] text-sm">아직 입력된 시공수량이 없습니다.</div>
             ) : todayQuantities.map((wq: any) => (
-              <div key={wq.id} className="bg-[#f3f3f3] border border-[#e5e5e5] rounded-xl p-3 flex justify-between items-center group">
+              <div key={wq.id} className="bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded-xl p-3 flex justify-between items-center group">
                 <div>
-                  <div className="font-bold text-sm text-[#1a1c1c]">{wq.contractItem?.name} {wq.contractItem?.spec && <span className="text-xs text-[#556b2f] font-normal">{wq.contractItem.spec}</span>}</div>
-                  <div className="text-xs text-[#6b6b6b]">{wq.quantity}{wq.contractItem?.unit} · {wq.createdBy}{wq.note ? ` · ${wq.note}` : ''}</div>
+                  <div className="font-bold text-sm text-[#1d1f20]">{wq.contractItem?.name} {wq.contractItem?.spec && <span className="text-xs text-[#5980a6] font-normal">{wq.contractItem.spec}</span>}</div>
+                  <div className="text-xs text-[rgba(29,31,32,0.6)]">{wq.quantity}{wq.contractItem?.unit} · {wq.createdBy}{wq.note ? ` · ${wq.note}` : ''}</div>
                 </div>
-                <button onClick={() => handleDeleteQuantity(wq.id)} className="p-2 rounded-lg text-[#8a8a8a] opacity-0 group-hover:opacity-100 hover:bg-red-500/10 hover:text-red-600 transition-all">
+                <button onClick={() => handleDeleteQuantity(wq.id)} className="p-2 rounded-lg text-[rgba(29,31,32,0.5)] opacity-0 group-hover:opacity-100 hover:bg-red-500/10 hover:text-red-600 transition-all">
                   <Trash2 className="w-4 h-4" />
                 </button>
               </div>
@@ -430,10 +430,10 @@ export default function BillingPanel({ siteId, logId, currentUser }: { siteId: s
       {subTab === 'items' && (
         <div className="space-y-4">
           {isAdmin && (
-            <div className="bg-[#f3f3f3] border border-[#e5e5e5] rounded-xl p-4">
-              <h4 className="font-bold text-[#556b2f] mb-2 flex items-center gap-2"><FileSpreadsheet className="w-4 h-4" /> 견적내역서(BOQ) 엑셀 업로드</h4>
-              <p className="text-xs text-[#6b6b6b] mb-3">구분/항목/규격/수량/단위/단가/금액 컬럼이 있는 시트를 업로드하면 전체 계약품목을 새로 대체합니다. (기존 시공수량 입력 기록은 유지됩니다)</p>
-              <label className={`flex items-center justify-center gap-2 cursor-pointer text-sm font-bold px-4 py-3 rounded border-2 border-dashed transition-colors ${importing ? 'text-[#8a8a8a] border-[#e5e5e5] pointer-events-none' : 'text-[#556b2f] border-[#556b2f]/40 hover:border-[#556b2f]'}`}>
+            <div className="bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded-xl p-4">
+              <h4 className="font-bold text-[#5980a6] mb-2 flex items-center gap-2"><FileSpreadsheet className="w-4 h-4" /> 견적내역서(BOQ) 엑셀 업로드</h4>
+              <p className="text-xs text-[rgba(29,31,32,0.6)] mb-3">구분/항목/규격/수량/단위/단가/금액 컬럼이 있는 시트를 업로드하면 전체 계약품목을 새로 대체합니다. (기존 시공수량 입력 기록은 유지됩니다)</p>
+              <label className={`flex items-center justify-center gap-2 cursor-pointer text-sm font-bold px-4 py-3 rounded border-2 border-dashed transition-colors ${importing ? 'text-[rgba(29,31,32,0.5)] border-[rgba(29,31,32,0.16)] pointer-events-none' : 'text-[#5980a6] border-[#5980a6]/40 hover:border-[#5980a6]'}`}>
                 <Upload className="w-4 h-4" />
                 {importing ? '업로드 중...' : '엑셀 파일 선택'}
                 <input type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleExcelFile(f); e.target.value = '' }} />
@@ -443,21 +443,21 @@ export default function BillingPanel({ siteId, logId, currentUser }: { siteId: s
           )}
 
           <div className="grid grid-cols-2 gap-3">
-            <div className="bg-[#f3f3f3] border border-[#e5e5e5] rounded-xl p-3 text-center">
-              <div className="text-xs text-[#6b6b6b]">계약(견적) 총액</div>
-              <div className="text-lg font-bold text-[#1a1c1c]">{won(totalContractAmount)}</div>
+            <div className="bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded-xl p-3 text-center">
+              <div className="text-xs text-[rgba(29,31,32,0.6)]">계약(견적) 총액</div>
+              <div className="text-lg font-bold text-[#1d1f20]">{won(totalContractAmount)}</div>
             </div>
-            <div className="bg-[#f3f3f3] border border-[#e5e5e5] rounded-xl p-3 text-center">
-              <div className="text-xs text-[#6b6b6b]">누적 시공 기성액</div>
-              <div className="text-lg font-bold text-[#556b2f]">{won(totalDoneAmount)}</div>
+            <div className="bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded-xl p-3 text-center">
+              <div className="text-xs text-[rgba(29,31,32,0.6)]">누적 시공 기성액</div>
+              <div className="text-lg font-bold text-[#5980a6]">{won(totalDoneAmount)}</div>
             </div>
           </div>
 
-          <div className="bg-[#f3f3f3] border border-[#e5e5e5] rounded-xl overflow-hidden">
+          <div className="bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded-xl overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-xs md:text-sm">
                 <thead>
-                  <tr className="bg-[#ededed] text-[#6b6b6b]">
+                  <tr className="bg-[#ededed] text-[rgba(29,31,32,0.6)]">
                     <th className="p-2 text-left">품목</th>
                     <th className="p-2 text-right">계약수량</th>
                     <th className="p-2 text-right">단가</th>
@@ -469,23 +469,23 @@ export default function BillingPanel({ siteId, logId, currentUser }: { siteId: s
                 </thead>
                 <tbody>
                   {itemsLoading ? (
-                    <tr><td colSpan={7} className="p-6 text-center text-[#737373]">불러오는 중...</td></tr>
+                    <tr><td colSpan={7} className="p-6 text-center text-[rgba(29,31,32,0.55)]">불러오는 중...</td></tr>
                   ) : items.length === 0 ? (
-                    <tr><td colSpan={7} className="p-6 text-center text-[#737373]">등록된 계약품목이 없습니다.</td></tr>
+                    <tr><td colSpan={7} className="p-6 text-center text-[rgba(29,31,32,0.55)]">등록된 계약품목이 없습니다.</td></tr>
                   ) : items.map((item: any) => (
-                    <tr key={item.id} className={`border-t border-[#e5e5e5] ${!item.isLeaf ? 'bg-[#ededed] font-bold' : ''}`}>
+                    <tr key={item.id} className={`border-t border-[rgba(29,31,32,0.16)] ${!item.isLeaf ? 'bg-[#ededed] font-bold' : ''}`}>
                       <td className="p-2">
-                        <div className="text-[#1a1c1c]">{item.name}</div>
-                        {item.spec && <div className="text-[10px] text-[#6b6b6b]">{item.spec}</div>}
+                        <div className="text-[#1d1f20]">{item.name}</div>
+                        {item.spec && <div className="text-[10px] text-[rgba(29,31,32,0.6)]">{item.spec}</div>}
                       </td>
-                      <td className="p-2 text-right text-[#1a1c1c]">{item.isLeaf ? `${item.contractQuantity ?? '-'} ${item.unit || ''}` : ''}</td>
-                      <td className="p-2 text-right text-[#1a1c1c]">{item.isLeaf && item.contractUnitPrice != null ? item.contractUnitPrice.toLocaleString() : ''}</td>
-                      <td className="p-2 text-right text-[#1a1c1c]">{won(item.contractAmount)}</td>
-                      <td className="p-2 text-right text-[#556b2f]">{item.isLeaf ? (item.doneQuantity || 0) : ''}</td>
-                      <td className="p-2 text-right text-[#1a1c1c]">{item.isLeaf ? (item.remainQuantity ?? '-') : ''}</td>
+                      <td className="p-2 text-right text-[#1d1f20]">{item.isLeaf ? `${item.contractQuantity ?? '-'} ${item.unit || ''}` : ''}</td>
+                      <td className="p-2 text-right text-[#1d1f20]">{item.isLeaf && item.contractUnitPrice != null ? item.contractUnitPrice.toLocaleString() : ''}</td>
+                      <td className="p-2 text-right text-[#1d1f20]">{won(item.contractAmount)}</td>
+                      <td className="p-2 text-right text-[#5980a6]">{item.isLeaf ? (item.doneQuantity || 0) : ''}</td>
+                      <td className="p-2 text-right text-[#1d1f20]">{item.isLeaf ? (item.remainQuantity ?? '-') : ''}</td>
                       {isAdmin && (
                         <td className="p-2 text-right">
-                          <button onClick={async () => { if (confirm(`'${item.name}' 품목을 삭제할까요?`)) { await deleteContractItem(item.id); await loadItems() } }} className="p-1.5 rounded text-[#8a8a8a] hover:bg-red-500/10 hover:text-red-600">
+                          <button onClick={async () => { if (confirm(`'${item.name}' 품목을 삭제할까요?`)) { await deleteContractItem(item.id); await loadItems() } }} className="p-1.5 rounded text-[rgba(29,31,32,0.5)] hover:bg-red-500/10 hover:text-red-600">
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </td>
@@ -503,19 +503,19 @@ export default function BillingPanel({ siteId, logId, currentUser }: { siteId: s
       {subTab === 'cost' && (
         <div className="space-y-4">
           <div className="flex items-center gap-2">
-            <select value={year} onChange={e => setYear(Number(e.target.value))} className="bg-[#f3f3f3] border border-[#e5e5e5] rounded px-3 py-2 text-[#1a1c1c] outline-none focus:border-[#556b2f]">
+            <select value={year} onChange={e => setYear(Number(e.target.value))} className="bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded px-3 py-2 text-[#1d1f20] outline-none focus:border-[#5980a6]">
               {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map(y => <option key={y} value={y}>{y}년</option>)}
             </select>
-            <select value={month} onChange={e => setMonth(Number(e.target.value))} className="bg-[#f3f3f3] border border-[#e5e5e5] rounded px-3 py-2 text-[#1a1c1c] outline-none focus:border-[#556b2f]">
+            <select value={month} onChange={e => setMonth(Number(e.target.value))} className="bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded px-3 py-2 text-[#1d1f20] outline-none focus:border-[#5980a6]">
               {Array.from({ length: 12 }, (_, i) => i + 1).map(m => <option key={m} value={m}>{m}월</option>)}
             </select>
-            <button onClick={handleExportCostDetail} disabled={!costDetail} className="ml-auto flex items-center gap-1.5 bg-[#f3f3f3] border border-[#556b2f]/40 text-[#556b2f] font-bold px-3 py-2 rounded text-sm hover:bg-[#556b2f]/10 disabled:opacity-40">
+            <button onClick={handleExportCostDetail} disabled={!costDetail} className="ml-auto flex items-center gap-1.5 bg-[#f2f2f3] border border-[#5980a6]/40 text-[#5980a6] font-bold px-3 py-2 rounded text-sm hover:bg-[#5980a6]/10 disabled:opacity-40">
               <Download className="w-4 h-4" /> 엑셀로 내보내기
             </button>
           </div>
 
           {costLoading ? (
-            <div className="text-center py-8 text-[#737373]">불러오는 중...</div>
+            <div className="text-center py-8 text-[rgba(29,31,32,0.55)]">불러오는 중...</div>
           ) : !costDetail ? null : (
             <div className="space-y-4">
               <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
@@ -523,28 +523,28 @@ export default function BillingPanel({ siteId, logId, currentUser }: { siteId: s
                   ['노무', costDetail.totals.labor], ['장비', costDetail.totals.equipment], ['자재', costDetail.totals.material],
                   ['경비', costDetail.totals.expense], ['외주', costDetail.totals.outsourcing],
                 ].map(([label, value]: any) => (
-                  <div key={label} className="bg-[#f3f3f3] border border-[#e5e5e5] rounded-xl p-3 text-center">
-                    <div className="text-xs text-[#6b6b6b]">{label}</div>
-                    <div className="text-sm font-bold text-[#1a1c1c]">{won(value)}</div>
+                  <div key={label} className="bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded-xl p-3 text-center">
+                    <div className="text-xs text-[rgba(29,31,32,0.6)]">{label}</div>
+                    <div className="text-sm font-bold text-[#1d1f20]">{won(value)}</div>
                   </div>
                 ))}
               </div>
-              <div className="bg-[#556b2f]/10 border border-[#556b2f]/30 rounded-xl p-3 text-center">
-                <div className="text-xs text-[#556b2f]">이번달 총 투입원가</div>
-                <div className="text-xl font-bold text-[#556b2f]">{won(costDetail.grandTotal)}</div>
+              <div className="bg-[#5980a6]/10 border border-[#5980a6]/30 rounded-xl p-3 text-center">
+                <div className="text-xs text-[#5980a6]">이번달 총 투입원가</div>
+                <div className="text-xl font-bold text-[#5980a6]">{won(costDetail.grandTotal)}</div>
               </div>
 
               {[
                 { title: '노무 — 일자별 출력일수', rows: costDetail.labors },
                 { title: '장비 — 일자별 투입량', rows: costDetail.equipments },
               ].filter(sec => sec.rows.length > 0).map(sec => (
-                <div key={sec.title} className="bg-[#f3f3f3] border border-[#e5e5e5] rounded-xl overflow-hidden">
-                  <div className="px-3 py-2 bg-[#ededed] font-bold text-sm text-[#1a1c1c]">{sec.title} ({sec.rows.length}건)</div>
+                <div key={sec.title} className="bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded-xl overflow-hidden">
+                  <div className="px-3 py-2 bg-[#ededed] font-bold text-sm text-[#1d1f20]">{sec.title} ({sec.rows.length}건)</div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-xs whitespace-nowrap">
                       <thead>
-                        <tr className="text-[#6b6b6b] border-t border-[#e5e5e5]">
-                          <th className="p-2 text-left sticky left-0 bg-[#f3f3f3]">이름/구분</th>
+                        <tr className="text-[rgba(29,31,32,0.6)] border-t border-[rgba(29,31,32,0.16)]">
+                          <th className="p-2 text-left sticky left-0 bg-[#f2f2f3]">이름/구분</th>
                           {Array.from({ length: costDetail.daysInMonth }, (_, i) => (
                             <th key={i} className="p-1 text-center w-7">{i + 1}</th>
                           ))}
@@ -555,17 +555,17 @@ export default function BillingPanel({ siteId, logId, currentUser }: { siteId: s
                       </thead>
                       <tbody>
                         {sec.rows.map((r: any) => (
-                          <tr key={r.key} className="border-t border-[#e5e5e5]">
-                            <td className="p-2 sticky left-0 bg-[#f3f3f3]">
-                              <div className="font-bold text-[#1a1c1c]">{r.name}</div>
-                              <div className="text-[10px] text-[#6b6b6b]">{r.sub}</div>
+                          <tr key={r.key} className="border-t border-[rgba(29,31,32,0.16)]">
+                            <td className="p-2 sticky left-0 bg-[#f2f2f3]">
+                              <div className="font-bold text-[#1d1f20]">{r.name}</div>
+                              <div className="text-[10px] text-[rgba(29,31,32,0.6)]">{r.sub}</div>
                             </td>
                             {Array.from({ length: costDetail.daysInMonth }, (_, i) => (
-                              <td key={i} className="p-1 text-center text-[#556b2f]">{r.days[i + 1] ?? ''}</td>
+                              <td key={i} className="p-1 text-center text-[#5980a6]">{r.days[i + 1] ?? ''}</td>
                             ))}
-                            <td className="p-2 text-right font-bold text-[#1a1c1c]">{r.totalAmount}</td>
-                            <td className="p-2 text-right text-[#1a1c1c]">{r.unitPrice.toLocaleString()}</td>
-                            <td className="p-2 text-right font-bold text-[#1a1c1c]">{won(r.totalPrice)}</td>
+                            <td className="p-2 text-right font-bold text-[#1d1f20]">{r.totalAmount}</td>
+                            <td className="p-2 text-right text-[#1d1f20]">{r.unitPrice.toLocaleString()}</td>
+                            <td className="p-2 text-right font-bold text-[#1d1f20]">{won(r.totalPrice)}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -579,14 +579,14 @@ export default function BillingPanel({ siteId, logId, currentUser }: { siteId: s
                 { title: '경비', rows: costDetail.expenses, get: (r: any) => [r.category, '', '', won(r.amount)] },
                 { title: '외주', rows: costDetail.outsourcings, get: (r: any) => [r.companyName, r.task, '', won(r.amount)] },
               ].filter(sec => sec.rows.length > 0).map(sec => (
-                <div key={sec.title} className="bg-[#f3f3f3] border border-[#e5e5e5] rounded-xl overflow-hidden">
-                  <div className="px-3 py-2 bg-[#ededed] font-bold text-sm text-[#1a1c1c]">{sec.title} ({sec.rows.length}건)</div>
+                <div key={sec.title} className="bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded-xl overflow-hidden">
+                  <div className="px-3 py-2 bg-[#ededed] font-bold text-sm text-[#1d1f20]">{sec.title} ({sec.rows.length}건)</div>
                   <table className="w-full text-xs md:text-sm">
                     <tbody>
                       {sec.rows.map((r: any, i: number) => (
-                        <tr key={i} className="border-t border-[#e5e5e5]">
+                        <tr key={i} className="border-t border-[rgba(29,31,32,0.16)]">
                           {sec.get(r).map((v: any, j: number) => (
-                            <td key={j} className={`p-2 ${j === sec.get(r).length - 1 ? 'text-right font-bold text-[#1a1c1c]' : 'text-[#1a1c1c]'}`}>{v}</td>
+                            <td key={j} className={`p-2 ${j === sec.get(r).length - 1 ? 'text-right font-bold text-[#1d1f20]' : 'text-[#1d1f20]'}`}>{v}</td>
                           ))}
                         </tr>
                       ))}
@@ -603,61 +603,61 @@ export default function BillingPanel({ siteId, logId, currentUser }: { siteId: s
       {subTab === 'claim' && (
         <div className="space-y-4">
           <div className="flex items-center gap-2">
-            <select value={year} onChange={e => setYear(Number(e.target.value))} className="bg-[#f3f3f3] border border-[#e5e5e5] rounded px-3 py-2 text-[#1a1c1c] outline-none focus:border-[#556b2f]">
+            <select value={year} onChange={e => setYear(Number(e.target.value))} className="bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded px-3 py-2 text-[#1d1f20] outline-none focus:border-[#5980a6]">
               {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map(y => <option key={y} value={y}>{y}년</option>)}
             </select>
-            <select value={month} onChange={e => setMonth(Number(e.target.value))} className="bg-[#f3f3f3] border border-[#e5e5e5] rounded px-3 py-2 text-[#1a1c1c] outline-none focus:border-[#556b2f]">
+            <select value={month} onChange={e => setMonth(Number(e.target.value))} className="bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded px-3 py-2 text-[#1d1f20] outline-none focus:border-[#5980a6]">
               {Array.from({ length: 12 }, (_, i) => i + 1).map(m => <option key={m} value={m}>{m}월</option>)}
             </select>
-            <button onClick={handleExportClaim} className="ml-auto flex items-center gap-1.5 bg-[#f3f3f3] border border-[#556b2f]/40 text-[#556b2f] font-bold px-3 py-2 rounded text-sm hover:bg-[#556b2f]/10">
+            <button onClick={handleExportClaim} className="ml-auto flex items-center gap-1.5 bg-[#f2f2f3] border border-[#5980a6]/40 text-[#5980a6] font-bold px-3 py-2 rounded text-sm hover:bg-[#5980a6]/10">
               <Download className="w-4 h-4" /> 엑셀로 내보내기
             </button>
             {isAdmin && (
-              <button onClick={handleGenerateClaim} className="bg-[#556b2f] text-[#ffffff] font-bold px-4 py-2 rounded text-sm hover:opacity-90">
+              <button onClick={handleGenerateClaim} className="bg-[#5980a6] text-[#f2f2f3] font-bold px-4 py-2 rounded text-sm hover:opacity-90">
                 {claim ? '다시 산출' : '기성청구액 산출'}
               </button>
             )}
           </div>
 
           {claimLoading ? (
-            <div className="text-center py-8 text-[#737373]">불러오는 중...</div>
+            <div className="text-center py-8 text-[rgba(29,31,32,0.55)]">불러오는 중...</div>
           ) : !claim ? (
-            <div className="bg-[#f3f3f3] border border-[#e5e5e5] rounded-xl p-8 text-center text-[#737373]">
+            <div className="bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded-xl p-8 text-center text-[rgba(29,31,32,0.55)]">
               {year}년 {month}월 기성청구서가 아직 산출되지 않았습니다. {isAdmin && "'기성청구액 산출' 버튼을 눌러주세요."}
             </div>
           ) : (
             <div className="space-y-3">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <div className="bg-[#f3f3f3] border border-[#e5e5e5] rounded-xl p-3">
-                  <div className="text-xs text-[#6b6b6b]">이번달 기성청구액</div>
-                  <div className="text-base md:text-lg font-bold text-[#556b2f]">{won(claim.totalClaimAmount)}</div>
+                <div className="bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded-xl p-3">
+                  <div className="text-xs text-[rgba(29,31,32,0.6)]">이번달 기성청구액</div>
+                  <div className="text-base md:text-lg font-bold text-[#5980a6]">{won(claim.totalClaimAmount)}</div>
                 </div>
-                <div className="bg-[#f3f3f3] border border-[#e5e5e5] rounded-xl p-3">
-                  <div className="text-xs text-[#6b6b6b]">누적 기성고</div>
-                  <div className="text-base md:text-lg font-bold text-[#1a1c1c]">{won(claim.cumulativeClaimAmount)}</div>
+                <div className="bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded-xl p-3">
+                  <div className="text-xs text-[rgba(29,31,32,0.6)]">누적 기성고</div>
+                  <div className="text-base md:text-lg font-bold text-[#1d1f20]">{won(claim.cumulativeClaimAmount)}</div>
                 </div>
-                <div className="bg-[#f3f3f3] border border-[#e5e5e5] rounded-xl p-3">
-                  <div className="text-xs text-[#6b6b6b]">이번달 실투입원가</div>
-                  <div className="text-base md:text-lg font-bold text-[#1a1c1c]">{won(claim.totalCostAmount)}</div>
+                <div className="bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded-xl p-3">
+                  <div className="text-xs text-[rgba(29,31,32,0.6)]">이번달 실투입원가</div>
+                  <div className="text-base md:text-lg font-bold text-[#1d1f20]">{won(claim.totalCostAmount)}</div>
                 </div>
-                <div className="bg-[#f3f3f3] border border-[#e5e5e5] rounded-xl p-3">
-                  <div className="text-xs text-[#6b6b6b]">이번달 손익</div>
+                <div className="bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded-xl p-3">
+                  <div className="text-xs text-[rgba(29,31,32,0.6)]">이번달 손익</div>
                   <div className={`text-base md:text-lg font-bold ${claim.profitAmount >= 0 ? 'text-[#16a34a]' : 'text-red-600'}`}>{won(claim.profitAmount)}</div>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <div className="bg-[#ededed] border border-[#e5e5e5] rounded-xl p-3">
-                  <div className="text-xs text-[#6b6b6b]">누계 실투입원가 (착공~{month}월)</div>
-                  <div className="text-base md:text-lg font-bold text-[#1a1c1c]">{won(claim.cumulativeCostAmount)}</div>
+                <div className="bg-[#ededed] border border-[rgba(29,31,32,0.16)] rounded-xl p-3">
+                  <div className="text-xs text-[rgba(29,31,32,0.6)]">누계 실투입원가 (착공~{month}월)</div>
+                  <div className="text-base md:text-lg font-bold text-[#1d1f20]">{won(claim.cumulativeCostAmount)}</div>
                 </div>
-                <div className="bg-[#ededed] border border-[#e5e5e5] rounded-xl p-3">
-                  <div className="text-xs text-[#6b6b6b]">누계 손익</div>
+                <div className="bg-[#ededed] border border-[rgba(29,31,32,0.16)] rounded-xl p-3">
+                  <div className="text-xs text-[rgba(29,31,32,0.6)]">누계 손익</div>
                   <div className={`text-base md:text-lg font-bold ${claim.cumulativeProfitAmount >= 0 ? 'text-[#16a34a]' : 'text-red-600'}`}>{won(claim.cumulativeProfitAmount)}</div>
                 </div>
               </div>
 
-              <div className="bg-[#f3f3f3] border border-[#e5e5e5] rounded-xl p-4 flex items-center justify-between">
+              <div className="bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded-xl p-4 flex items-center justify-between">
                 <span className={`text-xs font-bold px-2 py-1 rounded ${STATUS_COLOR[claim.status]}`}>{STATUS_LABEL[claim.status]}</span>
                 {isAdmin && (
                   <div className="flex gap-2">
@@ -671,11 +671,11 @@ export default function BillingPanel({ siteId, logId, currentUser }: { siteId: s
 
           {claimHistory.length > 0 && (
             <div className="space-y-2">
-              <h4 className="font-bold text-[#1a1c1c] px-1 flex items-center gap-1"><ChevronRight className="w-4 h-4" /> 기성청구 이력</h4>
+              <h4 className="font-bold text-[#1d1f20] px-1 flex items-center gap-1"><ChevronRight className="w-4 h-4" /> 기성청구 이력</h4>
               {claimHistory.map((c: any) => (
-                <div key={c.id} onClick={() => { setYear(c.year); setMonth(c.month) }} className="bg-[#f3f3f3] border border-[#e5e5e5] rounded-xl p-3 flex justify-between items-center cursor-pointer hover:border-[#556b2f]/50">
-                  <span className="text-sm font-bold text-[#1a1c1c]">{c.year}년 {c.month}월</span>
-                  <span className="text-sm text-[#556b2f]">{won(c.totalClaimAmount)}</span>
+                <div key={c.id} onClick={() => { setYear(c.year); setMonth(c.month) }} className="bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded-xl p-3 flex justify-between items-center cursor-pointer hover:border-[#5980a6]/50">
+                  <span className="text-sm font-bold text-[#1d1f20]">{c.year}년 {c.month}월</span>
+                  <span className="text-sm text-[#5980a6]">{won(c.totalClaimAmount)}</span>
                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${STATUS_COLOR[c.status]}`}>{STATUS_LABEL[c.status]}</span>
                 </div>
               ))}

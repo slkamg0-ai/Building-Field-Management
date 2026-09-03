@@ -152,67 +152,67 @@ export default function AttendancePage() {
   const matchedWorker = workers.find(w => w.id === matchedId)
 
   return (
-    <div className="min-h-screen bg-[#f9f9f9] text-[#1a1c1c]">
+    <div className="min-h-screen bg-[#e9e9ea] text-[#1d1f20]">
       <input ref={fileRef} type="file" accept="image/*" capture="user" className="hidden" onChange={onPhoto} />
 
-      <header className="sticky top-0 z-10 bg-[#f9f9f9] border-b border-[#e5e5e5] px-4 h-14 flex items-center gap-2">
-        <button onClick={() => router.push('/')} className="p-2 -ml-2 text-[#737373]"><ChevronLeft className="w-5 h-5" /></button>
-        <h1 className="font-bold text-[#556b2f]">출퇴근 체크</h1>
-        <span className="ml-auto text-xs text-[#737373]">{todayStr()}</span>
+      <header className="sticky top-0 z-10 bg-[#e9e9ea] border-b border-[rgba(29,31,32,0.16)] px-4 h-14 flex items-center gap-2">
+        <button onClick={() => router.push('/')} className="p-2 -ml-2 text-[rgba(29,31,32,0.55)]"><ChevronLeft className="w-5 h-5" /></button>
+        <h1 className="font-bold text-[#5980a6]">출퇴근 체크</h1>
+        <span className="ml-auto text-xs text-[rgba(29,31,32,0.55)]">{todayStr()}</span>
       </header>
 
       <main className="max-w-md mx-auto p-4 space-y-4 pb-24">
         {/* 현장 선택 */}
-        <div className="bg-white border border-[#e5e5e5] rounded-xl p-4">
-          <label className="text-xs font-semibold text-[#737373] tracking-wide">현장 선택</label>
+        <div className="bg-white border border-[rgba(29,31,32,0.16)] rounded-xl p-4">
+          <label className="text-xs font-semibold text-[rgba(29,31,32,0.55)] tracking-wide">현장 선택</label>
           <select
             value={siteId}
             onChange={e => { setSiteId(e.target.value); localStorage.setItem('att_site', e.target.value) }}
-            className="mt-2 w-full bg-[#f3f3f3] border border-[#e5e5e5] rounded-lg px-3 py-3 outline-none focus:border-[#556b2f]"
+            className="mt-2 w-full bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded-lg px-3 py-3 outline-none focus:border-[#5980a6]"
           >
             {sites.length === 0 && <option value="">현장 없음</option>}
             {sites.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
-          <div className="mt-2 flex items-center gap-1 text-[11px] text-[#737373]">
+          <div className="mt-2 flex items-center gap-1 text-[11px] text-[rgba(29,31,32,0.55)]">
             {modelReady
-              ? <><UserCheck className="w-3.5 h-3.5 text-[#556b2f]" /> 얼굴 자동인식 준비됨</>
+              ? <><UserCheck className="w-3.5 h-3.5 text-[#5980a6]" /> 얼굴 자동인식 준비됨</>
               : <><Loader2 className="w-3.5 h-3.5 animate-spin" /> 얼굴 인식 모델 로딩 중…</>}
           </div>
         </div>
 
         {/* 완료 화면 */}
         {done ? (
-          <div className="bg-white border border-[#e5e5e5] rounded-xl p-6 text-center space-y-3">
-            <CheckCircle2 className="w-14 h-14 text-[#556b2f] mx-auto" />
+          <div className="bg-white border border-[rgba(29,31,32,0.16)] rounded-xl p-6 text-center space-y-3">
+            <CheckCircle2 className="w-14 h-14 text-[#5980a6] mx-auto" />
             <div className="text-lg font-bold">
               {done.worker?.name} 님 {done.type === 'in' ? '출근' : '퇴근'} 완료
             </div>
             {done.already && <div className="text-sm text-[#d97706]">이미 {done.type === 'in' ? '출근' : '퇴근'} 기록이 있어요.</div>}
-            <div className="text-sm text-[#737373]">
+            <div className="text-sm text-[rgba(29,31,32,0.55)]">
               {done.type === 'in'
                 ? `출근 ${done.record?.checkInAt ? new Date(done.record.checkInAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : ''}`
                 : `퇴근 ${done.record?.checkOutAt ? new Date(done.record.checkOutAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : ''}` +
                   (done.record?.workMinutes != null ? ` · 근무 ${Math.floor(done.record.workMinutes / 60)}시간 ${done.record.workMinutes % 60}분` : '')}
             </div>
-            <button onClick={() => { setDone(null); setPhoto(null); setMatchedId('') }} className="mt-2 w-full bg-[#556b2f] text-white font-semibold py-3 rounded-lg">확인</button>
+            <button onClick={() => { setDone(null); setPhoto(null); setMatchedId('') }} className="mt-2 w-full bg-[#5980a6] text-white font-semibold py-3 rounded-lg">확인</button>
           </div>
         ) : photo ? (
           /* 촬영 후 매칭/확인 */
-          <div className="bg-white border border-[#e5e5e5] rounded-xl p-4 space-y-3">
+          <div className="bg-white border border-[rgba(29,31,32,0.16)] rounded-xl p-4 space-y-3">
             <div className="flex items-center gap-3">
-              <img src={photo} alt="촬영" className="w-24 h-24 rounded-lg object-cover border border-[#e5e5e5]" />
+              <img src={photo} alt="촬영" className="w-24 h-24 rounded-lg object-cover border border-[rgba(29,31,32,0.16)]" />
               <div className="flex-1 text-sm">
                 {matching ? (
-                  <div className="flex items-center gap-2 text-[#737373]"><Loader2 className="w-4 h-4 animate-spin" /> 얼굴 인식 중…</div>
+                  <div className="flex items-center gap-2 text-[rgba(29,31,32,0.55)]"><Loader2 className="w-4 h-4 animate-spin" /> 얼굴 인식 중…</div>
                 ) : matchedWorker ? (
                   <>
                     <div className="flex items-center gap-1.5">
                       {autoVerified
-                        ? <UserCheck className="w-4 h-4 text-[#556b2f]" />
+                        ? <UserCheck className="w-4 h-4 text-[#5980a6]" />
                         : <AlertTriangle className="w-4 h-4 text-[#d97706]" />}
                       <span className="font-bold">{matchedWorker.name}</span>
                     </div>
-                    <div className="text-xs text-[#737373] mt-0.5">
+                    <div className="text-xs text-[rgba(29,31,32,0.55)] mt-0.5">
                       유사도 {score != null ? Math.round(score * 100) : 0}% · {autoVerified ? '자동 신원확인' : '수동 확인 필요'}
                     </div>
                   </>
@@ -224,25 +224,25 @@ export default function AttendancePage() {
 
             {/* 근로자 선택(매칭 보정/수동) */}
             <div>
-              <label className="text-xs font-semibold text-[#737373]">본인 확인</label>
+              <label className="text-xs font-semibold text-[rgba(29,31,32,0.55)]">본인 확인</label>
               <select value={matchedId} onChange={e => { setMatchedId(e.target.value); setAutoVerified(false) }}
-                className="mt-1 w-full bg-[#f3f3f3] border border-[#e5e5e5] rounded-lg px-3 py-3 outline-none focus:border-[#556b2f]">
+                className="mt-1 w-full bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded-lg px-3 py-3 outline-none focus:border-[#5980a6]">
                 <option value="">— 근로자 선택 —</option>
                 {workers.map(w => <option key={w.id} value={w.id}>{w.name}{w.company ? ` (${w.company})` : ''}</option>)}
               </select>
             </div>
 
-            <div className="flex items-center gap-1 text-[11px] text-[#737373]">
+            <div className="flex items-center gap-1 text-[11px] text-[rgba(29,31,32,0.55)]">
               <MapPin className="w-3.5 h-3.5" />
               {coords ? `위치 ${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)}` : '위치 정보 없음(HTTP 환경)'}
             </div>
 
             <div className="flex gap-2">
-              <button onClick={() => startCapture(mode)} className="flex-1 border border-[#e5e5e5] text-[#737373] py-3 rounded-lg font-medium flex items-center justify-center gap-1">
+              <button onClick={() => startCapture(mode)} className="flex-1 border border-[rgba(29,31,32,0.16)] text-[rgba(29,31,32,0.55)] py-3 rounded-lg font-medium flex items-center justify-center gap-1">
                 <Camera className="w-4 h-4" /> 다시 촬영
               </button>
               <button onClick={submit} disabled={submitting || !matchedId}
-                className="flex-1 bg-[#556b2f] text-white py-3 rounded-lg font-semibold flex items-center justify-center gap-1 disabled:opacity-40">
+                className="flex-1 bg-[#5980a6] text-white py-3 rounded-lg font-semibold flex items-center justify-center gap-1 disabled:opacity-40">
                 {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : (mode === 'in' ? <LogIn className="w-4 h-4" /> : <LogOut className="w-4 h-4" />)}
                 {mode === 'in' ? '출근 확정' : '퇴근 확정'}
               </button>
@@ -252,22 +252,22 @@ export default function AttendancePage() {
           /* 초기: 출근/퇴근 버튼 */
           <div className="grid grid-cols-2 gap-3">
             <button onClick={() => startCapture('in')} disabled={!siteId}
-              className="bg-white border-2 border-[#556b2f] rounded-2xl p-6 flex flex-col items-center gap-2 active:scale-95 transition disabled:opacity-40">
-              <div className="w-14 h-14 rounded-full bg-[#556b2f]/10 flex items-center justify-center"><LogIn className="w-7 h-7 text-[#556b2f]" /></div>
-              <span className="font-bold text-[#556b2f]">출근</span>
-              <span className="text-[11px] text-[#737373]">셀카 촬영</span>
+              className="bg-white border-2 border-[#5980a6] rounded-2xl p-6 flex flex-col items-center gap-2 active:scale-95 transition disabled:opacity-40">
+              <div className="w-14 h-14 rounded-full bg-[#5980a6]/10 flex items-center justify-center"><LogIn className="w-7 h-7 text-[#5980a6]" /></div>
+              <span className="font-bold text-[#5980a6]">출근</span>
+              <span className="text-[11px] text-[rgba(29,31,32,0.55)]">셀카 촬영</span>
             </button>
             <button onClick={() => startCapture('out')} disabled={!siteId}
-              className="bg-white border border-[#e5e5e5] rounded-2xl p-6 flex flex-col items-center gap-2 active:scale-95 transition disabled:opacity-40">
-              <div className="w-14 h-14 rounded-full bg-[#f3f3f3] flex items-center justify-center"><LogOut className="w-7 h-7 text-[#737373]" /></div>
-              <span className="font-bold text-[#1a1c1c]">퇴근</span>
-              <span className="text-[11px] text-[#737373]">셀카 촬영</span>
+              className="bg-white border border-[rgba(29,31,32,0.16)] rounded-2xl p-6 flex flex-col items-center gap-2 active:scale-95 transition disabled:opacity-40">
+              <div className="w-14 h-14 rounded-full bg-[#f2f2f3] flex items-center justify-center"><LogOut className="w-7 h-7 text-[rgba(29,31,32,0.55)]" /></div>
+              <span className="font-bold text-[#1d1f20]">퇴근</span>
+              <span className="text-[11px] text-[rgba(29,31,32,0.55)]">셀카 촬영</span>
             </button>
           </div>
         )}
 
         {workers.length === 0 && (
-          <div className="text-center text-xs text-[#737373] bg-[#f3f3f3] border border-[#e5e5e5] rounded-lg p-3">
+          <div className="text-center text-xs text-[rgba(29,31,32,0.55)] bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded-lg p-3">
             등록된 근로자가 없습니다. 관리자 화면에서 먼저 근로자를 등록하세요.
           </div>
         )}

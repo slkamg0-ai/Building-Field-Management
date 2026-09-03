@@ -24,7 +24,7 @@ import {
   X,
 } from 'lucide-react'
 
-const inputCls = 'w-full bg-[#f3f3f3] border border-[#e5e5e5] rounded-lg px-3 py-2.5 outline-none focus:border-[#556b2f] text-sm'
+const inputCls = 'w-full bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded-lg px-3 py-2.5 outline-none focus:border-[#5980a6] text-sm'
 
 const EMPTY = {
   name: '',
@@ -49,7 +49,7 @@ function todayStr() {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="block">
-      <span className="text-[11px] font-semibold text-[#737373]">{label}</span>
+      <span className="text-[11px] font-semibold text-[rgba(29,31,32,0.55)]">{label}</span>
       <span className="mt-1 block">{children}</span>
     </label>
   )
@@ -227,20 +227,20 @@ export default function WorkersPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f9f9f9] text-[#1a1c1c]">
-      <header className="sticky top-0 z-10 bg-[#f9f9f9] border-b border-[#e5e5e5] px-4 h-14 flex items-center gap-2">
-        <button onClick={() => router.push('/')} className="p-2 -ml-2 text-[#737373]" title="뒤로">
+    <div className="min-h-screen bg-[#e9e9ea] text-[#1d1f20]">
+      <header className="sticky top-0 z-10 bg-[#e9e9ea] border-b border-[rgba(29,31,32,0.16)] px-4 h-14 flex items-center gap-2">
+        <button onClick={() => router.push('/')} className="p-2 -ml-2 text-[rgba(29,31,32,0.55)]" title="뒤로">
           <ChevronLeft className="w-5 h-5" />
         </button>
-        <h1 className="font-bold text-[#556b2f]">근로자 관리</h1>
-        <span className="ml-auto text-xs text-[#737373]">{currentUser?.name}</span>
+        <h1 className="font-bold text-[#5980a6]">근로자 관리</h1>
+        <span className="ml-auto text-xs text-[rgba(29,31,32,0.55)]">{currentUser?.name}</span>
       </header>
 
-      <div className="max-w-4xl mx-auto px-4 pt-3 flex gap-4 border-b border-[#e5e5e5]">
-        <button onClick={() => setTab('workers')} className={`pb-2 text-sm font-semibold flex items-center gap-1.5 ${tab === 'workers' ? 'text-[#556b2f] border-b-2 border-[#556b2f]' : 'text-[#737373]'}`}>
+      <div className="max-w-4xl mx-auto px-4 pt-3 flex gap-4 border-b border-[rgba(29,31,32,0.16)]">
+        <button onClick={() => setTab('workers')} className={`pb-2 text-sm font-semibold flex items-center gap-1.5 ${tab === 'workers' ? 'text-[#5980a6] border-b-2 border-[#5980a6]' : 'text-[rgba(29,31,32,0.55)]'}`}>
           <Users className="w-4 h-4" /> 근로자
         </button>
-        <button onClick={() => setTab('attendance')} className={`pb-2 text-sm font-semibold flex items-center gap-1.5 ${tab === 'attendance' ? 'text-[#556b2f] border-b-2 border-[#556b2f]' : 'text-[#737373]'}`}>
+        <button onClick={() => setTab('attendance')} className={`pb-2 text-sm font-semibold flex items-center gap-1.5 ${tab === 'attendance' ? 'text-[#5980a6] border-b-2 border-[#5980a6]' : 'text-[rgba(29,31,32,0.55)]'}`}>
           <CalendarDays className="w-4 h-4" /> 출퇴근 현황
         </button>
       </div>
@@ -249,22 +249,22 @@ export default function WorkersPage() {
         {tab === 'workers' && (
           <>
             {!showForm && (
-              <button onClick={openCreate} className="w-full bg-[#556b2f] text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2">
+              <button onClick={openCreate} className="w-full bg-[#5980a6] text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2">
                 <UserPlus className="w-5 h-5" /> 근로자 등록
               </button>
             )}
 
             {!showForm && (
-              <div className="bg-white border border-[#e5e5e5] rounded-xl p-3 space-y-3">
+              <div className="bg-white border border-[rgba(29,31,32,0.16)] rounded-xl p-3 space-y-3">
                 <div className="flex items-center gap-2">
                   <div className="flex-1">
                     <div className="font-bold text-sm">중복 근로자 병합</div>
-                    <div className="text-xs text-[#737373]">AI가 같은 사람을 여러 명으로 분류했을 때 기록과 Drive 파일을 기준 근로자에게 합칩니다.</div>
+                    <div className="text-xs text-[rgba(29,31,32,0.55)]">AI가 같은 사람을 여러 명으로 분류했을 때 기록과 Drive 파일을 기준 근로자에게 합칩니다.</div>
                   </div>
                   {mergeMode ? (
-                    <button onClick={closeMergeMode} className="px-3 py-2 rounded-lg border border-[#e5e5e5] text-sm font-semibold text-[#737373]">취소</button>
+                    <button onClick={closeMergeMode} className="px-3 py-2 rounded-lg border border-[rgba(29,31,32,0.16)] text-sm font-semibold text-[rgba(29,31,32,0.55)]">취소</button>
                   ) : (
-                    <button onClick={() => setMergeMode(true)} className="px-3 py-2 rounded-lg border border-[#556b2f] text-sm font-semibold text-[#556b2f]">병합</button>
+                    <button onClick={() => setMergeMode(true)} className="px-3 py-2 rounded-lg border border-[#5980a6] text-sm font-semibold text-[#5980a6]">병합</button>
                   )}
                 </div>
                 {mergeMode && (
@@ -275,8 +275,8 @@ export default function WorkersPage() {
                         <option key={w.id} value={w.id}>{w.name}{w.birthYYMMDD ? `_${w.birthYYMMDD}` : ''}</option>
                       ))}
                     </select>
-                    <div className="text-xs text-[#737373]">아래 목록에서 기준 근로자에게 합칠 중복 항목을 체크하세요.</div>
-                    <button onClick={runMerge} disabled={merging || !mergeTargetId || mergeSourceIds.length === 0} className="w-full bg-[#1a1c1c] text-white py-2.5 rounded-lg text-sm font-semibold disabled:opacity-40">
+                    <div className="text-xs text-[rgba(29,31,32,0.55)]">아래 목록에서 기준 근로자에게 합칠 중복 항목을 체크하세요.</div>
+                    <button onClick={runMerge} disabled={merging || !mergeTargetId || mergeSourceIds.length === 0} className="w-full bg-[#1d1f20] text-white py-2.5 rounded-lg text-sm font-semibold disabled:opacity-40">
                       {merging ? '병합 중...' : `${mergeSourceIds.length}명 병합 실행`}
                     </button>
                   </div>
@@ -285,10 +285,10 @@ export default function WorkersPage() {
             )}
 
             {showForm && (
-              <div className="bg-white border border-[#e5e5e5] rounded-xl p-4 space-y-3">
+              <div className="bg-white border border-[rgba(29,31,32,0.16)] rounded-xl p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <h2 className="font-bold">{editId ? '근로자 수정' : '근로자 등록'}</h2>
-                  <button onClick={() => setShowForm(false)} className="text-[#737373]" title="닫기"><X className="w-5 h-5" /></button>
+                  <button onClick={() => setShowForm(false)} className="text-[rgba(29,31,32,0.55)]" title="닫기"><X className="w-5 h-5" /></button>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <Field label="이름*"><input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className={inputCls} /></Field>
@@ -302,46 +302,46 @@ export default function WorkersPage() {
                   <Field label="안전교육일"><input type="date" value={form.safetyEduDate} onChange={e => setForm({ ...form, safetyEduDate: e.target.value })} className={inputCls} /></Field>
                   <Field label="안전교육번호"><input value={form.safetyEduNumber} onChange={e => setForm({ ...form, safetyEduNumber: e.target.value })} className={inputCls} /></Field>
                   <label className="flex items-center gap-2 h-[42px] mt-5">
-                    <input type="checkbox" checked={form.basicSafetyEdu} onChange={e => setForm({ ...form, basicSafetyEdu: e.target.checked })} className="w-5 h-5 accent-[#556b2f]" />
-                    <span className="text-sm text-[#737373]">기초안전보건교육 이수</span>
+                    <input type="checkbox" checked={form.basicSafetyEdu} onChange={e => setForm({ ...form, basicSafetyEdu: e.target.checked })} className="w-5 h-5 accent-[#5980a6]" />
+                    <span className="text-sm text-[rgba(29,31,32,0.55)]">기초안전보건교육 이수</span>
                   </label>
                 </div>
-                <button onClick={saveWorker} disabled={saving} className="w-full bg-[#556b2f] text-white py-3 rounded-lg font-semibold flex items-center justify-center gap-1 disabled:opacity-50">
+                <button onClick={saveWorker} disabled={saving} className="w-full bg-[#5980a6] text-white py-3 rounded-lg font-semibold flex items-center justify-center gap-1 disabled:opacity-50">
                   {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} 저장
                 </button>
               </div>
             )}
 
             <div className="space-y-2">
-              {loading && <div className="text-center py-6 text-[#737373]"><Loader2 className="w-5 h-5 animate-spin inline" /></div>}
+              {loading && <div className="text-center py-6 text-[rgba(29,31,32,0.55)]"><Loader2 className="w-5 h-5 animate-spin inline" /></div>}
               {workers.map(worker => (
-                <div key={worker.id} className={`bg-white border border-[#e5e5e5] rounded-xl p-3 flex items-center gap-3 ${!worker.isActive ? 'opacity-50' : ''}`}>
+                <div key={worker.id} className={`bg-white border border-[rgba(29,31,32,0.16)] rounded-xl p-3 flex items-center gap-3 ${!worker.isActive ? 'opacity-50' : ''}`}>
                   {mergeMode && (
                     <input
                       type="checkbox"
                       checked={mergeSourceIds.includes(worker.id)}
                       disabled={!worker.isActive || worker.id === mergeTargetId}
                       onChange={() => toggleMergeSource(worker.id)}
-                      className="w-5 h-5 accent-[#556b2f] disabled:opacity-30"
+                      className="w-5 h-5 accent-[#5980a6] disabled:opacity-30"
                     />
                   )}
-                  <div className="w-12 h-12 rounded-full bg-[#f3f3f3] overflow-hidden shrink-0 flex items-center justify-center">
-                    {worker.photoUrl ? <img src={worker.photoUrl} alt={worker.name} className="w-full h-full object-cover" /> : <Users className="w-5 h-5 text-[#737373]" />}
+                  <div className="w-12 h-12 rounded-full bg-[#f2f2f3] overflow-hidden shrink-0 flex items-center justify-center">
+                    {worker.photoUrl ? <img src={worker.photoUrl} alt={worker.name} className="w-full h-full object-cover" /> : <Users className="w-5 h-5 text-[rgba(29,31,32,0.55)]" />}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
                       <span className="font-bold truncate">{worker.name}</span>
-                      <span className="text-[10px] bg-[#556b2f]/10 text-[#556b2f] px-1.5 py-0.5 rounded">{statusLabel(worker.documentStatus)}</span>
+                      <span className="text-[10px] bg-[#5980a6]/10 text-[#5980a6] px-1.5 py-0.5 rounded">{statusLabel(worker.documentStatus)}</span>
                     </div>
-                    <div className="text-xs text-[#737373] truncate">
+                    <div className="text-xs text-[rgba(29,31,32,0.55)] truncate">
                       {[worker.birthYYMMDD, worker.company, worker.jobType, worker.phone].filter(Boolean).join(' · ') || '정보 없음'}
                     </div>
                   </div>
-                  <button onClick={() => openEdit(worker)} className="p-2 text-[#737373] hover:text-[#556b2f]" title="수정"><Pencil className="w-4 h-4" /></button>
-                  <button onClick={() => removeWorker(worker.id)} className="p-2 text-[#737373] hover:text-red-600" title="삭제"><Trash2 className="w-4 h-4" /></button>
+                  <button onClick={() => openEdit(worker)} className="p-2 text-[rgba(29,31,32,0.55)] hover:text-[#5980a6]" title="수정"><Pencil className="w-4 h-4" /></button>
+                  <button onClick={() => removeWorker(worker.id)} className="p-2 text-[rgba(29,31,32,0.55)] hover:text-red-600" title="삭제"><Trash2 className="w-4 h-4" /></button>
                 </div>
               ))}
-              {!loading && workers.length === 0 && <div className="text-center text-sm text-[#737373] py-8">등록된 근로자가 없습니다.</div>}
+              {!loading && workers.length === 0 && <div className="text-center text-sm text-[rgba(29,31,32,0.55)] py-8">등록된 근로자가 없습니다.</div>}
             </div>
           </>
         )}
@@ -350,33 +350,33 @@ export default function WorkersPage() {
           <>
             <div className="flex items-center gap-2">
               <input type="date" value={attDate} onChange={e => setAttDate(e.target.value)} className={inputCls + ' max-w-[180px]'} />
-              <span className="text-sm text-[#737373]">{records.length}명 기록</span>
-              <button onClick={loadAttendance} className="ml-auto text-xs text-[#556b2f] font-semibold">새로고침</button>
+              <span className="text-sm text-[rgba(29,31,32,0.55)]">{records.length}명 기록</span>
+              <button onClick={loadAttendance} className="ml-auto text-xs text-[#5980a6] font-semibold">새로고침</button>
             </div>
             <div className="space-y-2">
-              {loading && <div className="text-center py-6 text-[#737373]"><Loader2 className="w-5 h-5 animate-spin inline" /></div>}
+              {loading && <div className="text-center py-6 text-[rgba(29,31,32,0.55)]"><Loader2 className="w-5 h-5 animate-spin inline" /></div>}
               {records.map(record => {
                 const worker = record.Worker || {}
                 return (
-                  <div key={record.id} className="bg-white border border-[#e5e5e5] rounded-xl p-3">
+                  <div key={record.id} className="bg-white border border-[rgba(29,31,32,0.16)] rounded-xl p-3">
                     <div className="flex items-center gap-2">
                       <span className="font-bold">{worker.name || '(삭제됨)'}</span>
-                      <span className="text-[10px] bg-[#f3f3f3] text-[#737373] px-1.5 py-0.5 rounded">{record.verifyStatus}</span>
-                      <span className="ml-auto text-[11px] text-[#737373]">{record.siteName || ''}</span>
+                      <span className="text-[10px] bg-[#f2f2f3] text-[rgba(29,31,32,0.55)] px-1.5 py-0.5 rounded">{record.verifyStatus}</span>
+                      <span className="ml-auto text-[11px] text-[rgba(29,31,32,0.55)]">{record.siteName || ''}</span>
                     </div>
-                    <div className="mt-2 text-xs text-[#737373]">
+                    <div className="mt-2 text-xs text-[rgba(29,31,32,0.55)]">
                       출근: {record.checkInAt ? new Date(record.checkInAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : '-'}
                       {' / '}
                       퇴근: {record.checkOutAt ? new Date(record.checkOutAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : '-'}
                     </div>
                     <div className="mt-2 flex gap-2">
-                      <button onClick={() => verifyAttendance(record.id, 'CONFIRMED')} className="flex-1 text-xs border border-[#556b2f] text-[#556b2f] py-1.5 rounded-lg font-medium">확인</button>
-                      <button onClick={() => verifyAttendance(record.id, 'REJECTED')} className="flex-1 text-xs border border-[#e5e5e5] text-red-600 py-1.5 rounded-lg font-medium">반려</button>
+                      <button onClick={() => verifyAttendance(record.id, 'CONFIRMED')} className="flex-1 text-xs border border-[#5980a6] text-[#5980a6] py-1.5 rounded-lg font-medium">확인</button>
+                      <button onClick={() => verifyAttendance(record.id, 'REJECTED')} className="flex-1 text-xs border border-[rgba(29,31,32,0.16)] text-red-600 py-1.5 rounded-lg font-medium">반려</button>
                     </div>
                   </div>
                 )
               })}
-              {!loading && records.length === 0 && <div className="text-center text-sm text-[#737373] py-8">해당 날짜 출퇴근 기록이 없습니다.</div>}
+              {!loading && records.length === 0 && <div className="text-center text-sm text-[rgba(29,31,32,0.55)] py-8">해당 날짜 출퇴근 기록이 없습니다.</div>}
             </div>
           </>
         )}
