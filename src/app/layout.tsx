@@ -22,7 +22,8 @@ export default function RootLayout({
         <meta name="theme-color" content="#181a1d" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-title" content="Field manage" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="Field Manage" />
       </head>
       <body className="bg-background text-on-background font-body overflow-x-hidden pb-24">
         {children}
