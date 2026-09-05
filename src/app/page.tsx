@@ -743,23 +743,21 @@ export default function Home() {
                       >
                         <Power className="w-4 h-4" />
                       </button>
-                      {u.role !== 'ADMIN' && (
-                        <button
-                          onClick={async () => {
-                            if (editingSitesForUserId === u.id) {
-                              setEditingSitesForUserId(null)
-                              return
-                            }
-                            const siteIds = await getUserSiteIds(u.id)
-                            setEditingSiteIds(siteIds)
-                            setEditingSitesForUserId(u.id)
-                          }}
-                          className={`p-2 rounded hover:bg-[#ededed] transition-colors ${editingSitesForUserId === u.id ? 'text-[#5980a6]' : 'text-[rgba(29,31,32,0.55)]'}`}
-                          title="현장 배정"
-                        >
-                          <span className="material-symbols-outlined text-[18px]">apartment</span>
-                        </button>
-                      )}
+                      <button
+                        onClick={async () => {
+                          if (editingSitesForUserId === u.id) {
+                            setEditingSitesForUserId(null)
+                            return
+                          }
+                          const siteIds = await getUserSiteIds(u.id)
+                          setEditingSiteIds(siteIds)
+                          setEditingSitesForUserId(u.id)
+                        }}
+                        className={`p-2 rounded hover:bg-[#ededed] transition-colors ${editingSitesForUserId === u.id ? 'text-[#5980a6]' : 'text-[rgba(29,31,32,0.55)]'}`}
+                        title="현장 배정"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">apartment</span>
+                      </button>
                       {u.name !== '관리자' && (
                         <button
                           onClick={async () => {
