@@ -1,6 +1,7 @@
 import { GoogleGenAI, Type, type Schema } from '@google/genai'
 import { NextRequest, NextResponse } from 'next/server'
 import { postProcess } from '@/lib/ocrPostProcess'
+import { getSessionUser } from '@/lib/auth'
 
 // Vercel 서버리스 함수 기본 제한(짧으면 10초)보다 여유를 두어 Gemini Vision 응답 지연에 대비
 export const maxDuration = 60
@@ -166,6 +167,11 @@ function isValidExtraction(formType: string, data: Record<string, unknown> | nul
 }
 
 export async function POST(req: NextRequest) {
+  const user = await getSessionUser()
+  if (!user) {
+    return NextResponse.json({ error: '로그인이 필요합니다.' }, { status: 401 })
+  }
+
   try {
     const { imageBase64, formType } = await req.json()
 

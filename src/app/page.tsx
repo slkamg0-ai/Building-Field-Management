@@ -86,9 +86,7 @@ export default function Home() {
       return
     }
     setCurrentUser(user)
-    await loadSites()
-    await loadAllUsers()
-    await loadWorkerDocMap()
+    await Promise.all([loadSites(), loadAllUsers(), loadWorkerDocMap()])
   }
 
   // 근로자 서류 상태 조회 (이름 기준) — 노무 입력 목록에 서류 미비 경고를 띄우기 위함

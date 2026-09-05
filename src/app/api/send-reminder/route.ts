@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import webpush from 'web-push'
+import { timingSafeEqual } from 'crypto'
 import prisma from '@/lib/prisma'
+
+function secretMatches(provided: string, expected: string) {
+  const a = Buffer.from(provided)
+  const b = Buffer.from(expected)
+  if (a.length !== b.length) return false
+  return timingSafeEqual(a, b)
+}
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -18,7 +26,7 @@ export async function POST(req: NextRequest) {
   // 인증: 헤더 또는 ?secret= 로 시크릿 확인
   const headerSecret = req.headers.get('x-reminder-secret') || ''
   const urlSecret = req.nextUrl.searchParams.get('secret') || ''
-  if (!SECRET || (headerSecret !== SECRET && urlSecret !== SECRET)) {
+  if (!SECRET || (!secretMatches(headerSecret, SECRET) && !secretMatches(urlSecret, SECRET))) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   }
   if (!PUBLIC || !PRIVATE) {

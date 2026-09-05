@@ -262,7 +262,7 @@ model MonthlyBilling {
   site               Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
   year               Int
   month              Int
-  totalLaborCost     Int      @default(0)
+  totalLaborCost     Float    @default(0)
   totalLaborAmount   Float    @default(0)
   workerCount        Int      @default(0)
   readyWorkerCount   Int      @default(0)

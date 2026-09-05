@@ -41,13 +41,25 @@ function getPublicUrl() {
   return url.replace(/\/$/, '')
 }
 
+const ALLOWED_TYPES: Record<string, string> = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+  'image/heic': 'heic',
+}
+const MAX_UPLOAD_BYTES = 15 * 1024 * 1024 // 15MB
+
 // base64(dataURL) 이미지를 R2에 업로드하고 공개 URL을 반환한다.
 export async function uploadDataUrlToR2(dataUrl: string, prefix: string) {
   const m = dataUrl.match(/^data:(.+?);base64,(.*)$/)
   if (!m) throw new Error('잘못된 이미지 형식입니다.')
   const contentType = m[1]
+  const ext = ALLOWED_TYPES[contentType]
+  if (!ext) throw new Error(`지원하지 않는 이미지 형식입니다: ${contentType}`)
   const buffer = Buffer.from(m[2], 'base64')
-  const ext = contentType.split('/')[1]?.split('+')[0] || 'jpg'
+  if (buffer.length > MAX_UPLOAD_BYTES) {
+    throw new Error(`이미지 용량이 너무 큽니다 (최대 ${MAX_UPLOAD_BYTES / 1024 / 1024}MB).`)
+  }
   const safePrefix = prefix.replace(/[^a-zA-Z0-9_-]/g, '_')
   const key = `${safePrefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`
 
