@@ -4,7 +4,26 @@ import prisma from './prisma'
 import { GoogleGenAI } from '@google/genai'
 import { revalidatePath } from 'next/cache'
 import { uploadDataUrlToR2, deleteFromR2 } from './r2'
-import { clearSession, createSession, getSessionUser, hashPin, requireAdmin, requireUser, verifyPin } from './auth'
+import { clearSession, createSession, getSessionUser, hashPin, requireAdmin, requireSiteAccess, requireUser, verifyPin } from './auth'
+
+// logId를 가진 항목(노무/장비/자재/경비/외주/사진 등)에 접근하기 전, 그 항목이 속한 현장에 대한
+// 권한을 확인한다. ADMIN은 항상 통과하고, WORKER는 배정된 현장의 로그만 다룰 수 있다.
+async function requireLogSiteAccess(logId: string) {
+  const log = await prisma.dailyLog.findUnique({ where: { id: logId }, select: { siteId: true } })
+  if (!log) throw new Error('존재하지 않는 일보입니다.')
+  const user = await requireSiteAccess(log.siteId)
+  return { user, siteId: log.siteId }
+}
+
+// id가 가리키는 항목(Labor/Equipment/... 등, logId를 가진 레코드)이 속한 현장의 접근 권한을 확인한다.
+async function requireRecordSiteAccess<T extends { findUnique: (args: any) => Promise<{ logId: string } | null> }>(
+  model: T,
+  id: string,
+) {
+  const record = await model.findUnique({ where: { id }, select: { logId: true } })
+  if (!record) throw new Error('존재하지 않는 항목입니다.')
+  return requireLogSiteAccess(record.logId)
+}
 import {
   appendSheetValues,
   createDriveFolder,
@@ -107,7 +126,30 @@ function monthlyBillingRows(args: {
 //  현장 관리
 // ════════════════════════════════════════════════════════════════
 export async function getSites() {
-  return prisma.site.findMany({ orderBy: { createdAt: 'desc' } })
+  const user = await requireUser()
+  if (user.role === 'ADMIN') {
+    return prisma.site.findMany({ orderBy: { createdAt: 'desc' } })
+  }
+  return prisma.site.findMany({
+    where: { userAccess: { some: { userId: user.id } } },
+    orderBy: { createdAt: 'desc' },
+  })
+}
+
+// 관리자가 사용자별 현장 배정을 관리하기 위한 조회/설정
+export async function getUserSiteIds(userId: string) {
+  await requireAdmin()
+  const rows = await prisma.userSite.findMany({ where: { userId }, select: { siteId: true } })
+  return rows.map(r => r.siteId)
+}
+
+export async function setUserSites(userId: string, siteIds: string[]) {
+  await requireAdmin()
+  await prisma.$transaction([
+    prisma.userSite.deleteMany({ where: { userId } }),
+    prisma.userSite.createMany({ data: siteIds.map(siteId => ({ userId, siteId })) }),
+  ])
+  revalidatePath('/')
 }
 
 export async function createSite(name: string, contractAmount: number, startDate: string, endDate: string) {
@@ -231,6 +273,7 @@ export async function toggleUserActive(id: string, isActive: boolean) {
 //  일일 로그
 // ════════════════════════════════════════════════════════════════
 export async function getDailyLog(dateString: string, siteId: string) {
+  await requireSiteAccess(siteId)
   const startOfDay = new Date(dateString); startOfDay.setHours(0, 0, 0, 0)
   const endOfDay = new Date(dateString); endOfDay.setHours(23, 59, 59, 999)
 
@@ -246,7 +289,7 @@ export async function getDailyLog(dateString: string, siteId: string) {
 
 // 노무/장비/자재/경비/외주 추가
 export async function addLabor(logId: string, data: any, creatorName: string) {
-  const user = await requireUser()
+  const { user } = await requireLogSiteAccess(logId)
   await prisma.labor.create({ data: {
     logId, name: data.name, jobType: data.jobType,
     unitPrice: parseInt(data.unitPrice), amount: parseFloat(data.amount),
@@ -257,13 +300,13 @@ export async function addLabor(logId: string, data: any, creatorName: string) {
 }
 
 export async function deleteLabor(id: string) {
-  await requireUser()
+  await requireRecordSiteAccess(prisma.labor, id)
   await prisma.labor.delete({ where: { id } })
   revalidatePath('/')
 }
 
 export async function addEquipment(logId: string, data: any, creatorName: string) {
-  const user = await requireUser()
+  const { user } = await requireLogSiteAccess(logId)
   const ownerType = ['DIRECT', 'SUBCONTRACT'].includes(data.ownerType) ? data.ownerType : 'SUBCONTRACT'
   await prisma.equipment.create({ data: {
     logId, name: data.name, spec: data.spec || null,
@@ -276,13 +319,13 @@ export async function addEquipment(logId: string, data: any, creatorName: string
 }
 
 export async function deleteEquipment(id: string) {
-  await requireUser()
+  await requireRecordSiteAccess(prisma.equipment, id)
   await prisma.equipment.delete({ where: { id } })
   revalidatePath('/')
 }
 
 export async function addMaterial(logId: string, data: any, creatorName: string) {
-  const user = await requireUser()
+  const { user } = await requireLogSiteAccess(logId)
   await prisma.material.create({ data: {
     logId, name: data.name, spec: data.spec || null, unit: data.unit,
     quantity: parseFloat(data.quantity), note: data.note || null, createdBy: user.name,
@@ -291,13 +334,13 @@ export async function addMaterial(logId: string, data: any, creatorName: string)
 }
 
 export async function deleteMaterial(id: string) {
-  await requireUser()
+  await requireRecordSiteAccess(prisma.material, id)
   await prisma.material.delete({ where: { id } })
   revalidatePath('/')
 }
 
 export async function addExpense(logId: string, data: any, creatorName: string) {
-  const user = await requireUser()
+  const { user } = await requireLogSiteAccess(logId)
   await prisma.expense.create({ data: {
     logId, category: data.category, amount: parseInt(data.amount),
     note: data.note || null, createdBy: user.name,
@@ -307,7 +350,7 @@ export async function addExpense(logId: string, data: any, creatorName: string) 
 }
 
 export async function deleteExpense(id: string) {
-  await requireUser()
+  await requireRecordSiteAccess(prisma.expense, id)
   const expense = await prisma.expense.findUnique({ where: { id } })
   if (expense?.isSettled) throw new Error('이미 정산 완료된 경비는 삭제할 수 없습니다.')
   await prisma.expense.delete({ where: { id } })
@@ -316,6 +359,7 @@ export async function deleteExpense(id: string) {
 
 // 월별 담당자별 경비 (정산용)
 export async function getMonthlyExpensesByPerson(siteId: string, year: number, month: number) {
+  await requireSiteAccess(siteId)
   const startOfMonth = new Date(year, month - 1, 1)
   const endOfMonth = new Date(year, month, 0, 23, 59, 59)
   const logs = await prisma.dailyLog.findMany({
@@ -345,7 +389,7 @@ export async function settleExpenses(expenseIds: string[]) {
 }
 
 export async function addOutsourcing(logId: string, data: any, creatorName: string) {
-  const user = await requireUser()
+  const { user } = await requireLogSiteAccess(logId)
   await prisma.outsourcing.create({ data: {
     logId, companyName: data.company, task: data.task,
     amount: parseInt(data.amount), note: data.note || null, createdBy: user.name,
@@ -354,25 +398,25 @@ export async function addOutsourcing(logId: string, data: any, creatorName: stri
 }
 
 export async function deleteOutsourcing(id: string) {
-  await requireUser()
+  await requireRecordSiteAccess(prisma.outsourcing, id)
   await prisma.outsourcing.delete({ where: { id } })
   revalidatePath('/')
 }
 
 export async function updateDailyLogDescription(logId: string, description: string) {
-  await requireUser()
+  await requireLogSiteAccess(logId)
   await prisma.dailyLog.update({ where: { id: logId }, data: { description } })
   revalidatePath('/')
 }
 
 export async function addPhotoRecord(logId: string, url: string, creatorName: string) {
-  const user = await requireUser()
+  const { user } = await requireLogSiteAccess(logId)
   await prisma.photo.create({ data: { logId, url, createdBy: user.name } })
   revalidatePath('/')
 }
 
 export async function deletePhoto(photoId: string) {
-  await requireUser()
+  await requireRecordSiteAccess(prisma.photo, photoId)
   const photo = await prisma.photo.findUnique({ where: { id: photoId } })
   await prisma.photo.delete({ where: { id: photoId } })
   if (photo?.url) {
@@ -383,12 +427,13 @@ export async function deletePhoto(photoId: string) {
 
 // 범용 이미지 업로드(얼굴/출퇴근 사진 등) — R2에 업로드하고 공개 URL만 반환
 export async function uploadImage(dataUrl: string, prefix: string = 'img') {
+  await requireUser()
   return uploadDataUrlToR2(dataUrl, prefix)
 }
 
 // 작업일보 사진 업로드 — R2 업로드 + Photo 레코드
 export async function uploadPhoto(logId: string, dataUrl: string, creatorName?: string | null) {
-  const user = await requireUser()
+  const { user } = await requireLogSiteAccess(logId)
   const url = await uploadDataUrlToR2(dataUrl, logId)
   await prisma.photo.create({ data: { logId, url, createdBy: user.name } })
   revalidatePath('/')
@@ -440,6 +485,7 @@ export async function searchOutsourcings(query: string) {
 //  통계
 // ════════════════════════════════════════════════════════════════
 export async function getMonthlyStats(siteId: string, dateString: string) {
+  await requireSiteAccess(siteId)
   const date = new Date(dateString)
   const startOfMonth = new Date(date.getFullYear(), date.getMonth(), 1)
   const endOfMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59)
@@ -481,6 +527,7 @@ export async function getMonthlyStats(siteId: string, dateString: string) {
 }
 
 export async function getSiteTotalStats(siteId: string) {
+  await requireSiteAccess(siteId)
   const site = await prisma.site.findUnique({ where: { id: siteId } })
   if (!site) return null
 
@@ -803,6 +850,8 @@ export async function savePushSub(sub: { endpoint: string; p256dh: string; auth:
 
 // 월별 출퇴근 (정산/집계용)
 export async function getAttendanceByMonth(year: number, month: number, siteId?: string) {
+  if (siteId) await requireSiteAccess(siteId)
+  else await requireAdmin() // 현장 미지정 시 전체 현장 조회이므로 관리자만 허용
   const start = new Date(year, month - 1, 1)
   const end = new Date(year, month, 0, 23, 59, 59)
   const rows = await prisma.attendance.findMany({
@@ -1452,6 +1501,7 @@ export async function exportMonthlyLaborBillingToDrive(siteId: string, year: num
 //  계약품목×계약단가로 산정되는 게 기성(청구액), 실제 투입비용 합이 원가.
 // ════════════════════════════════════════════════════════════════
 export async function getContractItems(siteId: string) {
+  await requireSiteAccess(siteId)
   return prisma.contractItem.findMany({
     where: { siteId, isActive: true },
     orderBy: { sortOrder: 'asc' },
@@ -1549,6 +1599,7 @@ export async function deleteContractItem(id: string) {
 
 // 계약품목별 누적 시공수량 — 계약수량 대비 진행률(잔량) 확인용
 export async function getContractItemProgress(siteId: string) {
+  await requireSiteAccess(siteId)
   const items = await prisma.contractItem.findMany({ where: { siteId, isActive: true, isLeaf: true }, orderBy: { sortOrder: 'asc' } })
   const sums = await prisma.workQuantity.groupBy({
     by: ['contractItemId'],
@@ -1571,11 +1622,12 @@ export async function getContractItemProgress(siteId: string) {
 
 // ── 일일 시공수량 ──
 export async function getWorkQuantities(logId: string) {
+  await requireLogSiteAccess(logId)
   return prisma.workQuantity.findMany({ where: { logId }, include: { contractItem: true }, orderBy: { createdAt: 'asc' } })
 }
 
 export async function addWorkQuantity(logId: string, contractItemId: string, quantity: number, note?: string) {
-  const user = await requireUser()
+  const { user } = await requireLogSiteAccess(logId)
   const row = await prisma.workQuantity.create({
     data: { logId, contractItemId, quantity, note: note || null, createdBy: user.name },
   })
@@ -1584,23 +1636,29 @@ export async function addWorkQuantity(logId: string, contractItemId: string, qua
 }
 
 export async function updateWorkQuantity(id: string, quantity: number, note?: string) {
-  await requireUser()
+  const record = await prisma.workQuantity.findUnique({ where: { id }, select: { logId: true } })
+  if (!record) throw new Error('존재하지 않는 항목입니다.')
+  await requireLogSiteAccess(record.logId)
   await prisma.workQuantity.update({ where: { id }, data: { quantity, ...(note !== undefined ? { note } : {}) } })
   revalidatePath('/')
 }
 
 export async function deleteWorkQuantity(id: string) {
-  await requireUser()
+  const record = await prisma.workQuantity.findUnique({ where: { id }, select: { logId: true } })
+  if (!record) throw new Error('존재하지 않는 항목입니다.')
+  await requireLogSiteAccess(record.logId)
   await prisma.workQuantity.delete({ where: { id } })
   revalidatePath('/')
 }
 
 // ── 월별 기성청구서 ──
 export async function getMonthlyProgressClaim(siteId: string, year: number, month: number) {
+  await requireSiteAccess(siteId)
   return prisma.monthlyProgressClaim.findUnique({ where: { siteId_year_month: { siteId, year, month } } })
 }
 
 export async function getProgressClaimHistory(siteId: string) {
+  await requireSiteAccess(siteId)
   return prisma.monthlyProgressClaim.findMany({ where: { siteId }, orderBy: [{ year: 'desc' }, { month: 'desc' }] })
 }
 
@@ -1668,6 +1726,7 @@ export async function generateMonthlyProgressClaim(siteId: string, year: number,
 
 // ── 월별 투입명세서(원가) — 그달 노무/장비/자재/경비/외주 취합. 지급 결정용 상세 문서.
 export async function getMonthlyCostDetail(siteId: string, year: number, month: number) {
+  await requireSiteAccess(siteId)
   const site = await prisma.site.findUnique({ where: { id: siteId } })
   if (!site) throw new Error('현장을 찾을 수 없습니다.')
 
@@ -1758,6 +1817,7 @@ export async function updateProgressClaimStatus(id: string, status: string, note
 // 기성청구서 품목별 상세 — 이번달/누적 시공수량과 금액을 계약품목별로 계산.
 // 엑셀 내보내기(자유 양식)용 원천 데이터.
 export async function getProgressClaimItemDetail(siteId: string, year: number, month: number) {
+  await requireSiteAccess(siteId)
   const site = await prisma.site.findUnique({ where: { id: siteId } })
   if (!site) throw new Error('현장을 찾을 수 없습니다.')
 

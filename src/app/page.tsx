@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { getDailyLog, addLabor, addEquipment, addMaterial, addOutsourcing, addExpense, deleteLabor, deleteEquipment, deleteMaterial, deleteOutsourcing, deleteExpense, searchLabors, searchEquipments, searchMaterials, searchOutsourcings, getSites, createSite, updateSite, resetSiteData, getMonthlyStats, getSiteTotalStats, getUsers, createUser, deleteUser, toggleUserActive, updateUserPin, updateUserRole, updateDailyLogDescription, addPhotoRecord, deletePhoto, getMonthlyExpensesByPerson, settleExpenses, uploadPhoto, getCurrentUser, logout, syncWorkersFromConfiguredDriveMaster, processPendingWorkerDocuments, generateMonthlyLaborBilling, exportMonthlyLaborBillingToDrive, getWorkerDocumentReviews, saveWorkerDocumentReview, getWorkers } from '@/lib/actions'
+import { getDailyLog, addLabor, addEquipment, addMaterial, addOutsourcing, addExpense, deleteLabor, deleteEquipment, deleteMaterial, deleteOutsourcing, deleteExpense, searchLabors, searchEquipments, searchMaterials, searchOutsourcings, getSites, createSite, updateSite, resetSiteData, getMonthlyStats, getSiteTotalStats, getUsers, createUser, deleteUser, toggleUserActive, updateUserPin, updateUserRole, updateDailyLogDescription, addPhotoRecord, deletePhoto, getMonthlyExpensesByPerson, settleExpenses, uploadPhoto, getCurrentUser, logout, syncWorkersFromConfiguredDriveMaster, processPendingWorkerDocuments, generateMonthlyLaborBilling, exportMonthlyLaborBillingToDrive, getWorkerDocumentReviews, saveWorkerDocumentReview, getWorkers, getUserSiteIds, setUserSites } from '@/lib/actions'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid, PieChart, Pie, Cell } from 'recharts'
 import { exportMonthlyReport } from '@/lib/exportExcel'
 import { useRouter } from 'next/navigation'
@@ -44,6 +44,8 @@ export default function Home() {
   const [newUserForm, setNewUserForm] = useState({ name: '', pin: '', role: 'WORKER' })
   const [changingPinId, setChangingPinId] = useState<string | null>(null)
   const [newPinInput, setNewPinInput] = useState('')
+  const [editingSitesForUserId, setEditingSitesForUserId] = useState<string | null>(null)
+  const [editingSiteIds, setEditingSiteIds] = useState<string[]>([])
   const router = useRouter()
 
   // 폼 표시 상태
@@ -970,6 +972,23 @@ export default function Home() {
                       >
                         <Power className="w-4 h-4" />
                       </button>
+                      {u.role !== 'ADMIN' && (
+                        <button
+                          onClick={async () => {
+                            if (editingSitesForUserId === u.id) {
+                              setEditingSitesForUserId(null)
+                              return
+                            }
+                            const siteIds = await getUserSiteIds(u.id)
+                            setEditingSiteIds(siteIds)
+                            setEditingSitesForUserId(u.id)
+                          }}
+                          className={`p-2 rounded hover:bg-[#ededed] transition-colors ${editingSitesForUserId === u.id ? 'text-[#5980a6]' : 'text-[rgba(29,31,32,0.55)]'}`}
+                          title="현장 배정"
+                        >
+                          <span className="material-symbols-outlined text-[18px]">apartment</span>
+                        </button>
+                      )}
                       {u.name !== '관리자' && (
                         <button
                           onClick={async () => {
@@ -986,6 +1005,49 @@ export default function Home() {
                     </div>
                   </div>
                 ))}
+                {editingSitesForUserId && (() => {
+                  const editingUser = allUsers.find(u => u.id === editingSitesForUserId)
+                  if (!editingUser) return null
+                  return (
+                    <div className="bg-[#f2f2f3] p-4 rounded-lg border border-[#5980a6] space-y-2">
+                      <h5 className="text-xs font-bold text-[#5980a6] uppercase tracking-widest">{editingUser.name}님의 접근 가능 현장</h5>
+                      <div className="space-y-1.5">
+                        {sites.map(s => (
+                          <label key={s.id} className="flex items-center gap-2 text-sm text-[#1d1f20] cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={editingSiteIds.includes(s.id)}
+                              onChange={e => {
+                                setEditingSiteIds(prev =>
+                                  e.target.checked ? [...prev, s.id] : prev.filter(id => id !== s.id)
+                                )
+                              }}
+                            />
+                            {s.name}
+                          </label>
+                        ))}
+                        {sites.length === 0 && <p className="text-xs text-[rgba(29,31,32,0.55)]">등록된 현장이 없습니다.</p>}
+                      </div>
+                      <div className="flex gap-2 pt-1">
+                        <button
+                          onClick={async () => {
+                            await setUserSites(editingSitesForUserId, editingSiteIds)
+                            setEditingSitesForUserId(null)
+                          }}
+                          className="bg-[#5980a6] text-[#f2f2f3] text-xs font-bold rounded px-3 py-1.5 hover:opacity-90 transition-colors"
+                        >
+                          저장
+                        </button>
+                        <button
+                          onClick={() => setEditingSitesForUserId(null)}
+                          className="text-xs font-bold rounded px-3 py-1.5 hover:bg-[#ededed] text-[rgba(29,31,32,0.6)] transition-colors"
+                        >
+                          취소
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })()}
               </div>
             </div>
           </div>

@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers'
 import crypto from 'crypto'
+import prisma from './prisma'
 
 const SESSION_COOKIE = 'field_session'
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 12
@@ -92,5 +93,17 @@ export async function requireUser() {
 export async function requireAdmin() {
   const user = await requireUser()
   if (user.role !== 'ADMIN') throw new Error('관리자 권한이 필요합니다.')
+  return user
+}
+
+// 로그인한 사용자가 해당 현장(siteId)에 접근 권한이 있는지 확인한다.
+// ADMIN은 배정 여부와 무관하게 모든 현장에 접근 가능하다.
+export async function requireSiteAccess(siteId: string) {
+  const user = await requireUser()
+  if (user.role === 'ADMIN') return user
+  const access = await prisma.userSite.findUnique({
+    where: { userId_siteId: { userId: user.id, siteId } },
+  })
+  if (!access) throw new Error('이 현장에 대한 접근 권한이 없습니다.')
   return user
 }

@@ -15,13 +15,27 @@ datasource db {
 }
 
 model User {
+  id        String     @id @default(cuid())
+  name      String     @unique
+  pin       String     @default("") // Legacy PIN storage; kept only for migration compatibility
+  pinHash   String     @default("")
+  role      String     @default("WORKER") // ADMIN, WORKER
+  isActive  Boolean    @default(true)
+  createdAt DateTime   @default(now())
+  siteAccess UserSite[] // WORKER의 현장 접근 권한 (ADMIN은 이 목록과 무관하게 전체 접근)
+}
+
+// 사용자-현장 접근 권한 매핑 (다중 현장 운영 시 WORKER가 자신의 현장에만 접근하도록 제한)
+model UserSite {
   id        String   @id @default(cuid())
-  name      String   @unique
-  pin       String   @default("") // Legacy PIN storage; kept only for migration compatibility
-  pinHash   String   @default("")
-  role      String   @default("WORKER") // ADMIN, WORKER
-  isActive  Boolean  @default(true)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  siteId    String
+  site      Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
+
+  @@unique([userId, siteId])
+  @@index([siteId])
 }
 
 // 근로자(인적사항 + 등록 얼굴) — 신원확인/출퇴근용
@@ -94,6 +108,7 @@ model Site {
   contractItems       ContractItem[]
   monthlyClaims       MonthlyProgressClaim[]
   billingAdjustments  BillingAdjustment[]
+  userAccess          UserSite[]
 }
 
 model DailyLog {
