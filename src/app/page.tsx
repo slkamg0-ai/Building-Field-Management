@@ -1,7 +1,12 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { getDailyLog, addLabor, addEquipment, addMaterial, addOutsourcing, addExpense, deleteLabor, deleteEquipment, deleteMaterial, deleteOutsourcing, deleteExpense, searchLabors, searchEquipments, searchMaterials, searchOutsourcings, getSites, createSite, updateSite, resetSiteData, getMonthlyStats, getSiteTotalStats, getUsers, createUser, deleteUser, toggleUserActive, updateUserPin, updateUserRole, updateDailyLogDescription, addPhotoRecord, deletePhoto, getMonthlyExpensesByPerson, settleExpenses, uploadPhoto, getCurrentUser, logout, syncWorkersFromConfiguredDriveMaster, processPendingWorkerDocuments, generateMonthlyLaborBilling, exportMonthlyLaborBillingToDrive, getWorkerDocumentReviews, saveWorkerDocumentReview, getWorkers, getUserSiteIds, setUserSites } from '@/lib/actions'
+import { getDailyLog, getSites, createSite, updateSite, resetSiteData, getMonthlyStats, getSiteTotalStats, getUsers, createUser, deleteUser, toggleUserActive, updateUserPin, updateUserRole, updateDailyLogDescription, addPhotoRecord, deletePhoto, getMonthlyExpensesByPerson, settleExpenses, uploadPhoto, getCurrentUser, logout, syncWorkersFromConfiguredDriveMaster, processPendingWorkerDocuments, generateMonthlyLaborBilling, exportMonthlyLaborBillingToDrive, getWorkerDocumentReviews, saveWorkerDocumentReview, getWorkers, getUserSiteIds, setUserSites } from '@/lib/actions'
+import LaborTab from './LaborTab'
+import EquipmentTab from './EquipmentTab'
+import OutsourcingTab from './OutsourcingTab'
+import MaterialTab from './MaterialTab'
+import ExpenseTab from './ExpenseTab'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid, PieChart, Pie, Cell } from 'recharts'
 import { exportMonthlyReport } from '@/lib/exportExcel'
 import { useRouter } from 'next/navigation'
@@ -52,11 +57,6 @@ export default function Home() {
   const [showAddForm, setShowAddForm] = useState(false)
   
   // 항목별 폼 상태
-  const [laborForm, setLaborForm] = useState({ name: '', jobType: '', unitPrice: '', amount: '1', note: '' })
-  const [equipmentForm, setEquipmentForm] = useState({ name: '', spec: '', unitPrice: '', amount: '1', note: '', ownerType: 'DIRECT', taskDescription: '' })
-  const [materialForm, setMaterialForm] = useState({ name: '', spec: '', unit: '', quantity: '1', note: '' })
-  const [outsourcingForm, setOutsourcingForm] = useState({ company: '', task: '', amount: '', note: '' })
-  const [expenseForm, setExpenseForm] = useState({ category: '', amount: '', note: '', assignedTo: '' })
   const [settlementData, setSettlementData] = useState<any[]>([])
   const [settlementLoading, setSettlementLoading] = useState(false)
   const [settlementError, setSettlementError] = useState<string | null>(null)
@@ -360,99 +360,8 @@ export default function Home() {
     }
   }
 
-  // ==== 노무 관련 로직 ====
-  const handleLaborNameChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value
-    setLaborForm(prev => ({ ...prev, name: val }))
-    if (val.length >= 1) setSuggestions(await searchLabors(val))
-    else setSuggestions([])
-  }
-  const selectLaborSuggestion = (s: any) => {
-    setLaborForm(prev => ({ ...prev, name: s.name, jobType: s.jobType, unitPrice: s.unitPrice.toString() }))
-    setSuggestions([])
-  }
-  const handleLaborSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!logData || !currentUser) return
-    await addLabor(logData.id, laborForm, currentUser.name)
-    setLaborForm({ name: '', jobType: '', unitPrice: '', amount: '1', note: '' })
-    setShowAddForm(false)
-    loadData()
-    loadMonthlyData()
-    loadSiteTotalStats()
-  }
-
-  // ==== 장비 관련 로직 ====
-  const handleEquipmentNameChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value
-    setEquipmentForm(prev => ({ ...prev, name: val }))
-    if (val.length >= 1) setSuggestions(await searchEquipments(val))
-    else setSuggestions([])
-  }
-  const selectEquipmentSuggestion = (s: any) => {
-    setEquipmentForm(prev => ({ ...prev, name: s.name, spec: s.spec || '', unitPrice: s.unitPrice.toString() }))
-    setSuggestions([])
-  }
-  const handleEquipmentSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!logData || !currentUser) return
-    await addEquipment(logData.id, equipmentForm, currentUser.name)
-    setEquipmentForm({ name: '', spec: '', unitPrice: '', amount: '1', note: '', ownerType: 'DIRECT', taskDescription: '' })
-    setShowAddForm(false)
-    loadData()
-    loadMonthlyData()
-    loadSiteTotalStats()
-  }
-
-  // ==== 자재 관련 로직 ====
-  const handleMaterialNameChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value
-    setMaterialForm(prev => ({ ...prev, name: val }))
-    if (val.length >= 1) setSuggestions(await searchMaterials(val))
-    else setSuggestions([])
-  }
-  const selectMaterialSuggestion = (s: any) => {
-    setMaterialForm(prev => ({ ...prev, name: s.name, spec: s.spec || '', unit: s.unit }))
-    setSuggestions([])
-  }
-  const handleMaterialSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!logData || !currentUser) return
-    await addMaterial(logData.id, materialForm, currentUser.name)
-    setMaterialForm({ name: '', spec: '', unit: '', quantity: '1', note: '' })
-    setShowAddForm(false)
-    loadData()
-  }
-
-  // ==== 외주 관련 로직 ====
-  const handleOutsourcingCompanyChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value
-    setOutsourcingForm(prev => ({ ...prev, company: val }))
-    if (val.length >= 1) setSuggestions(await searchOutsourcings(val))
-    else setSuggestions([])
-  }
-  const selectOutsourcingSuggestion = (s: any) => {
-    setOutsourcingForm(prev => ({ ...prev, company: s.companyName, task: s.task || '' }))
-    setSuggestions([])
-  }
-  const handleOutsourcingSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!logData || !currentUser) return
-    await addOutsourcing(logData.id, outsourcingForm, currentUser.name)
-    setOutsourcingForm({ company: '', task: '', amount: '', note: '' })
-    setShowAddForm(false)
-    loadData()
-    loadMonthlyData()
-    loadSiteTotalStats()
-  }
-
-  // ==== 경비 관련 로직 ====
-  const handleExpenseSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!logData || !currentUser) return
-    await addExpense(logData.id, expenseForm, currentUser.name)
-    setExpenseForm({ category: '', amount: '', note: '', assignedTo: '' })
-    setShowAddForm(false)
+  // 노무/장비/자재/외주/경비 항목 추가 후 공통 새로고침
+  const refreshLog = () => {
     loadData()
     loadMonthlyData()
     loadSiteTotalStats()
@@ -1355,434 +1264,88 @@ export default function Home() {
               </div>
             )}
 
-              {/* ===================== LABOR TAB ===================== */}
-              {showAddForm && activeTab === 'labor' && (
-                <div className="bg-[#ededed] border border-[#5980a6] p-4 rounded-xl mb-4 relative animate-fade-in shadow-xl shadow-black/50">
-                  <div className="flex justify-between items-center mb-3">
-                    <h4 className="font-bold text-[#5980a6] flex items-center gap-2"><span className="material-symbols-outlined text-sm">person_add</span> 새 노무 인력 추가</h4>
-                    <div className="flex items-center gap-2">
-                      <label className={`flex items-center gap-1 cursor-pointer text-xs font-bold px-2 py-1 rounded border transition-colors ${isAnalyzing ? 'text-[rgba(29,31,32,0.5)] border-[rgba(29,31,32,0.16)] pointer-events-none' : 'text-[rgba(29,31,32,0.6)] border-[rgba(29,31,32,0.16)] hover:text-[#5980a6] hover:border-[#5980a6]'}`}>
-                        <span className="material-symbols-outlined text-sm">document_scanner</span>
-                        {isAnalyzing ? '분석 중...' : '문서 스캔'}
-                        <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
-                          const file = e.target.files?.[0]; if (!file) return
-                          const data = await analyzeDocument(file, 'labor')
-                          if (data) setLaborForm(prev => ({ ...prev, name: data.name || prev.name, jobType: data.jobType || prev.jobType, unitPrice: data.unitPrice || prev.unitPrice, amount: data.amount || prev.amount, note: data.note || prev.note }))
-                          e.target.value = ''
-                        }} />
-                      </label>
-                      <button onClick={() => setShowAddForm(false)} className="text-[rgba(29,31,32,0.6)] hover:text-[#1d1f20]"><span className="material-symbols-outlined">close</span></button>
-                    </div>
-                  </div>
-                  <form onSubmit={handleLaborSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-3 relative">
-                    <div className="relative">
-                      <label className="text-xs text-[rgba(29,31,32,0.6)] mb-1 block">작업자 이름</label>
-                      <input type="text" required className="w-full bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded px-3 py-2 text-[#1d1f20] outline-none focus:border-[#5980a6]" value={laborForm.name} onChange={handleLaborNameChange} autoComplete="off"/>
-                      {suggestions.length > 0 && (
-                        <div className="absolute top-full left-0 right-0 mt-1 bg-[#e8e8e8] z-50 border border-[rgba(29,31,32,0.16)] rounded max-h-48 overflow-y-auto shadow-xl">
-                          {suggestions.map((s, i) => (
-                            <div key={i} onClick={() => selectLaborSuggestion(s)} className="p-3 border-b border-[rgba(29,31,32,0.16)] hover:bg-[#f2f2f3] cursor-pointer">
-                              <div className="font-medium text-[#1d1f20]">{s.name} <span className="text-xs text-[#5980a6] ml-2">{s.jobType}</span></div>
-                              <div className="text-xs text-[rgba(29,31,32,0.6)] mt-1">단가: ₩{s.unitPrice.toLocaleString()}</div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    <div><label className="text-xs text-[rgba(29,31,32,0.6)] mb-1 block">공종</label><input type="text" required className="w-full bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded px-3 py-2 text-[#1d1f20] outline-none focus:border-[#5980a6]" value={laborForm.jobType} onChange={e => setLaborForm({...laborForm, jobType: e.target.value})} /></div>
-                    <div><label className="text-xs text-[rgba(29,31,32,0.6)] mb-1 block">단가 (원)</label><input type="number" required className="w-full bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded px-3 py-2 text-[#1d1f20] outline-none focus:border-[#5980a6]" value={laborForm.unitPrice} onChange={e => setLaborForm({...laborForm, unitPrice: e.target.value})} /></div>
-                    <div><label className="text-xs text-[rgba(29,31,32,0.6)] mb-1 block">투입 공수</label><input type="number" step="0.1" required className="w-full bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded px-3 py-2 text-[#1d1f20] outline-none focus:border-[#5980a6]" value={laborForm.amount} onChange={e => setLaborForm({...laborForm, amount: e.target.value})} /></div>
-                    <div className="md:col-span-2 mt-2"><button type="submit" className="w-full bg-[#5980a6] text-[#f2f2f3] font-bold py-2 rounded hover:opacity-90">추가하기</button></div>
-                  </form>
-                </div>
-              )}
-
               {activeTab === 'labor' && (
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center px-2">
-                    <h3 className="font-bold text-lg text-[#1d1f20]">일일 투입 인력</h3>
-                    <span className="text-xs font-bold text-[#5980a6] bg-[#5980a6]/10 px-2 py-1 rounded border border-[#5980a6]/20">{totalLabors} 활성 공수</span>
-                  </div>
-                  <div className="grid grid-cols-1 gap-3">
-                    {loading ? <div className="text-center py-8 text-[rgba(29,31,32,0.55)]">데이터를 불러오는 중...</div> : logData?.labors.length === 0 ? <div className="bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded-xl p-8 text-center text-[rgba(29,31,32,0.55)]">입력된 노무 인력이 없습니다.</div> : logData?.labors.map((labor: any) => {
-                      const docStatus = workerDocMap[labor.name.trim().toLowerCase()]
-                      const docWarning = docStatus === undefined ? '근로자 미등록' : docStatus !== 'COMPLETE' ? '서류 미비' : null
-                      return (
-                        <div key={labor.id} className="bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded-xl p-4 flex justify-between items-center hover:border-[#5980a6]/50 transition-colors group">
-                          <div className="flex items-center gap-3 w-2/3">
-                            <div className="w-12 h-12 bg-[rgba(29,31,32,0.16)] rounded-lg flex items-center justify-center shrink-0"><span className="material-symbols-outlined text-[#0369a1]">engineering</span></div>
-                            <div className="overflow-hidden">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <h4 className="font-bold text-[#1d1f20] truncate text-sm md:text-base">{labor.name}</h4>
-                                {labor.createdBy && (
-                                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#ededed] text-[rgba(29,31,32,0.55)] font-bold">BY {labor.createdBy}</span>
-                                )}
-                                {docWarning && (
-                                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-700 font-bold flex items-center gap-0.5" title="근로자 관리에서 서류를 등록해주세요">
-                                    <span className="material-symbols-outlined text-[11px]">warning</span>{docWarning}
-                                  </span>
-                                )}
-                              </div>
-                              <p className="text-[10px] md:text-xs text-[rgba(29,31,32,0.6)] uppercase truncate mt-0.5">{labor.jobType} • {labor.amount}공수 • 단가₩{labor.unitPrice.toLocaleString()}</p>
-                            </div>
-                          </div>
-                          <div className="text-right shrink-0 flex items-center gap-2">
-                            <div>
-                              <p className="text-base md:text-lg font-bold text-[#1d1f20]">₩{labor.totalPrice.toLocaleString()}</p>
-                              <p className="text-[10px] text-[#16a34a] font-bold tracking-widest mt-0.5">확인됨</p>
-                            </div>
-                            <button
-                              onClick={() => handleDeleteItem(deleteLabor, labor.id, `노무 (${labor.name})`)}
-                              className="p-2 rounded-lg text-[rgba(29,31,32,0.5)] opacity-0 group-hover:opacity-100 hover:bg-red-500/10 hover:text-red-600 transition-all"
-                              title="삭제"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* ===================== EQUIPMENT TAB ===================== */}
-              {showAddForm && activeTab === 'equipment' && (
-                <div className="bg-[#ededed] border border-[#5980a6] p-4 rounded-xl mb-4 relative animate-fade-in shadow-xl shadow-black/50">
-                  <div className="flex justify-between items-center mb-3">
-                    <h4 className="font-bold text-[#5980a6] flex items-center gap-2"><span className="material-symbols-outlined text-sm">precision_manufacturing</span> 새 장비 추가</h4>
-                    <div className="flex items-center gap-2">
-                      <label className={`flex items-center gap-1 cursor-pointer text-xs font-bold px-2 py-1 rounded border transition-colors ${isAnalyzing ? 'text-[rgba(29,31,32,0.5)] border-[rgba(29,31,32,0.16)] pointer-events-none' : 'text-[#f2f2f3] bg-[#5980a6] border-[#5980a6] hover:opacity-90'}`}>
-                        <span className="material-symbols-outlined text-sm">photo_camera</span>
-                        {isAnalyzing ? '인식 중...' : '장비 촬영'}
-                        <input type="file" accept="image/*" capture="environment" className="hidden" onChange={async (e) => {
-                          const file = e.target.files?.[0]; if (!file) return
-                          const data = await analyzeDocument(file, 'equipment_photo')
-                          if (data) setEquipmentForm(prev => ({ ...prev, name: data.name || prev.name, spec: data.spec || prev.spec, note: data.note || prev.note }))
-                          e.target.value = ''
-                        }} />
-                      </label>
-                      <label className={`flex items-center gap-1 cursor-pointer text-xs font-bold px-2 py-1 rounded border transition-colors ${isAnalyzing ? 'text-[rgba(29,31,32,0.5)] border-[rgba(29,31,32,0.16)] pointer-events-none' : 'text-[rgba(29,31,32,0.6)] border-[rgba(29,31,32,0.16)] hover:text-[#5980a6] hover:border-[#5980a6]'}`}>
-                        <span className="material-symbols-outlined text-sm">document_scanner</span>
-                        {isAnalyzing ? '분석 중...' : '문서 스캔'}
-                        <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
-                          const file = e.target.files?.[0]; if (!file) return
-                          const data = await analyzeDocument(file, 'equipment')
-                          if (data) setEquipmentForm(prev => ({ ...prev, name: data.name || prev.name, spec: data.spec || prev.spec, unitPrice: data.unitPrice || prev.unitPrice, amount: data.amount || prev.amount, note: data.note || prev.note }))
-                          e.target.value = ''
-                        }} />
-                      </label>
-                      <button onClick={() => setShowAddForm(false)} className="text-[rgba(29,31,32,0.6)] hover:text-[#1d1f20]"><span className="material-symbols-outlined">close</span></button>
-                    </div>
-                  </div>
-                  <form onSubmit={handleEquipmentSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-3 relative">
-                    <div className="relative">
-                      <label className="text-xs text-[rgba(29,31,32,0.6)] mb-1 block">장비명</label>
-                      <input type="text" required className="w-full bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded px-3 py-2 text-[#1d1f20] outline-none focus:border-[#5980a6]" value={equipmentForm.name} onChange={handleEquipmentNameChange} autoComplete="off"/>
-                      {suggestions.length > 0 && (
-                        <div className="absolute top-full left-0 right-0 mt-1 bg-[#e8e8e8] z-50 border border-[rgba(29,31,32,0.16)] rounded max-h-48 overflow-y-auto shadow-xl">
-                          {suggestions.map((s, i) => (
-                            <div key={i} onClick={() => selectEquipmentSuggestion(s)} className="p-3 border-b border-[rgba(29,31,32,0.16)] hover:bg-[#f2f2f3] cursor-pointer">
-                              <div className="font-medium text-[#1d1f20]">{s.name} <span className="text-xs text-[#5980a6] ml-2">{s.spec}</span></div>
-                              <div className="text-xs text-[rgba(29,31,32,0.6)] mt-1">단가: ₩{s.unitPrice.toLocaleString()}</div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    <div><label className="text-xs text-[rgba(29,31,32,0.6)] mb-1 block">규격 / 장비번호</label><input type="text" className="w-full bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded px-3 py-2 text-[#1d1f20] outline-none focus:border-[#5980a6]" value={equipmentForm.spec} onChange={e => setEquipmentForm({...equipmentForm, spec: e.target.value})} /></div>
-                    <div><label className="text-xs text-[rgba(29,31,32,0.6)] mb-1 block">단가 (원)</label><input type="number" required className="w-full bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded px-3 py-2 text-[#1d1f20] outline-none focus:border-[#5980a6]" value={equipmentForm.unitPrice} onChange={e => setEquipmentForm({...equipmentForm, unitPrice: e.target.value})} /></div>
-                    <div><label className="text-xs text-[rgba(29,31,32,0.6)] mb-1 block">투입 일/시간</label><input type="number" step="0.1" required className="w-full bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded px-3 py-2 text-[#1d1f20] outline-none focus:border-[#5980a6]" value={equipmentForm.amount} onChange={e => setEquipmentForm({...equipmentForm, amount: e.target.value})} /></div>
-                    <div>
-                      <label className="text-xs text-[rgba(29,31,32,0.6)] mb-1 block">투입 구분</label>
-                      <div className="flex border border-[rgba(29,31,32,0.16)] rounded overflow-hidden">
-                        <button type="button" onClick={() => setEquipmentForm({...equipmentForm, ownerType: 'DIRECT'})} className={`flex-1 py-2 text-xs font-bold transition-colors ${equipmentForm.ownerType === 'DIRECT' ? 'bg-[#5980a6] text-[#f2f2f3]' : 'bg-[#f2f2f3] text-[#1d1f20]'}`}>원청 직영</button>
-                        <button type="button" onClick={() => setEquipmentForm({...equipmentForm, ownerType: 'SUBCONTRACT'})} className={`flex-1 py-2 text-xs font-bold transition-colors border-l border-[rgba(29,31,32,0.16)] ${equipmentForm.ownerType === 'SUBCONTRACT' ? 'bg-[#5980a6] text-[#f2f2f3]' : 'bg-[#f2f2f3] text-[#1d1f20]'}`}>당사 투입</button>
-                      </div>
-                    </div>
-                    <div className="md:col-span-2"><label className="text-xs text-[rgba(29,31,32,0.6)] mb-1 block">작업 내용 (예: 터파기, 되메우기, 자재 운반 등)</label><input type="text" className="w-full bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded px-3 py-2 text-[#1d1f20] outline-none focus:border-[#5980a6]" value={equipmentForm.taskDescription} onChange={e => setEquipmentForm({...equipmentForm, taskDescription: e.target.value})} /></div>
-                    <div className="md:col-span-2 mt-2"><button type="submit" className="w-full bg-[#5980a6] text-[#f2f2f3] font-bold py-2 rounded hover:opacity-90">추가하기</button></div>
-                  </form>
-                </div>
+                <LaborTab
+                  showAddForm={showAddForm}
+                  setShowAddForm={setShowAddForm}
+                  isAnalyzing={isAnalyzing}
+                  analyzeDocument={analyzeDocument}
+                  suggestions={suggestions}
+                  setSuggestions={setSuggestions}
+                  logData={logData}
+                  loading={loading}
+                  workerDocMap={workerDocMap}
+                  currentUser={currentUser}
+                  totalLabors={totalLabors}
+                  handleDeleteItem={handleDeleteItem}
+                  onChanged={refreshLog}
+                />
               )}
 
               {activeTab === 'equipment' && (
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center px-2">
-                    <h3 className="font-bold text-lg text-[#1d1f20]">투입 장비</h3>
-                    <span className="text-xs font-bold text-[#5980a6] bg-[#5980a6]/10 px-2 py-1 rounded border border-[#5980a6]/20">{totalEquipments} 대 투입</span>
-                  </div>
-                  <div className="grid grid-cols-1 gap-3">
-                    {loading ? <div className="text-center py-8 text-[rgba(29,31,32,0.55)]">데이터를 불러오는 중...</div> : logData?.equipments.length === 0 ? <div className="bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded-xl p-8 text-center text-[rgba(29,31,32,0.55)]">입력된 투입 장비가 없습니다.</div> : logData?.equipments.map((eq: any) => (
-                        <div key={eq.id} className="bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded-xl p-4 flex justify-between items-center hover:border-[#5980a6]/50 transition-colors group">
-                          <div className="flex items-center gap-3 w-2/3">
-                            <div className="w-12 h-12 bg-[rgba(29,31,32,0.16)] rounded-lg flex items-center justify-center shrink-0"><span className="material-symbols-outlined text-[#0369a1]">precision_manufacturing</span></div>
-                            <div className="overflow-hidden">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <h4 className="font-bold text-[#1d1f20] truncate text-sm md:text-base">{eq.name}</h4>
-                                <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold ${eq.ownerType === 'DIRECT' ? 'bg-[#5980a6]/15 text-[#416180]' : 'bg-[rgba(29,31,32,0.08)] text-[rgba(29,31,32,0.6)]'}`}>
-                                  {eq.ownerType === 'DIRECT' ? '원청 직영' : '당사 투입'}
-                                </span>
-                                {eq.createdBy && (
-                                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#ededed] text-[rgba(29,31,32,0.55)] font-bold">BY {eq.createdBy}</span>
-                                )}
-                                {eq.documentStatus !== 'COMPLETE' && (
-                                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-700 font-bold flex items-center gap-0.5" title="장비 안전서류(등록증/보험/면허 등) 확인 필요">
-                                    <span className="material-symbols-outlined text-[11px]">warning</span>서류 확인필요
-                                  </span>
-                                )}
-                              </div>
-                              <p className="text-[10px] md:text-xs text-[rgba(29,31,32,0.6)] uppercase truncate mt-0.5">{eq.spec} • {eq.amount} 시간/일</p>
-                              {eq.taskDescription && (
-                                <p className="text-[10px] md:text-xs text-[rgba(29,31,32,0.55)] truncate mt-0.5 normal-case">작업: {eq.taskDescription}</p>
-                              )}
-                            </div>
-                          </div>
-                          <div className="text-right shrink-0 flex items-center gap-2">
-                            <p className="text-base md:text-lg font-bold text-[#1d1f20]">₩{eq.totalPrice.toLocaleString()}</p>
-                            <button
-                              onClick={() => handleDeleteItem(deleteEquipment, eq.id, `장비 (${eq.name})`)}
-                              className="p-2 rounded-lg text-[rgba(29,31,32,0.5)] opacity-0 group-hover:opacity-100 hover:bg-red-500/10 hover:text-red-600 transition-all"
-                              title="삭제"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* ===================== OUTSOURCING TAB ===================== */}
-              {showAddForm && activeTab === 'outsourcing' && (
-                <div className="bg-[#ededed] border border-[#5980a6] p-4 rounded-xl mb-4 relative animate-fade-in shadow-xl shadow-black/50">
-                  <div className="flex justify-between items-center mb-3">
-                    <h4 className="font-bold text-[#5980a6] flex items-center gap-2"><span className="material-symbols-outlined text-sm">handshake</span> 새 외주 항목 추가</h4>
-                    <div className="flex items-center gap-2">
-                      <label className={`flex items-center gap-1 cursor-pointer text-xs font-bold px-2 py-1 rounded border transition-colors ${isAnalyzing ? 'text-[rgba(29,31,32,0.5)] border-[rgba(29,31,32,0.16)] pointer-events-none' : 'text-[rgba(29,31,32,0.6)] border-[rgba(29,31,32,0.16)] hover:text-[#5980a6] hover:border-[#5980a6]'}`}>
-                        <span className="material-symbols-outlined text-sm">document_scanner</span>
-                        {isAnalyzing ? '분석 중...' : '문서 스캔'}
-                        <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
-                          const file = e.target.files?.[0]; if (!file) return
-                          const data = await analyzeDocument(file, 'outsourcing')
-                          if (data) setOutsourcingForm(prev => ({ ...prev, company: data.company || prev.company, task: data.task || prev.task, amount: data.amount || prev.amount, note: data.note || prev.note }))
-                          e.target.value = ''
-                        }} />
-                      </label>
-                      <button onClick={() => setShowAddForm(false)} className="text-[rgba(29,31,32,0.6)] hover:text-[#1d1f20]"><span className="material-symbols-outlined">close</span></button>
-                    </div>
-                  </div>
-                  <form onSubmit={handleOutsourcingSubmit} className="grid grid-cols-1 gap-3 relative">
-                    <div className="relative">
-                      <label className="text-xs text-[rgba(29,31,32,0.6)] mb-1 block">외주 업체명</label>
-                      <input type="text" required className="w-full bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded px-3 py-2 text-[#1d1f20] outline-none focus:border-[#5980a6]" value={outsourcingForm.company} onChange={handleOutsourcingCompanyChange} autoComplete="off"/>
-                      {suggestions.length > 0 && (
-                        <div className="absolute top-full left-0 right-0 mt-1 bg-[#e8e8e8] z-50 border border-[rgba(29,31,32,0.16)] rounded max-h-48 overflow-y-auto shadow-xl">
-                          {suggestions.map((s, i) => (
-                            <div key={i} onClick={() => selectOutsourcingSuggestion(s)} className="p-3 border-b border-[rgba(29,31,32,0.16)] hover:bg-[#f2f2f3] cursor-pointer">
-                              <div className="font-medium text-[#1d1f20]">{s.companyName} <span className="text-xs text-[#5980a6] ml-2">{s.task}</span></div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    <div><label className="text-xs text-[rgba(29,31,32,0.6)] mb-1 block">작업 내용</label><input type="text" required className="w-full bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded px-3 py-2 text-[#1d1f20] outline-none focus:border-[#5980a6]" value={outsourcingForm.task} onChange={e => setOutsourcingForm({...outsourcingForm, task: e.target.value})} /></div>
-                    <div><label className="text-xs text-[rgba(29,31,32,0.6)] mb-1 block">청구 비용 (원)</label><input type="number" required className="w-full bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded px-3 py-2 text-[#1d1f20] outline-none focus:border-[#5980a6]" value={outsourcingForm.amount} onChange={e => setOutsourcingForm({...outsourcingForm, amount: e.target.value})} /></div>
-                    <div className="mt-2"><button type="submit" className="w-full bg-[#5980a6] text-[#f2f2f3] font-bold py-2 rounded hover:opacity-90">추가하기</button></div>
-                  </form>
-                </div>
+                <EquipmentTab
+                  showAddForm={showAddForm}
+                  setShowAddForm={setShowAddForm}
+                  isAnalyzing={isAnalyzing}
+                  analyzeDocument={analyzeDocument}
+                  suggestions={suggestions}
+                  setSuggestions={setSuggestions}
+                  logData={logData}
+                  loading={loading}
+                  currentUser={currentUser}
+                  totalEquipments={totalEquipments}
+                  handleDeleteItem={handleDeleteItem}
+                  onChanged={refreshLog}
+                />
               )}
 
               {activeTab === 'outsourcing' && (
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center px-2">
-                    <h3 className="font-bold text-lg text-[#1d1f20]">외주 작업</h3>
-                    <span className="text-xs font-bold text-[#5980a6] bg-[#5980a6]/10 px-2 py-1 rounded border border-[#5980a6]/20">{totalOutsourcings} 건</span>
-                  </div>
-                  <div className="grid grid-cols-1 gap-3">
-                    {loading ? <div className="text-center py-8 text-[rgba(29,31,32,0.55)]">데이터를 불러오는 중...</div> : logData?.outsourcings.length === 0 ? <div className="bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded-xl p-8 text-center text-[rgba(29,31,32,0.55)]">입력된 외주 항목이 없습니다.</div> : logData?.outsourcings.map((out: any) => (
-                        <div key={out.id} className="bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded-xl p-4 flex justify-between items-center hover:border-[#5980a6]/50 transition-colors group">
-                          <div className="flex items-center gap-3 w-2/3">
-                            <div className="w-12 h-12 bg-[rgba(29,31,32,0.16)] rounded-lg flex items-center justify-center shrink-0"><span className="material-symbols-outlined text-[#7c3aed]">handshake</span></div>
-                            <div className="overflow-hidden">
-                              <div className="flex items-center gap-2">
-                                <h4 className="font-bold text-[#1d1f20] truncate text-sm md:text-base">{out.companyName}</h4>
-                                {out.createdBy && (
-                                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#ededed] text-[rgba(29,31,32,0.55)] font-bold">BY {out.createdBy}</span>
-                                )}
-                              </div>
-                              <p className="text-[10px] md:text-xs text-[rgba(29,31,32,0.6)] uppercase truncate mt-0.5">{out.task}</p>
-                            </div>
-                          </div>
-                          <div className="text-right shrink-0 flex items-center gap-2">
-                            <p className="text-base md:text-lg font-bold text-[#1d1f20]">₩{out.amount.toLocaleString()}</p>
-                            <button
-                              onClick={() => handleDeleteItem(deleteOutsourcing, out.id, `외주 (${out.companyName})`)}
-                              className="p-2 rounded-lg text-[rgba(29,31,32,0.5)] opacity-0 group-hover:opacity-100 hover:bg-red-500/10 hover:text-red-600 transition-all"
-                              title="삭제"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* ===================== MATERIAL TAB ===================== */}
-              {showAddForm && activeTab === 'material' && (
-                <div className="bg-[#ededed] border border-[#5980a6] p-4 rounded-xl mb-4 relative animate-fade-in shadow-xl shadow-black/50">
-                  <div className="flex justify-between items-center mb-3">
-                    <h4 className="font-bold text-[#5980a6] flex items-center gap-2"><span className="material-symbols-outlined text-sm">inventory_2</span> 새 자재 추가</h4>
-                    <div className="flex items-center gap-2">
-                      <label className={`flex items-center gap-1 cursor-pointer text-xs font-bold px-2 py-1 rounded border transition-colors ${isAnalyzing ? 'text-[rgba(29,31,32,0.5)] border-[rgba(29,31,32,0.16)] pointer-events-none' : 'text-[rgba(29,31,32,0.6)] border-[rgba(29,31,32,0.16)] hover:text-[#5980a6] hover:border-[#5980a6]'}`}>
-                        <span className="material-symbols-outlined text-sm">document_scanner</span>
-                        {isAnalyzing ? '분석 중...' : '문서 스캔'}
-                        <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
-                          const file = e.target.files?.[0]; if (!file) return
-                          const data = await analyzeDocument(file, 'material')
-                          if (data) setMaterialForm(prev => ({ ...prev, name: data.name || prev.name, spec: data.spec || prev.spec, unit: data.unit || prev.unit, quantity: data.quantity || prev.quantity, note: data.note || prev.note }))
-                          e.target.value = ''
-                        }} />
-                      </label>
-                      <button onClick={() => setShowAddForm(false)} className="text-[rgba(29,31,32,0.6)] hover:text-[#1d1f20]"><span className="material-symbols-outlined">close</span></button>
-                    </div>
-                  </div>
-                  <form onSubmit={handleMaterialSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-3 relative">
-                    <div className="relative">
-                      <label className="text-xs text-[rgba(29,31,32,0.6)] mb-1 block">자재명</label>
-                      <input type="text" required className="w-full bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded px-3 py-2 text-[#1d1f20] outline-none focus:border-[#5980a6]" value={materialForm.name} onChange={handleMaterialNameChange} autoComplete="off"/>
-                      {suggestions.length > 0 && (
-                        <div className="absolute top-full left-0 right-0 mt-1 bg-[#e8e8e8] z-50 border border-[rgba(29,31,32,0.16)] rounded max-h-48 overflow-y-auto shadow-xl">
-                          {suggestions.map((s, i) => (
-                            <div key={i} onClick={() => selectMaterialSuggestion(s)} className="p-3 border-b border-[rgba(29,31,32,0.16)] hover:bg-[#f2f2f3] cursor-pointer">
-                              <div className="font-medium text-[#1d1f20]">{s.name} <span className="text-xs text-[#5980a6] ml-2">{s.spec}</span></div>
-                              <div className="text-xs text-[rgba(29,31,32,0.6)] mt-1">단위: {s.unit}</div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    <div><label className="text-xs text-[rgba(29,31,32,0.6)] mb-1 block">규격</label><input type="text" className="w-full bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded px-3 py-2 text-[#1d1f20] outline-none focus:border-[#5980a6]" value={materialForm.spec} onChange={e => setMaterialForm({...materialForm, spec: e.target.value})} /></div>
-                    <div><label className="text-xs text-[rgba(29,31,32,0.6)] mb-1 block">단위 (EA, kg, m)</label><input type="text" required className="w-full bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded px-3 py-2 text-[#1d1f20] outline-none focus:border-[#5980a6]" value={materialForm.unit} onChange={e => setMaterialForm({...materialForm, unit: e.target.value})} /></div>
-                    <div><label className="text-xs text-[rgba(29,31,32,0.6)] mb-1 block">수량</label><input type="number" step="0.1" required className="w-full bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded px-3 py-2 text-[#1d1f20] outline-none focus:border-[#5980a6]" value={materialForm.quantity} onChange={e => setMaterialForm({...materialForm, quantity: e.target.value})} /></div>
-                    <div className="md:col-span-2 mt-2"><button type="submit" className="w-full bg-[#5980a6] text-[#f2f2f3] font-bold py-2 rounded hover:opacity-90">추가하기</button></div>
-                  </form>
-                </div>
+                <OutsourcingTab
+                  showAddForm={showAddForm}
+                  setShowAddForm={setShowAddForm}
+                  isAnalyzing={isAnalyzing}
+                  analyzeDocument={analyzeDocument}
+                  suggestions={suggestions}
+                  setSuggestions={setSuggestions}
+                  logData={logData}
+                  loading={loading}
+                  currentUser={currentUser}
+                  totalOutsourcings={totalOutsourcings}
+                  handleDeleteItem={handleDeleteItem}
+                  onChanged={refreshLog}
+                />
               )}
 
               {activeTab === 'material' && (
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center px-2">
-                    <h3 className="font-bold text-lg text-[#1d1f20]">투입 자재</h3>
-                    <span className="text-xs font-bold text-[#5980a6] bg-[#5980a6]/10 px-2 py-1 rounded border border-[#5980a6]/20">{totalMaterials} 건 투입</span>
-                  </div>
-                  <div className="grid grid-cols-1 gap-3">
-                    {loading ? <div className="text-center py-8 text-[rgba(29,31,32,0.55)]">데이터를 불러오는 중...</div> : logData?.materials.length === 0 ? <div className="bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded-xl p-8 text-center text-[rgba(29,31,32,0.55)]">입력된 자재가 없습니다.</div> : logData?.materials.map((mat: any) => (
-                        <div key={mat.id} className="bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded-xl p-4 flex justify-between items-center hover:border-[#5980a6]/50 transition-colors group">
-                          <div className="flex items-center gap-3 w-2/3">
-                            <div className="w-12 h-12 bg-[rgba(29,31,32,0.16)] rounded-lg flex items-center justify-center shrink-0"><span className="material-symbols-outlined text-[#d97706]">inventory_2</span></div>
-                            <div className="overflow-hidden">
-                              <div className="flex items-center gap-2">
-                                <h4 className="font-bold text-[#1d1f20] truncate text-sm md:text-base">{mat.name}</h4>
-                                {mat.createdBy && (
-                                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#ededed] text-[rgba(29,31,32,0.55)] font-bold">BY {mat.createdBy}</span>
-                                )}
-                              </div>
-                              <p className="text-[10px] md:text-xs text-[rgba(29,31,32,0.6)] uppercase truncate mt-0.5">{mat.spec} • {mat.quantity}{mat.unit}</p>
-                            </div>
-                          </div>
-                          <div className="text-right shrink-0 flex items-center gap-2">
-                            <p className="text-xs text-[rgba(29,31,32,0.6)]">{mat.note || '메모 없음'}</p>
-                            <button
-                              onClick={() => handleDeleteItem(deleteMaterial, mat.id, `자재 (${mat.name})`)}
-                              className="p-2 rounded-lg text-[rgba(29,31,32,0.5)] opacity-0 group-hover:opacity-100 hover:bg-red-500/10 hover:text-red-600 transition-all"
-                              title="삭제"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* ===================== EXPENSE TAB ===================== */}
-              {showAddForm && activeTab === 'expense' && (
-                <div className="bg-[#ededed] border border-[#5980a6] p-4 rounded-xl mb-4 relative animate-fade-in shadow-xl shadow-black/50">
-                  <div className="flex justify-between items-center mb-3">
-                    <h4 className="font-bold text-[#5980a6] flex items-center gap-2"><span className="material-symbols-outlined text-sm">receipt_long</span> 새 경비 추가</h4>
-                    <div className="flex items-center gap-2">
-                      <label className={`flex items-center gap-1 cursor-pointer text-xs font-bold px-2 py-1 rounded border transition-colors ${isAnalyzing ? 'text-[rgba(29,31,32,0.5)] border-[rgba(29,31,32,0.16)] pointer-events-none' : 'text-[rgba(29,31,32,0.6)] border-[rgba(29,31,32,0.16)] hover:text-[#5980a6] hover:border-[#5980a6]'}`}>
-                        <span className="material-symbols-outlined text-sm">document_scanner</span>
-                        {isAnalyzing ? '분석 중...' : '문서 스캔'}
-                        <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
-                          const file = e.target.files?.[0]; if (!file) return
-                          const data = await analyzeDocument(file, 'expense')
-                          if (data) setExpenseForm(prev => ({ ...prev, category: data.category || prev.category, amount: data.amount || prev.amount, note: data.note || prev.note }))
-                          e.target.value = ''
-                        }} />
-                      </label>
-                      <button onClick={() => setShowAddForm(false)} className="text-[rgba(29,31,32,0.6)] hover:text-[#1d1f20]"><span className="material-symbols-outlined">close</span></button>
-                    </div>
-                  </div>
-                  <form onSubmit={handleExpenseSubmit} className="grid grid-cols-1 gap-3">
-                    <div>
-                      <label className="text-xs text-[rgba(29,31,32,0.6)] mb-1 block">담당자</label>
-                      <select required className="w-full bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded px-3 py-2 text-[#1d1f20] outline-none focus:border-[#5980a6]" value={expenseForm.assignedTo || currentUser?.name || ''} onChange={e => setExpenseForm({...expenseForm, assignedTo: e.target.value})}>
-                        {allUsers.filter(u => u.isActive !== false).map(u => <option key={u.id} value={u.name}>{u.name}</option>)}
-                      </select>
-                    </div>
-                    <div><label className="text-xs text-[rgba(29,31,32,0.6)] mb-1 block">항목 (식대, 주유비, 소모품 등)</label><input type="text" required className="w-full bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded px-3 py-2 text-[#1d1f20] outline-none focus:border-[#5980a6]" value={expenseForm.category} onChange={e => setExpenseForm({...expenseForm, category: e.target.value})} /></div>
-                    <div><label className="text-xs text-[rgba(29,31,32,0.6)] mb-1 block">금액 (원)</label><input type="number" required className="w-full bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded px-3 py-2 text-[#1d1f20] outline-none focus:border-[#5980a6]" value={expenseForm.amount} onChange={e => setExpenseForm({...expenseForm, amount: e.target.value})} /></div>
-                    <div><label className="text-xs text-[rgba(29,31,32,0.6)] mb-1 block">비고</label><input type="text" className="w-full bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded px-3 py-2 text-[#1d1f20] outline-none focus:border-[#5980a6]" value={expenseForm.note} onChange={e => setExpenseForm({...expenseForm, note: e.target.value})} /></div>
-                    <div className="mt-2"><button type="submit" className="w-full bg-[#5980a6] text-[#f2f2f3] font-bold py-2 rounded hover:opacity-90">추가하기</button></div>
-                  </form>
-                </div>
+                <MaterialTab
+                  showAddForm={showAddForm}
+                  setShowAddForm={setShowAddForm}
+                  isAnalyzing={isAnalyzing}
+                  analyzeDocument={analyzeDocument}
+                  suggestions={suggestions}
+                  setSuggestions={setSuggestions}
+                  logData={logData}
+                  loading={loading}
+                  currentUser={currentUser}
+                  totalMaterials={totalMaterials}
+                  handleDeleteItem={handleDeleteItem}
+                  onChanged={loadData}
+                />
               )}
 
               {activeTab === 'expense' && (
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center px-2">
-                    <h3 className="font-bold text-lg text-[#1d1f20]">경비 내역</h3>
-                    <span className="text-xs font-bold text-[#5980a6] bg-[#5980a6]/10 px-2 py-1 rounded border border-[#5980a6]/20">{logData?.expenses?.length || 0} 건</span>
-                  </div>
-                  <div className="grid grid-cols-1 gap-3">
-                    {loading ? <div className="text-center py-8 text-[rgba(29,31,32,0.55)]">데이터를 불러오는 중...</div> : logData?.expenses?.length === 0 ? <div className="bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded-xl p-8 text-center text-[rgba(29,31,32,0.55)]">입력된 경비가 없습니다.</div> : logData?.expenses?.map((exp: any) => (
-                        <div key={exp.id} className="bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded-xl p-4 flex justify-between items-center hover:border-[#5980a6]/50 transition-colors group">
-                          <div className="flex items-center gap-3 w-2/3">
-                            <div className="w-12 h-12 bg-[rgba(29,31,32,0.16)] rounded-lg flex items-center justify-center shrink-0"><span className="material-symbols-outlined text-[#16a34a]">payments</span></div>
-                            <div className="overflow-hidden">
-                              <div className="flex items-center gap-2">
-                                <h4 className="font-bold text-[#1d1f20] truncate text-sm md:text-base">{exp.category}</h4>
-                                {exp.createdBy && (
-                                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#ededed] text-[rgba(29,31,32,0.55)] font-bold">BY {exp.createdBy}</span>
-                                )}
-                              </div>
-                              <p className="text-[10px] md:text-xs text-[rgba(29,31,32,0.6)] truncate mt-0.5">{exp.note || '메모 없음'}</p>
-                            </div>
-                          </div>
-                          <div className="text-right shrink-0 flex items-center gap-2">
-                            <p className="text-base md:text-lg font-bold text-[#1d1f20]">₩{exp.amount.toLocaleString()}</p>
-                            {exp.isSettled ? (
-                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#16a34a]/10 text-[#16a34a] font-bold" title="정산 완료된 경비는 삭제할 수 없습니다">정산됨</span>
-                            ) : (
-                              <button
-                                onClick={() => handleDeleteItem(deleteExpense, exp.id, `경비 (${exp.category})`)}
-                                className="p-2 rounded-lg text-[rgba(29,31,32,0.5)] opacity-0 group-hover:opacity-100 hover:bg-red-500/10 hover:text-red-600 transition-all"
-                                title="삭제"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                    ))}
-                  </div>
-                </div>
+                <ExpenseTab
+                  showAddForm={showAddForm}
+                  setShowAddForm={setShowAddForm}
+                  isAnalyzing={isAnalyzing}
+                  analyzeDocument={analyzeDocument}
+                  logData={logData}
+                  loading={loading}
+                  currentUser={currentUser}
+                  allUsers={allUsers}
+                  handleDeleteItem={handleDeleteItem}
+                  onChanged={refreshLog}
+                />
               )}
 
               {/* ===================== BILLING(기성) TAB ===================== */}
