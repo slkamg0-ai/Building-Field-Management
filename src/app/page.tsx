@@ -749,9 +749,13 @@ export default function Home() {
                             setEditingSitesForUserId(null)
                             return
                           }
-                          const siteIds = await getUserSiteIds(u.id)
-                          setEditingSiteIds(siteIds)
-                          setEditingSitesForUserId(u.id)
+                          try {
+                            const siteIds = await getUserSiteIds(u.id)
+                            setEditingSiteIds(siteIds)
+                            setEditingSitesForUserId(u.id)
+                          } catch (e) {
+                            alert('현장 배정 정보를 불러오지 못했습니다: ' + (e instanceof Error ? e.message : String(e)))
+                          }
                         }}
                         className={`p-2 rounded hover:bg-[#ededed] transition-colors ${editingSitesForUserId === u.id ? 'text-[#5980a6]' : 'text-[rgba(29,31,32,0.55)]'}`}
                         title="현장 배정"
@@ -800,8 +804,12 @@ export default function Home() {
                       <div className="flex gap-2 pt-1">
                         <button
                           onClick={async () => {
-                            await setUserSites(editingSitesForUserId, editingSiteIds)
-                            setEditingSitesForUserId(null)
+                            try {
+                              await setUserSites(editingSitesForUserId, editingSiteIds)
+                              setEditingSitesForUserId(null)
+                            } catch (e) {
+                              alert('현장 배정 저장에 실패했습니다: ' + (e instanceof Error ? e.message : String(e)))
+                            }
                           }}
                           className="bg-[#5980a6] text-[#f2f2f3] text-xs font-bold rounded px-3 py-1.5 hover:opacity-90 transition-colors"
                         >
