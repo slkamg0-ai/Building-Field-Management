@@ -1,14 +1,15 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { getDailyLog, getSites, createSite, updateSite, resetSiteData, getMonthlyStats, getSiteTotalStats, getUsers, createUser, deleteUser, toggleUserActive, updateUserPin, updateUserRole, updateDailyLogDescription, addPhotoRecord, deletePhoto, getMonthlyExpensesByPerson, settleExpenses, uploadPhoto, getCurrentUser, logout, syncWorkersFromConfiguredDriveMaster, processPendingWorkerDocuments, generateMonthlyLaborBilling, exportMonthlyLaborBillingToDrive, getWorkerDocumentReviews, saveWorkerDocumentReview, getWorkers, getUserSiteIds, setUserSites } from '@/lib/actions'
+import { getDailyLog, getSites, createSite, updateSite, resetSiteData, getMonthlyStats, getSiteTotalStats, getUsers, createUser, deleteUser, toggleUserActive, updateUserPin, updateUserRole, updateDailyLogDescription, addPhotoRecord, deletePhoto, uploadPhoto, getCurrentUser, logout, getWorkers, getUserSiteIds, setUserSites } from '@/lib/actions'
+import DashboardTab from './DashboardTab'
 import LaborTab from './LaborTab'
 import EquipmentTab from './EquipmentTab'
 import OutsourcingTab from './OutsourcingTab'
 import MaterialTab from './MaterialTab'
 import ExpenseTab from './ExpenseTab'
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid, PieChart, Pie, Cell } from 'recharts'
-import { exportMonthlyReport } from '@/lib/exportExcel'
+import SettlementTab from './SettlementTab'
+import IntegrationTab from './IntegrationTab'
 import { useRouter } from 'next/navigation'
 import { Users, User, LogOut, Shield, Trash2, UserPlus, Power, KeyRound, Check, X, UserCheck, Menu } from 'lucide-react'
 import NotifyButton from './NotifyButton'
@@ -55,20 +56,6 @@ export default function Home() {
 
   // 폼 표시 상태
   const [showAddForm, setShowAddForm] = useState(false)
-  
-  // 항목별 폼 상태
-  const [settlementData, setSettlementData] = useState<any[]>([])
-  const [settlementLoading, setSettlementLoading] = useState(false)
-  const [settlementError, setSettlementError] = useState<string | null>(null)
-  const [integrationLoading, setIntegrationLoading] = useState<string | null>(null)
-  const [integrationError, setIntegrationError] = useState<string | null>(null)
-  const [syncResult, setSyncResult] = useState<any>(null)
-  const [documentScanResult, setDocumentScanResult] = useState<any>(null)
-  const [billingResult, setBillingResult] = useState<any>(null)
-  const [documentReviews, setDocumentReviews] = useState<any[]>([])
-  const [documentReviewEdits, setDocumentReviewEdits] = useState<Record<string, any>>({})
-  const [documentReviewLoading, setDocumentReviewLoading] = useState(false)
-  const [workerOptions, setWorkerOptions] = useState<any[]>([])
   const [workerDocMap, setWorkerDocMap] = useState<Record<string, string>>({}) // 이름(소문자) -> documentStatus, 노무 서류 경고용
   const [suggestions, setSuggestions] = useState<any[]>([])
   
@@ -117,133 +104,8 @@ export default function Home() {
       loadMonthlyData()
       loadSiteTotalStats()
       setShowAddForm(false)
-      if (activeTab === 'settlement') loadSettlementData()
-    }
-    if (activeTab === 'integration' && currentUser?.role === 'ADMIN') {
-      loadDocumentReviews()
     }
   }, [currentDate, selectedSiteId, activeTab, selectedYear, selectedMonth])
-
-  async function loadSettlementData() {
-    if (!selectedSiteId) return
-    setSettlementLoading(true)
-    setSettlementError(null)
-    try {
-      const data = await getMonthlyExpensesByPerson(selectedSiteId, selectedYear, selectedMonth)
-      setSettlementData(data)
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e)
-      setSettlementError(msg)
-    } finally { setSettlementLoading(false) }
-  }
-
-  async function handleDriveWorkerSync() {
-    setIntegrationLoading('sync')
-    setIntegrationError(null)
-    try {
-      const result = await syncWorkersFromConfiguredDriveMaster()
-      setSyncResult(result)
-      await loadData()
-    } catch (e) {
-      setIntegrationError(e instanceof Error ? e.message : String(e))
-    } finally {
-      setIntegrationLoading(null)
-    }
-  }
-
-  async function handleProcessWorkerDocuments() {
-    setIntegrationLoading('documents')
-    setIntegrationError(null)
-    try {
-      const result = await processPendingWorkerDocuments(10)
-      setDocumentScanResult(result)
-      await loadDocumentReviews()
-      await loadData()
-    } catch (e) {
-      setIntegrationError(e instanceof Error ? e.message : String(e))
-    } finally {
-      setIntegrationLoading(null)
-    }
-  }
-
-  async function loadDocumentReviews() {
-    setDocumentReviewLoading(true)
-    try {
-      const [docs, workers] = await Promise.all([
-        getWorkerDocumentReviews(30),
-        getWorkers(true),
-      ])
-      setDocumentReviews(docs)
-      setWorkerOptions(workers)
-      setDocumentReviewEdits(Object.fromEntries(docs.map((doc: any) => {
-        const extracted = doc.extractedData || {}
-        return [doc.id, {
-          workerId: doc.workerId || '',
-          workerName: doc.workerName || extracted.workerName || '',
-          birthYYMMDD: doc.birthYYMMDD || extracted.birthYYMMDD || '',
-          documentType: doc.documentType || 'OTHER',
-          bankName: extracted.bankName || doc.worker?.bankName || '',
-          accountNumber: extracted.accountNumber || doc.worker?.accountNumber || '',
-          safetyEduNumber: extracted.safetyEduNumber || doc.worker?.safetyEduNumber || '',
-          safetyEduComplete: !!extracted.safetyEduComplete,
-          status: doc.status || 'REVIEW',
-          note: doc.note || '',
-        }]
-      })))
-    } catch (e) {
-      setIntegrationError(e instanceof Error ? e.message : String(e))
-    } finally {
-      setDocumentReviewLoading(false)
-    }
-  }
-
-  function patchDocumentReview(id: string, patch: any) {
-    setDocumentReviewEdits(prev => ({
-      ...prev,
-      [id]: { ...(prev[id] || {}), ...patch },
-    }))
-  }
-
-  async function handleSaveDocumentReview(id: string, approve: boolean) {
-    setIntegrationLoading(`review-${id}`)
-    setIntegrationError(null)
-    try {
-      await saveWorkerDocumentReview(id, documentReviewEdits[id] || {}, approve)
-      await loadDocumentReviews()
-    } catch (e) {
-      setIntegrationError(e instanceof Error ? e.message : String(e))
-    } finally {
-      setIntegrationLoading(null)
-    }
-  }
-
-  async function handleGenerateMonthlyBilling() {
-    if (!selectedSiteId) return
-    setIntegrationLoading('billing')
-    setIntegrationError(null)
-    try {
-      const result = await generateMonthlyLaborBilling(selectedSiteId, selectedYear, selectedMonth)
-      setBillingResult(result)
-    } catch (e) {
-      setIntegrationError(e instanceof Error ? e.message : String(e))
-    } finally {
-      setIntegrationLoading(null)
-    }
-  }
-
-  async function handleExportMonthlyBilling() {
-    if (!selectedSiteId) return
-    setIntegrationLoading('export')
-    setIntegrationError(null)
-    try {
-      const result = await exportMonthlyLaborBillingToDrive(selectedSiteId, selectedYear, selectedMonth)
-      setBillingResult(result)
-    } catch (e) {
-      setIntegrationError(e instanceof Error ? e.message : String(e))
-    } finally {
-      setIntegrationLoading(null)
-    }
-  }
 
   async function loadSites() {
     try {
@@ -1052,217 +914,19 @@ export default function Home() {
 
               {/* ===================== DASHBOARD TAB ===================== */}
               {activeTab === 'dashboard' && (
-                <div className="space-y-3 animate-fade-in">
-
-                  {/* 오늘의 요약 및 한계금액 분석 */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                    <div className="dash-card bg-[#fffdf7] border border-[#2e3192]/60 p-4">
-                      <h4 className="font-cond font-bold text-[#23255c] text-sm mb-2 flex items-center gap-2">
-                        <span className="material-symbols-outlined text-[#2e3192] text-[18px]">calendar_today</span> 오늘의 지출 요약 ({currentDate})
-                      </h4>
-                      <div className="space-y-1.5">
-                        <div className="flex justify-between items-center py-1.5 border-b border-[#2e3192]/20">
-                          <span className="text-[#6266a8] text-sm">일일 총 지출</span>
-                          <span className={`font-bold ${isOverBudgetToday ? 'text-red-600' : 'text-[#23255c]'}`}>₩{grandTotal.toLocaleString()}</span>
-                        </div>
-                        <div className="flex justify-between items-center py-1.5 border-b border-[#2e3192]/20">
-                          <span className="text-[#6266a8] text-sm">일일 권장 투입 한계</span>
-                          <span className="font-bold text-[#5b6fd6]">₩{siteTotalStats ? Math.round(siteTotalStats.dailyLimit).toLocaleString() : 0}</span>
-                        </div>
-                        <div className="flex justify-between items-center pt-1.5">
-                          <span className="text-[#6266a8] text-sm">상태 분석</span>
-                          {isOverBudgetToday ? (
-                            <span className="dash-pill text-red-600 font-bold text-xs bg-red-400/10 px-2 py-1">한계선 초과 (주의)</span>
-                          ) : (
-                            <span className="dash-pill text-[#2e3192] font-bold text-xs bg-[#eef1ff] px-2 py-1">안정적 (예산 내)</span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="dash-card bg-[#fffdf7] border border-[#2e3192]/60 p-4 flex items-center gap-4">
-                      <span className="material-symbols-outlined text-3xl text-[#8489c4] shrink-0">download</span>
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-cond font-bold text-[#23255c] text-sm mb-0.5">데이터 내보내기</h4>
-                        <p className="text-xs text-[#6266a8] mb-2 truncate">월간 작업일보 및 투입 비용 명세서 (.xlsx)</p>
-                        <button
-                          onClick={() => {
-                            const selectedSite = sites.find(s => s.id === selectedSiteId)
-                            const d = new Date(currentDate)
-                            const monthLabel = `${d.getFullYear()}년 ${d.getMonth() + 1}월`
-                            exportMonthlyReport(
-                              selectedSite?.name || '현장',
-                              monthLabel,
-                              logData,
-                              monthlyStats,
-                              siteTotalStats
-                            )
-                          }}
-                          className="dash-sm py-1.5 px-4 bg-[#2e3192] text-[#fffdf7] text-sm font-bold transition-colors flex items-center justify-center gap-1.5 hover:opacity-90 active:scale-95"
-                        >
-                          <span className="material-symbols-outlined text-sm">file_download</span>
-                          엑셀 다운로드
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* 차트 + 월간 상세 분석: 넓은 화면에서는 좌우로 배치해 스크롤을 줄임 */}
-                  <div className="grid grid-cols-1 xl:grid-cols-5 gap-3">
-                    {/* 일자별 지출 추이 바 차트 */}
-                    <div className="xl:col-span-3 dash-card bg-[#fffdf7] border border-[#2e3192]/60 p-4">
-                      <div className="flex justify-between items-center mb-2">
-                        <h3 className="font-cond font-bold text-[#23255c] text-sm flex items-center gap-2">
-                          <span className="material-symbols-outlined text-[#2e3192] text-[18px]">bar_chart</span>
-                          {monthName} 일자별 지출 추이
-                        </h3>
-                        <span className="text-[10px] text-[#6266a8]">단위: 원</span>
-                      </div>
-
-                      {monthlyLoading ? (
-                        <div className="h-56 flex items-center justify-center text-[#6266a8] text-sm">데이터를 불러오는 중...</div>
-                      ) : monthlyStats?.dailyData?.length === 0 ? (
-                        <div className="h-56 flex items-center justify-center text-[#6266a8] text-sm">입력된 데이터가 없습니다.</div>
-                      ) : (
-                        <div className="h-56 w-full xl:h-[26rem]">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={monthlyStats.dailyData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
-                              <CartesianGrid strokeDasharray="3 3" stroke="#2e3192" strokeOpacity={0.15} vertical={false} />
-                              <XAxis dataKey="name" stroke="#6266a8" fontSize={11} tickLine={false} axisLine={false} />
-                              <YAxis stroke="#6266a8" fontSize={11} tickFormatter={(val) => `₩${(val/10000).toFixed(0)}만`} tickLine={false} axisLine={false} />
-                              <Tooltip
-                                contentStyle={{ backgroundColor: '#fffdf7', borderColor: '#2e3192', borderRadius: '10px' }}
-                                itemStyle={{ fontSize: '13px' }}
-                                formatter={(value: unknown) => [`₩${Number(value).toLocaleString()}`, undefined]}
-                              />
-                              <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} />
-                              <Bar dataKey="노무비" stackId="a" fill="#2e3192" radius={[0, 0, 4, 4]} />
-                              <Bar dataKey="장비대" stackId="a" fill="#5b6fd6" />
-                              <Bar dataKey="외주비" stackId="a" fill="#93a5f0" />
-                              <Bar dataKey="경비" stackId="a" fill="#c9d3fa" radius={[4, 4, 0, 0]} />
-                            </BarChart>
-                          </ResponsiveContainer>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="xl:col-span-2 flex flex-col gap-3">
-                      {/* 지출 비중 원형 차트 */}
-                      <div className="dash-card bg-[#fffdf7] border border-[#2e3192]/60 p-4">
-                        <h4 className="font-cond font-bold text-[#23255c] text-sm mb-2 flex items-center gap-2">
-                          <span className="material-symbols-outlined text-[#2e3192] text-[18px]">pie_chart</span> 카테고리별 지출 비중
-                        </h4>
-                        <div className="flex items-center gap-3">
-                          <div className="w-28 h-28 shrink-0">
-                            <ResponsiveContainer width="100%" height="100%">
-                              <PieChart>
-                                <Pie
-                                  data={[
-                                    { name: '노무', value: monthlyStats?.summary?.totalLabor || 0, color: '#2e3192' },
-                                    { name: '장비', value: monthlyStats?.summary?.totalEquipment || 0, color: '#5b6fd6' },
-                                    { name: '외주', value: monthlyStats?.summary?.totalOutsourcing || 0, color: '#93a5f0' },
-                                    { name: '경비', value: monthlyStats?.summary?.totalExpense || 0, color: '#c9d3fa' },
-                                  ].filter(d => d.value > 0)}
-                                  cx="50%"
-                                  cy="50%"
-                                  innerRadius={32}
-                                  outerRadius={48}
-                                  paddingAngle={5}
-                                  dataKey="value"
-                                >
-                                  {[
-                                    { color: '#2e3192' },
-                                    { color: '#5b6fd6' },
-                                    { color: '#93a5f0' },
-                                    { color: '#c9d3fa' },
-                                  ].map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={entry.color} />
-                                  ))}
-                                </Pie>
-                                <Tooltip
-                                  contentStyle={{ backgroundColor: '#fffdf7', border: '1px solid #2e3192', borderRadius: '10px' }}
-                                  itemStyle={{ color: '#23255c' }}
-                                />
-                              </PieChart>
-                            </ResponsiveContainer>
-                          </div>
-                          <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 flex-1 min-w-0">
-                            <div className="flex items-center gap-1.5">
-                              <div className="w-1.5 h-1.5 dash-pill bg-[#2e3192] shrink-0"></div>
-                              <span className="text-[10px] text-[#6266a8] font-bold uppercase truncate">노무 {((monthlyStats?.summary?.totalLabor / monthlyStats?.summary?.grandTotal) * 100 || 0).toFixed(1)}%</span>
-                            </div>
-                            <div className="flex items-center gap-1.5">
-                              <div className="w-1.5 h-1.5 dash-pill bg-[#5b6fd6] shrink-0"></div>
-                              <span className="text-[10px] text-[#6266a8] font-bold uppercase truncate">장비 {((monthlyStats?.summary?.totalEquipment / monthlyStats?.summary?.grandTotal) * 100 || 0).toFixed(1)}%</span>
-                            </div>
-                            <div className="flex items-center gap-1.5">
-                              <div className="w-1.5 h-1.5 dash-pill bg-[#93a5f0] shrink-0"></div>
-                              <span className="text-[10px] text-[#6266a8] font-bold uppercase truncate">외주 {((monthlyStats?.summary?.totalOutsourcing / monthlyStats?.summary?.grandTotal) * 100 || 0).toFixed(1)}%</span>
-                            </div>
-                            <div className="flex items-center gap-1.5">
-                              <div className="w-1.5 h-1.5 dash-pill bg-[#c9d3fa] shrink-0"></div>
-                              <span className="text-[10px] text-[#6266a8] font-bold uppercase truncate">경비 {((monthlyStats?.summary?.totalExpense / monthlyStats?.summary?.grandTotal) * 100 || 0).toFixed(1)}%</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* 월간 상세 집계표 */}
-                      <div className="flex-1 dash-card bg-[#fffdf7] border border-[#2e3192]/60 p-4">
-                        <h4 className="font-cond font-bold text-[#23255c] text-sm mb-2 flex items-center gap-2">
-                          <span className="material-symbols-outlined text-[#2e3192] text-[18px]">analytics</span> 월간 상세 집계표 ({monthName})
-                        </h4>
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-left">
-                            <thead>
-                              <tr className="border-b border-[#2e3192]/40 text-[9px] text-[#6266a8] font-bold uppercase tracking-widest">
-                                <th className="pb-1.5 px-1">카테고리</th>
-                                <th className="pb-1.5 px-1 text-right">금액</th>
-                                <th className="pb-1.5 px-1 text-right">비중</th>
-                              </tr>
-                            </thead>
-                            <tbody className="text-xs">
-                              <tr className="border-b border-[#2e3192]/20">
-                                <td className="py-1.5 px-1 text-[#23255c] font-medium flex items-center gap-1.5">
-                                  <span className="w-1.5 h-1.5 dash-pill bg-[#2e3192] shrink-0"></span> 노무비
-                                </td>
-                                <td className="py-1.5 px-1 text-right text-[#23255c] font-bold">₩{monthlyStats?.summary?.totalLabor?.toLocaleString()}</td>
-                                <td className="py-1.5 px-1 text-right text-[#6266a8]">{((monthlyStats?.summary?.totalLabor / monthlyStats?.summary?.grandTotal) * 100 || 0).toFixed(1)}%</td>
-                              </tr>
-                              <tr className="border-b border-[#2e3192]/20">
-                                <td className="py-1.5 px-1 text-[#23255c] font-medium flex items-center gap-1.5">
-                                  <span className="w-1.5 h-1.5 dash-pill bg-[#5b6fd6] shrink-0"></span> 장비대
-                                </td>
-                                <td className="py-1.5 px-1 text-right text-[#23255c] font-bold">₩{monthlyStats?.summary?.totalEquipment?.toLocaleString()}</td>
-                                <td className="py-1.5 px-1 text-right text-[#6266a8]">{((monthlyStats?.summary?.totalEquipment / monthlyStats?.summary?.grandTotal) * 100 || 0).toFixed(1)}%</td>
-                              </tr>
-                              <tr className="border-b border-[#2e3192]/20">
-                                <td className="py-1.5 px-1 text-[#23255c] font-medium flex items-center gap-1.5">
-                                  <span className="w-1.5 h-1.5 dash-pill bg-[#93a5f0] shrink-0"></span> 외주비
-                                </td>
-                                <td className="py-1.5 px-1 text-right text-[#23255c] font-bold">₩{monthlyStats?.summary?.totalOutsourcing?.toLocaleString()}</td>
-                                <td className="py-1.5 px-1 text-right text-[#6266a8]">{((monthlyStats?.summary?.totalOutsourcing / monthlyStats?.summary?.grandTotal) * 100 || 0).toFixed(1)}%</td>
-                              </tr>
-                              <tr className="border-b border-[#2e3192]/20">
-                                <td className="py-1.5 px-1 text-[#23255c] font-medium flex items-center gap-1.5">
-                                  <span className="w-1.5 h-1.5 dash-pill bg-[#c9d3fa] shrink-0"></span> 경비
-                                </td>
-                                <td className="py-1.5 px-1 text-right text-[#23255c] font-bold">₩{monthlyStats?.summary?.totalExpense?.toLocaleString()}</td>
-                                <td className="py-1.5 px-1 text-right text-[#6266a8]">{((monthlyStats?.summary?.totalExpense / monthlyStats?.summary?.grandTotal) * 100 || 0).toFixed(1)}%</td>
-                              </tr>
-                              <tr className="bg-[#2e3192]/5">
-                                <td className="py-2 px-1 text-[#2e3192] font-bold">합계</td>
-                                <td className="py-2 px-1 text-right text-[#2e3192] font-bold">₩{monthlyStats?.summary?.grandTotal?.toLocaleString()}</td>
-                                <td className="py-2 px-1 text-right text-[#2e3192] font-bold">100%</td>
-                              </tr>
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-              </div>
-            )}
+                <DashboardTab
+                  currentDate={currentDate}
+                  isOverBudgetToday={!!isOverBudgetToday}
+                  grandTotal={grandTotal}
+                  siteTotalStats={siteTotalStats}
+                  sites={sites}
+                  selectedSiteId={selectedSiteId}
+                  logData={logData}
+                  monthlyStats={monthlyStats}
+                  monthlyLoading={monthlyLoading}
+                  monthName={monthName}
+                />
+              )}
 
               {activeTab === 'labor' && (
                 <LaborTab
@@ -1360,324 +1024,22 @@ export default function Home() {
 
               {/* ===================== SETTLEMENT TAB ===================== */}
               {activeTab === 'settlement' && currentUser?.role === 'ADMIN' && (
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center px-2">
-                    <h3 className="font-bold text-lg text-[#1d1f20] flex items-center gap-2">
-                      <span className="material-symbols-outlined text-[#16a34a]">account_balance_wallet</span>
-                      {selectedMonth}월 경비 정산
-                    </h3>
-                    <button onClick={loadSettlementData} className="text-xs text-[rgba(29,31,32,0.6)] hover:text-[#1d1f20] flex items-center gap-1">
-                      <span className="material-symbols-outlined text-sm">refresh</span> 새로고침
-                    </button>
-                  </div>
-
-                  {settlementLoading ? (
-                    <div className="text-center py-12 text-[rgba(29,31,32,0.55)]">데이터를 불러오는 중...</div>
-                  ) : settlementError ? (
-                    <div className="bg-red-900/20 border border-red-500/30 rounded-xl p-6 text-center">
-                      <p className="text-red-600 text-sm font-bold mb-1">오류가 발생했습니다</p>
-                      <p className="text-red-500 text-xs">{settlementError}</p>
-                    </div>
-                  ) : settlementData.length === 0 ? (
-                    <div className="bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded-xl p-8 text-center text-[rgba(29,31,32,0.55)]">이달 경비 내역이 없습니다.</div>
-                  ) : (
-                    <div className="space-y-4">
-                      {settlementData.map((person) => (
-                        <div key={person.person} className="bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded-xl overflow-hidden">
-                          {/* 담당자 헤더 */}
-                          <div className="flex items-center justify-between px-5 py-4 border-b border-[rgba(29,31,32,0.16)]">
-                            <div className="flex items-center gap-3">
-                              <div className="w-9 h-9 rounded-full bg-[rgba(29,31,32,0.16)] flex items-center justify-center">
-                                <span className="material-symbols-outlined text-[rgba(29,31,32,0.6)] text-sm">person</span>
-                              </div>
-                              <div>
-                                <p className="font-bold text-[#1d1f20]">{person.person}</p>
-                                <p className="text-[10px] text-[rgba(29,31,32,0.55)] mt-0.5">총 {person.items.length}건 · ₩{person.total.toLocaleString()}</p>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <div className="text-right">
-                                {person.unsettledTotal > 0 && (
-                                  <p className="text-sm font-bold text-red-600">미정산 ₩{person.unsettledTotal.toLocaleString()}</p>
-                                )}
-                                {person.settledTotal > 0 && (
-                                  <p className="text-xs text-[#16a34a]">정산완료 ₩{person.settledTotal.toLocaleString()}</p>
-                                )}
-                              </div>
-                              {person.unsettledTotal > 0 && (
-                                <button
-                                  onClick={async () => {
-                                    if (!confirm(`${person.person}의 미정산 경비 ₩${person.unsettledTotal.toLocaleString()}을 정산 처리하시겠습니까?`)) return
-                                    const ids = person.items.filter((i: any) => !i.isSettled).map((i: any) => i.id)
-                                    try {
-                                      await settleExpenses(ids)
-                                      loadSettlementData()
-                                    } catch (e) {
-                                      alert('정산 처리 실패: ' + (e instanceof Error ? e.message : String(e)))
-                                    }
-                                  }}
-                                  className="px-3 py-1.5 rounded bg-[#16a34a]/10 text-[#16a34a] border border-[#16a34a]/30 text-xs font-bold hover:bg-[#16a34a]/20 transition-colors whitespace-nowrap"
-                                >
-                                  정산 처리
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                          {/* 경비 상세 목록 */}
-                          <div className="divide-y divide-[rgba(29,31,32,0.16)]">
-                            {person.items.map((item: any) => (
-                              <div key={item.id} className="flex items-center justify-between px-5 py-3">
-                                <div className="flex items-center gap-3">
-                                  <span className={`w-2 h-2 rounded-full shrink-0 ${item.isSettled ? 'bg-[#16a34a]' : 'bg-red-400'}`}></span>
-                                  <div>
-                                    <p className="text-sm text-[#1d1f20]">{item.category}</p>
-                                    <p className="text-[10px] text-[rgba(29,31,32,0.55)]">{item.note || ''}</p>
-                                  </div>
-                                </div>
-                                <div className="text-right shrink-0">
-                                  <p className="text-sm font-bold text-[#1d1f20]">₩{item.amount.toLocaleString()}</p>
-                                  <p className={`text-[10px] font-bold ${item.isSettled ? 'text-[#16a34a]' : 'text-red-600'}`}>
-                                    {item.isSettled ? '정산완료' : '미정산'}
-                                  </p>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                <SettlementTab
+                  selectedSiteId={selectedSiteId}
+                  selectedYear={selectedYear}
+                  selectedMonth={selectedMonth}
+                />
               )}
 
               {/* ===================== INTEGRATION TAB ===================== */}
               {activeTab === 'integration' && currentUser?.role === 'ADMIN' && (
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center px-2">
-                    <h3 className="font-bold text-lg text-[#1d1f20] flex items-center gap-2">
-                      <span className="material-symbols-outlined text-[#0284c7]">hub</span>
-                      Drive 노무관리 연계
-                    </h3>
-                    <span className="text-xs text-[rgba(29,31,32,0.55)]">{selectedYear}년 {selectedMonth}월</span>
-                  </div>
-
-                  {integrationError && (
-                    <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-sm text-red-600">
-                      {integrationError}
-                    </div>
-                  )}
-
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    <div className="bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded-xl p-5 space-y-4">
-                      <div>
-                        <p className="text-xs font-bold tracking-widest text-[#0284c7] uppercase">Worker Master</p>
-                        <h4 className="font-bold text-[#1d1f20] mt-1">근로자마스터 동기화</h4>
-                        <p className="text-sm text-[rgba(29,31,32,0.6)] mt-2">Google Drive의 노무관리 마스터 시트에서 근로자 서류 상태, 계좌, 안전교육 정보를 앱 DB로 반영합니다.</p>
-                      </div>
-                      <button
-                        onClick={handleDriveWorkerSync}
-                        disabled={integrationLoading !== null}
-                        className="w-full bg-[#0284c7] text-white font-bold py-3 rounded-lg hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
-                      >
-                        <span className="material-symbols-outlined text-sm">{integrationLoading === 'sync' ? 'sync' : 'cloud_sync'}</span>
-                        {integrationLoading === 'sync' ? '동기화 중...' : 'Drive 근로자 동기화'}
-                      </button>
-                      <button
-                        onClick={handleProcessWorkerDocuments}
-                        disabled={integrationLoading !== null}
-                        className="w-full border border-[#0284c7] text-[#0284c7] font-bold py-3 rounded-lg hover:bg-[#0284c7]/10 disabled:opacity-50 flex items-center justify-center gap-2"
-                      >
-                        <span className="material-symbols-outlined text-sm">{integrationLoading === 'documents' ? 'sync' : 'document_scanner'}</span>
-                        {integrationLoading === 'documents' ? '서류 분석 중...' : '대기 서류 분석'}
-                      </button>
-                      {syncResult && (
-                        <div className="grid grid-cols-4 gap-2 text-center">
-                          <div className="bg-[#f2f2f3] rounded-lg p-3"><p className="text-[10px] text-[rgba(29,31,32,0.55)]">신규</p><p className="font-bold">{syncResult.created}</p></div>
-                          <div className="bg-[#f2f2f3] rounded-lg p-3"><p className="text-[10px] text-[rgba(29,31,32,0.55)]">갱신</p><p className="font-bold">{syncResult.updated}</p></div>
-                          <div className="bg-[#f2f2f3] rounded-lg p-3"><p className="text-[10px] text-[rgba(29,31,32,0.55)]">건너뜀</p><p className="font-bold">{syncResult.skipped}</p></div>
-                          <div className="bg-[#f2f2f3] rounded-lg p-3"><p className="text-[10px] text-[rgba(29,31,32,0.55)]">전체</p><p className="font-bold">{syncResult.total}</p></div>
-                        </div>
-                      )}
-                      {documentScanResult && (
-                        <div className="space-y-3">
-                          <div className="grid grid-cols-4 gap-2 text-center">
-                            <div className="bg-[#f2f2f3] rounded-lg p-3"><p className="text-[10px] text-[rgba(29,31,32,0.55)]">처리</p><p className="font-bold">{documentScanResult.processed}</p></div>
-                            <div className="bg-[#f2f2f3] rounded-lg p-3"><p className="text-[10px] text-[rgba(29,31,32,0.55)]">완료</p><p className="font-bold text-[#16a34a]">{documentScanResult.completed}</p></div>
-                            <div className="bg-[#f2f2f3] rounded-lg p-3"><p className="text-[10px] text-[rgba(29,31,32,0.55)]">검토</p><p className="font-bold text-amber-600">{documentScanResult.review}</p></div>
-                            <div className="bg-[#f2f2f3] rounded-lg p-3"><p className="text-[10px] text-[rgba(29,31,32,0.55)]">실패</p><p className="font-bold text-red-600">{documentScanResult.failed}</p></div>
-                          </div>
-                          <div className="border border-[rgba(29,31,32,0.16)] rounded-lg overflow-hidden">
-                            <div className="max-h-40 overflow-auto divide-y divide-[rgba(29,31,32,0.16)]">
-                              {documentScanResult.details?.slice(0, 10).map((item: any, idx: number) => (
-                                <div key={`${item.fileName}-${idx}`} className="px-3 py-2 text-xs">
-                                  <p className="font-bold text-[#1d1f20]">{item.workerName || item.fileName}</p>
-                                  <p className="text-[rgba(29,31,32,0.55)]">{item.status}{item.reason ? ` · ${item.reason}` : ''}</p>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded-xl p-5 space-y-4">
-                      <div>
-                        <p className="text-xs font-bold tracking-widest text-[#16a34a] uppercase">Monthly Billing</p>
-                        <h4 className="font-bold text-[#1d1f20] mt-1">월별 노무 기성 초안</h4>
-                        <p className="text-sm text-[rgba(29,31,32,0.6)] mt-2">앱에 입력된 일일 노무 투입 내역과 근로자 서류 상태를 합쳐 월별투입명세 초안을 생성합니다.</p>
-                      </div>
-                      <button
-                        onClick={handleGenerateMonthlyBilling}
-                        disabled={integrationLoading !== null || !selectedSiteId}
-                        className="w-full bg-[#16a34a] text-white font-bold py-3 rounded-lg hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
-                      >
-                        <span className="material-symbols-outlined text-sm">{integrationLoading === 'billing' ? 'sync' : 'request_quote'}</span>
-                        {integrationLoading === 'billing' ? '생성 중...' : '월별투입명세 생성'}
-                      </button>
-                      <button
-                        onClick={handleExportMonthlyBilling}
-                        disabled={integrationLoading !== null || !selectedSiteId}
-                        className="w-full border border-[#16a34a] text-[#16a34a] font-bold py-3 rounded-lg hover:bg-[#16a34a]/10 disabled:opacity-50 flex items-center justify-center gap-2"
-                      >
-                        <span className="material-symbols-outlined text-sm">{integrationLoading === 'export' ? 'sync' : 'drive_file_move'}</span>
-                        {integrationLoading === 'export' ? '출력 중...' : 'Google Sheets/PDF 출력'}
-                      </button>
-                      {billingResult && (
-                        <div className="space-y-3">
-                          <div className="grid grid-cols-3 gap-2 text-center">
-                            <div className="bg-[#f2f2f3] rounded-lg p-3"><p className="text-[10px] text-[rgba(29,31,32,0.55)]">인원</p><p className="font-bold">{billingResult.billing.workerCount}</p></div>
-                            <div className="bg-[#f2f2f3] rounded-lg p-3"><p className="text-[10px] text-[rgba(29,31,32,0.55)]">지급가능</p><p className="font-bold text-[#16a34a]">{billingResult.billing.readyWorkerCount}</p></div>
-                            <div className="bg-[#f2f2f3] rounded-lg p-3"><p className="text-[10px] text-[rgba(29,31,32,0.55)]">보류</p><p className="font-bold text-red-600">{billingResult.billing.holdWorkerCount}</p></div>
-                          </div>
-                          <div className="border border-[rgba(29,31,32,0.16)] rounded-lg overflow-hidden">
-                            <div className="max-h-64 overflow-auto divide-y divide-[rgba(29,31,32,0.16)]">
-                              {billingResult.items.slice(0, 20).map((item: any, idx: number) => (
-                                <div key={`${item.name}-${idx}`} className="flex items-center justify-between px-3 py-2 text-sm">
-                                  <div>
-                                    <p className="font-bold text-[#1d1f20]">{item.name}</p>
-                                    <p className="text-[10px] text-[rgba(29,31,32,0.55)]">{item.jobType} · {item.amount}공수 · {item.documentStatus}</p>
-                                  </div>
-                                  <p className="font-bold">₩{item.totalPrice.toLocaleString()}</p>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                          {(billingResult.spreadsheetUrl || billingResult.pdfUrl) && (
-                            <div className="flex flex-wrap gap-2">
-                              {billingResult.spreadsheetUrl && (
-                                <a href={billingResult.spreadsheetUrl} target="_blank" className="text-xs font-bold text-[#0284c7] border border-[#0284c7]/30 rounded px-3 py-2 hover:bg-[#0284c7]/10">
-                                  Google Sheets 열기
-                                </a>
-                              )}
-                              {billingResult.pdfUrl && (
-                                <a href={billingResult.pdfUrl} target="_blank" className="text-xs font-bold text-[#16a34a] border border-[#16a34a]/30 rounded px-3 py-2 hover:bg-[#16a34a]/10">
-                                  PDF 열기
-                                </a>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded-xl p-5 space-y-4">
-                    <div className="flex items-center gap-3">
-                      <div className="flex-1">
-                        <p className="text-xs font-bold tracking-widest text-[#7c3aed] uppercase">Document Review</p>
-                        <h4 className="font-bold text-[#1d1f20] mt-1">AI 서류 인식 검수</h4>
-                        <p className="text-sm text-[rgba(29,31,32,0.6)] mt-2">인식된 이름, 생년월일, 계좌, 안전교육 정보를 관리자가 수정하고 승인합니다.</p>
-                      </div>
-                      <button
-                        onClick={loadDocumentReviews}
-                        disabled={documentReviewLoading || integrationLoading !== null}
-                        className="px-3 py-2 rounded-lg border border-[#7c3aed]/40 text-[#7c3aed] text-sm font-bold disabled:opacity-50"
-                      >
-                        {documentReviewLoading ? '불러오는 중...' : '새로고침'}
-                      </button>
-                    </div>
-
-                    <div className="space-y-3 max-h-[520px] overflow-auto pr-1">
-                      {documentReviews.length === 0 && (
-                        <div className="text-center text-sm text-[rgba(29,31,32,0.55)] py-8 bg-[#f2f2f3] rounded-lg">
-                          검수할 서류가 없습니다.
-                        </div>
-                      )}
-                      {documentReviews.map((doc: any) => {
-                        const edit = documentReviewEdits[doc.id] || {}
-                        const busy = integrationLoading === `review-${doc.id}`
-                        return (
-                          <div key={doc.id} className="border border-[rgba(29,31,32,0.16)] rounded-xl p-3 space-y-3">
-                            <div className="flex flex-wrap items-start gap-2">
-                              <div className="flex-1 min-w-[220px]">
-                                <p className="font-bold text-sm text-[#1d1f20]">{doc.sourceFileName || doc.workerName || '서류'}</p>
-                                <p className="text-[11px] text-[rgba(29,31,32,0.55)]">
-                                  {doc.status} · {doc.documentType} · 신뢰도 {doc.confidence == null ? '-' : `${Math.round(doc.confidence * 100)}%`}
-                                </p>
-                              </div>
-                              {doc.driveFileUrl && (
-                                <a href={doc.driveFileUrl} target="_blank" className="text-xs font-bold text-[#0284c7] border border-[#0284c7]/30 rounded px-2 py-1">
-                                  원본 열기
-                                </a>
-                              )}
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
-                              <select
-                                value={edit.workerId || ''}
-                                onChange={e => {
-                                  const worker = workerOptions.find(w => w.id === e.target.value)
-                                  patchDocumentReview(doc.id, {
-                                    workerId: e.target.value,
-                                    ...(worker ? {
-                                      workerName: worker.name || edit.workerName,
-                                      birthYYMMDD: worker.birthYYMMDD || edit.birthYYMMDD,
-                                      bankName: worker.bankName || edit.bankName,
-                                      accountNumber: worker.accountNumber || edit.accountNumber,
-                                      safetyEduNumber: worker.safetyEduNumber || edit.safetyEduNumber,
-                                    } : {}),
-                                  })
-                                }}
-                                className="bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded px-3 py-2 text-sm"
-                              >
-                                <option value="">근로자 선택/신규</option>
-                                {workerOptions.filter(w => w.isActive).map(w => (
-                                  <option key={w.id} value={w.id}>{w.name}{w.birthYYMMDD ? `_${w.birthYYMMDD}` : ''}</option>
-                                ))}
-                              </select>
-                              <input value={edit.workerName || ''} onChange={e => patchDocumentReview(doc.id, { workerName: e.target.value })} placeholder="이름" className="bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded px-3 py-2 text-sm" />
-                              <input value={edit.birthYYMMDD || ''} onChange={e => patchDocumentReview(doc.id, { birthYYMMDD: e.target.value.replace(/[^\d]/g, '').slice(0, 6) })} placeholder="생년월일 6자리" className="bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded px-3 py-2 text-sm" />
-                              <select value={edit.documentType || 'OTHER'} onChange={e => patchDocumentReview(doc.id, { documentType: e.target.value })} className="bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded px-3 py-2 text-sm">
-                                <option value="ID_CARD">신분증</option>
-                                <option value="DRIVER_LICENSE">운전면허증</option>
-                                <option value="BANKBOOK">통장사본</option>
-                                <option value="SAFETY_EDU">안전교육증</option>
-                                <option value="OTHER">기타</option>
-                              </select>
-                              <input value={edit.bankName || ''} onChange={e => patchDocumentReview(doc.id, { bankName: e.target.value })} placeholder="은행" className="bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded px-3 py-2 text-sm" />
-                              <input value={edit.accountNumber || ''} onChange={e => patchDocumentReview(doc.id, { accountNumber: e.target.value })} placeholder="계좌번호" className="bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded px-3 py-2 text-sm md:col-span-2" />
-                              <input value={edit.safetyEduNumber || ''} onChange={e => patchDocumentReview(doc.id, { safetyEduNumber: e.target.value })} placeholder="안전교육번호" className="bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded px-3 py-2 text-sm" />
-                            </div>
-
-                            <div className="flex flex-wrap items-center gap-2">
-                              <label className="flex items-center gap-2 text-xs text-[rgba(29,31,32,0.55)]">
-                                <input type="checkbox" checked={!!edit.safetyEduComplete} onChange={e => patchDocumentReview(doc.id, { safetyEduComplete: e.target.checked })} className="accent-[#5980a6]" />
-                                안전교육 이수
-                              </label>
-                              <input value={edit.note || ''} onChange={e => patchDocumentReview(doc.id, { note: e.target.value })} placeholder="검수 메모" className="flex-1 min-w-[180px] bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded px-3 py-2 text-sm" />
-                              <button onClick={() => handleSaveDocumentReview(doc.id, false)} disabled={busy} className="px-3 py-2 rounded-lg border border-[rgba(29,31,32,0.55)]/30 text-[rgba(29,31,32,0.55)] text-sm font-bold disabled:opacity-50">
-                                저장
-                              </button>
-                              <button onClick={() => handleSaveDocumentReview(doc.id, true)} disabled={busy} className="px-3 py-2 rounded-lg bg-[#5980a6] text-white text-sm font-bold disabled:opacity-50">
-                                승인
-                              </button>
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-                </div>
+                <IntegrationTab
+                  selectedSiteId={selectedSiteId}
+                  selectedYear={selectedYear}
+                  selectedMonth={selectedMonth}
+                  currentDate={currentDate}
+                  onDataChanged={loadData}
+                />
               )}
 
             </section>
