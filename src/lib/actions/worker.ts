@@ -1,0 +1,1038 @@
+'use server'
+
+import prisma from '../prisma'
+import { GoogleGenAI } from '@google/genai'
+import { revalidatePath } from 'next/cache'
+import { requireAdmin, requireSiteAccess } from '../auth'
+import {
+  appendSheetValues,
+  createDriveFolder,
+  createSpreadsheet,
+  downloadDriveFile,
+  findDriveFolderByName,
+  exportSpreadsheetPdf,
+  formatMonthlyBillingSheet,
+  listDriveFolderFiles,
+  moveDriveFileToFolder,
+  readSheetValues,
+  rowsToObjects,
+  trashDriveFile,
+  uploadPdfToDrive,
+  writeSheetValues,
+} from '../googleSheets'
+
+function docStatusFromText(value?: string | null) {
+  const text = value || ''
+  if (text.includes('완비')) return 'COMPLETE'
+  if (text.includes('검토')) return 'REVIEW'
+  if (text.includes('미비')) return 'INCOMPLETE'
+  return 'UNKNOWN'
+}
+
+function parseMoney(value: unknown) {
+  if (typeof value === 'number') return value
+  const cleaned = String(value ?? '').replace(/[^\d.-]/g, '')
+  const parsed = Number(cleaned)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+function parseAmount(value: unknown) {
+  if (typeof value === 'number') return value
+  const parsed = Number(String(value ?? '').replace(/[^\d.-]/g, ''))
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+function ymd(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+}
+
+function documentStatusLabel(status?: string | null) {
+  switch (status) {
+    case 'COMPLETE':
+      return '3종완비'
+    case 'REVIEW':
+      return '검토필요'
+    case 'INCOMPLETE':
+      return '미비'
+    case 'UNREGISTERED':
+      return '미등록'
+    default:
+      return '확인필요'
+  }
+}
+
+function monthlyBillingRows(args: {
+  siteName: string
+  year: number
+  month: number
+  totalLaborCost: number
+  workerCount: number
+  readyWorkerCount: number
+  holdWorkerCount: number
+  items: any[]
+}) {
+  const title = `월별 노무 투입명세 (${args.year}-${String(args.month).padStart(2, '0')})`
+  return [
+    [title],
+    ['현장명', args.siteName, '작성일', ymd(new Date())],
+    ['총 인원', `${args.workerCount}명`, '총 노무비', args.totalLaborCost],
+    ['지급가능', `${args.readyWorkerCount}명`, '보류', `${args.holdWorkerCount}명`],
+    [],
+    ['번호', '성명', '생년월일', '공종', '공수', '단가', '금액', '은행', '계좌번호', '서류상태', '지급가능', '증빙폴더', '비고'],
+    ...args.items.map((item, index) => [
+      index + 1,
+      item.name,
+      item.birthYYMMDD || '',
+      item.jobType,
+      item.amount,
+      item.unitPrice,
+      item.totalPrice,
+      item.bankName || '',
+      item.accountNumber || '',
+      documentStatusLabel(item.documentStatus),
+      item.documentStatus === 'COMPLETE' ? '가능' : '보류',
+      item.driveFolderUrl || '',
+      item.note || '',
+    ]),
+    ['합계', '', '', '', '', '', args.totalLaborCost],
+  ]
+}
+
+// ════════════════════════════════════════════════════════════════
+//  근로자(인적사항/신원) + 출퇴근
+// ════════════════════════════════════════════════════════════════
+export async function getWorkers(includeInactive: boolean = false) {
+  return prisma.worker.findMany({
+    where: includeInactive ? {} : { isActive: true },
+    orderBy: { name: 'asc' },
+  })
+}
+
+export async function createWorker(data: any) {
+  await requireAdmin()
+  const row = await prisma.worker.create({ data: {
+    name: data.name,
+    phone: data.phone || null,
+    company: data.company || null,
+    jobType: data.jobType || null,
+    birthDate: data.birthDate ? new Date(data.birthDate) : null,
+    birthYYMMDD: data.birthYYMMDD || null,
+    gender: data.gender || null,
+    safetyEduDate: data.safetyEduDate ? new Date(data.safetyEduDate) : null,
+    safetyEduNumber: data.safetyEduNumber || null,
+    basicSafetyEdu: !!data.basicSafetyEdu,
+    bankName: data.bankName || null,
+    accountNumber: data.accountNumber || null,
+    documentStatus: data.documentStatus || 'UNKNOWN',
+    driveFolderUrl: data.driveFolderUrl || null,
+    photoUrl: data.photoUrl || null,
+    faceDescriptor: data.faceDescriptor ?? undefined,
+    isActive: true,
+  } })
+  revalidatePath('/workers')
+  return row
+}
+
+export async function updateWorker(id: string, data: any) {
+  await requireAdmin()
+  const patch: any = {}
+  for (const f of [
+    'name', 'phone', 'company', 'jobType', 'birthYYMMDD', 'gender', 'photoUrl',
+    'isActive', 'basicSafetyEdu', 'safetyEduNumber', 'bankName', 'accountNumber',
+    'documentStatus', 'driveFolderUrl',
+  ]) {
+    if (data[f] !== undefined) patch[f] = data[f]
+  }
+  if (data.birthDate !== undefined) patch.birthDate = data.birthDate ? new Date(data.birthDate) : null
+  if (data.safetyEduDate !== undefined) patch.safetyEduDate = data.safetyEduDate ? new Date(data.safetyEduDate) : null
+  if (data.faceDescriptor !== undefined) patch.faceDescriptor = data.faceDescriptor
+  await prisma.worker.update({ where: { id }, data: patch })
+  revalidatePath('/workers')
+}
+
+export async function deleteWorker(id: string) {
+  await requireAdmin()
+  await prisma.worker.delete({ where: { id } })
+  revalidatePath('/workers')
+}
+
+// 출근: 하루 1행. 이미 출근돼 있으면 그대로 반환.
+function driveFolderIdFromUrl(url?: string | null) {
+  if (!url) return null
+  const foldersMatch = url.match(/\/folders\/([a-zA-Z0-9_-]+)/)
+  if (foldersMatch?.[1]) return foldersMatch[1]
+  const idMatch = url.match(/[?&]id=([a-zA-Z0-9_-]+)/)
+  if (idMatch?.[1]) return idMatch[1]
+  return null
+}
+
+export async function mergeWorkers(targetWorkerId: string, sourceWorkerIds: string[]) {
+  await requireAdmin()
+  const sourceIds = Array.from(new Set(sourceWorkerIds.filter(id => id && id !== targetWorkerId)))
+  if (!targetWorkerId || sourceIds.length === 0) {
+    throw new Error('기준 근로자와 병합할 근로자를 선택하세요.')
+  }
+
+  const result = await prisma.$transaction(async tx => {
+    const target = await tx.worker.findUnique({ where: { id: targetWorkerId } })
+    if (!target) throw new Error('기준 근로자를 찾을 수 없습니다.')
+
+    const sources = await tx.worker.findMany({ where: { id: { in: sourceIds } } })
+    if (sources.length !== sourceIds.length) throw new Error('병합할 근로자 중 찾을 수 없는 항목이 있습니다.')
+
+    const targetDriveFolderUrl = target.driveFolderUrl || sources.find(source => source.driveFolderUrl)?.driveFolderUrl || null
+    const targetDriveFolderId = driveFolderIdFromUrl(targetDriveFolderUrl)
+    const targetPatch: any = {}
+    for (const source of sources) {
+      if (!targetPatch.phone && !target.phone && source.phone) targetPatch.phone = source.phone
+      if (!targetPatch.company && !target.company && source.company) targetPatch.company = source.company
+      if (!targetPatch.jobType && !target.jobType && source.jobType) targetPatch.jobType = source.jobType
+      if (!targetPatch.birthDate && !target.birthDate && source.birthDate) targetPatch.birthDate = source.birthDate
+      if (!targetPatch.birthYYMMDD && !target.birthYYMMDD && source.birthYYMMDD) targetPatch.birthYYMMDD = source.birthYYMMDD
+      if (!targetPatch.gender && !target.gender && source.gender) targetPatch.gender = source.gender
+      if (!targetPatch.safetyEduDate && !target.safetyEduDate && source.safetyEduDate) targetPatch.safetyEduDate = source.safetyEduDate
+      if (!targetPatch.safetyEduNumber && !target.safetyEduNumber && source.safetyEduNumber) targetPatch.safetyEduNumber = source.safetyEduNumber
+      if (!targetPatch.bankName && !target.bankName && source.bankName) targetPatch.bankName = source.bankName
+      if (!targetPatch.accountNumber && !target.accountNumber && source.accountNumber) targetPatch.accountNumber = source.accountNumber
+      if (!targetPatch.driveFolderUrl && !target.driveFolderUrl && source.driveFolderUrl) targetPatch.driveFolderUrl = source.driveFolderUrl
+      if (!targetPatch.photoUrl && !target.photoUrl && source.photoUrl) targetPatch.photoUrl = source.photoUrl
+      if (!targetPatch.faceDescriptor && !target.faceDescriptor && source.faceDescriptor) targetPatch.faceDescriptor = source.faceDescriptor
+      if (!target.basicSafetyEdu && source.basicSafetyEdu) targetPatch.basicSafetyEdu = true
+      if (target.documentStatus !== 'COMPLETE' && source.documentStatus === 'COMPLETE') targetPatch.documentStatus = 'COMPLETE'
+    }
+
+    if (Object.keys(targetPatch).length > 0) {
+      await tx.worker.update({ where: { id: targetWorkerId }, data: targetPatch })
+    }
+
+    for (const source of sources) {
+      const sourceAttendances = await tx.attendance.findMany({ where: { workerId: source.id } })
+      for (const sourceAttendance of sourceAttendances) {
+        const targetAttendance = await tx.attendance.findUnique({
+          where: { workerId_date: { workerId: targetWorkerId, date: sourceAttendance.date } },
+        })
+
+        if (!targetAttendance) {
+          await tx.attendance.update({ where: { id: sourceAttendance.id }, data: { workerId: targetWorkerId } })
+          continue
+        }
+
+        await tx.attendance.update({
+          where: { id: targetAttendance.id },
+          data: {
+            siteId: targetAttendance.siteId || sourceAttendance.siteId,
+            siteName: targetAttendance.siteName || sourceAttendance.siteName,
+            checkInAt: targetAttendance.checkInAt || sourceAttendance.checkInAt,
+            checkInPhotoUrl: targetAttendance.checkInPhotoUrl || sourceAttendance.checkInPhotoUrl,
+            checkInLat: targetAttendance.checkInLat ?? sourceAttendance.checkInLat,
+            checkInLng: targetAttendance.checkInLng ?? sourceAttendance.checkInLng,
+            checkInScore: targetAttendance.checkInScore ?? sourceAttendance.checkInScore,
+            checkOutAt: targetAttendance.checkOutAt || sourceAttendance.checkOutAt,
+            checkOutPhotoUrl: targetAttendance.checkOutPhotoUrl || sourceAttendance.checkOutPhotoUrl,
+            checkOutLat: targetAttendance.checkOutLat ?? sourceAttendance.checkOutLat,
+            checkOutLng: targetAttendance.checkOutLng ?? sourceAttendance.checkOutLng,
+            checkOutScore: targetAttendance.checkOutScore ?? sourceAttendance.checkOutScore,
+            workMinutes: targetAttendance.workMinutes ?? sourceAttendance.workMinutes,
+            verifyStatus: targetAttendance.verifyStatus === 'CONFIRMED' ? 'CONFIRMED' : sourceAttendance.verifyStatus,
+            note: [targetAttendance.note, sourceAttendance.note, `중복 근로자 ${source.name} 병합`].filter(Boolean).join(' / '),
+          },
+        })
+        await tx.attendance.delete({ where: { id: sourceAttendance.id } })
+      }
+
+      await tx.workerDocument.updateMany({
+        where: { workerId: source.id },
+        data: {
+          workerId: targetWorkerId,
+          workerName: target.name,
+          birthYYMMDD: target.birthYYMMDD || source.birthYYMMDD,
+          driveFolderUrl: targetDriveFolderUrl,
+          note: `관리자 병합: ${source.name} -> ${target.name}`,
+        },
+      })
+
+      await tx.labor.updateMany({ where: { name: source.name }, data: { name: target.name } })
+      await tx.worker.update({
+        where: { id: source.id },
+        data: { isActive: false, name: `${source.name} (병합됨)`, documentStatus: 'MERGED' },
+      })
+    }
+
+    revalidatePath('/workers')
+    revalidatePath('/')
+    const driveMoves = targetDriveFolderId
+      ? sources
+        .map(source => ({
+          sourceWorkerName: source.name,
+          sourceFolderId: driveFolderIdFromUrl(source.driveFolderUrl),
+          targetFolderId: targetDriveFolderId,
+        }))
+        .filter(move => move.sourceFolderId && move.sourceFolderId !== move.targetFolderId)
+      : []
+
+    return { targetWorkerId, mergedCount: sources.length, driveMoves }
+  })
+
+  let driveMovedCount = 0
+  let driveTrashedFolderCount = 0
+  const driveMoveErrors: string[] = []
+  for (const move of result.driveMoves) {
+    try {
+      const files = await listDriveFolderFiles(move.sourceFolderId!, 100)
+      for (const file of files) {
+        await moveDriveFileToFolder(file.id, move.targetFolderId, move.sourceFolderId)
+        driveMovedCount++
+      }
+      await trashDriveFile(move.sourceFolderId!)
+      driveTrashedFolderCount++
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      driveMoveErrors.push(`${move.sourceWorkerName}: ${message}`)
+    }
+  }
+
+  return { ...result, driveMovedCount, driveTrashedFolderCount, driveMoveErrors }
+}
+
+export async function checkIn(data: {
+  workerId: string; date: string; siteId?: string | null; siteName?: string | null
+  photoUrl?: string | null; lat?: number | null; lng?: number | null; score?: number | null; verifyStatus?: string
+}) {
+  const dateVal = new Date(data.date)
+  const existing = await prisma.attendance.findUnique({
+    where: { workerId_date: { workerId: data.workerId, date: dateVal } },
+  })
+  if (existing && existing.checkInAt) return { record: existing, already: true as const }
+
+  if (existing) {
+    const row = await prisma.attendance.update({
+      where: { id: existing.id },
+      data: {
+        siteId: data.siteId ?? existing.siteId,
+        siteName: data.siteName ?? existing.siteName,
+        checkInAt: new Date(),
+        checkInPhotoUrl: data.photoUrl ?? null,
+        checkInLat: data.lat ?? null, checkInLng: data.lng ?? null, checkInScore: data.score ?? null,
+        verifyStatus: data.verifyStatus || 'REVIEW',
+      },
+    })
+    return { record: row, already: false as const }
+  }
+
+  const row = await prisma.attendance.create({
+    data: {
+      workerId: data.workerId, siteId: data.siteId ?? null, siteName: data.siteName ?? null,
+      date: dateVal, checkInAt: new Date(),
+      checkInPhotoUrl: data.photoUrl ?? null,
+      checkInLat: data.lat ?? null, checkInLng: data.lng ?? null, checkInScore: data.score ?? null,
+      verifyStatus: data.verifyStatus || 'REVIEW',
+    },
+  })
+  return { record: row, already: false as const }
+}
+
+// 퇴근: 당일 기록에 퇴근정보 + 근무시간(분) 자동계산
+export async function checkOut(data: {
+  workerId: string; date: string; photoUrl?: string | null; lat?: number | null; lng?: number | null; score?: number | null
+}) {
+  const dateVal = new Date(data.date)
+  const existing = await prisma.attendance.findUnique({
+    where: { workerId_date: { workerId: data.workerId, date: dateVal } },
+  })
+  if (!existing || !existing.checkInAt) throw new Error('출근 기록이 없습니다. 먼저 출근 체크를 해주세요.')
+  if (existing.checkOutAt) return { record: existing, already: true as const }
+
+  const now = new Date()
+  const workMinutes = Math.max(0, Math.round((now.getTime() - new Date(existing.checkInAt).getTime()) / 60000))
+  const row = await prisma.attendance.update({
+    where: { id: existing.id },
+    data: {
+      checkOutAt: now, checkOutPhotoUrl: data.photoUrl ?? null,
+      checkOutLat: data.lat ?? null, checkOutLng: data.lng ?? null, checkOutScore: data.score ?? null,
+      workMinutes,
+    },
+  })
+  return { record: row, already: false as const }
+}
+
+export async function setAttendanceVerify(id: string, verifyStatus: string, note?: string) {
+  await requireAdmin()
+  const patch: any = { verifyStatus }
+  if (note !== undefined) patch.note = note
+  await prisma.attendance.update({ where: { id }, data: patch })
+  revalidatePath('/workers')
+}
+
+export async function getTodayAttendance(workerId: string, date: string) {
+  return prisma.attendance.findUnique({
+    where: { workerId_date: { workerId, date: new Date(date) } },
+  })
+}
+
+// 날짜별 전체 출퇴근 (근로자 조인) — 프론트가 r.Worker로 읽으므로 Worker 키 유지
+export async function getAttendanceByDate(date: string) {
+  const rows = await prisma.attendance.findMany({
+    where: { date: new Date(date) },
+    include: { worker: true },
+    orderBy: { checkInAt: 'asc' },
+  })
+  return rows.map(r => ({ ...r, Worker: r.worker }))
+}
+
+// 웹 푸시 구독 저장 (endpoint 중복 시 갱신)
+export async function savePushSub(sub: { endpoint: string; p256dh: string; auth: string }, label?: string, userName?: string) {
+  const row = await prisma.pushSub.upsert({
+    where: { endpoint: sub.endpoint },
+    update: { p256dh: sub.p256dh, auth: sub.auth, label: label ?? null, userName: userName ?? null },
+    create: { endpoint: sub.endpoint, p256dh: sub.p256dh, auth: sub.auth, label: label ?? null, userName: userName ?? null },
+  })
+  return row.id
+}
+
+// 월별 출퇴근 (정산/집계용)
+export async function getAttendanceByMonth(year: number, month: number, siteId?: string) {
+  if (siteId) await requireSiteAccess(siteId)
+  else await requireAdmin() // 현장 미지정 시 전체 현장 조회이므로 관리자만 허용
+  const start = new Date(year, month - 1, 1)
+  const end = new Date(year, month, 0, 23, 59, 59)
+  const rows = await prisma.attendance.findMany({
+    where: { date: { gte: start, lte: end }, ...(siteId ? { siteId } : {}) },
+    include: { worker: true },
+    orderBy: { date: 'asc' },
+  })
+  return rows.map(r => ({ ...r, Worker: r.worker }))
+}
+
+type WorkerDocumentAnalysis = {
+  workerName?: string
+  birthYYMMDD?: string
+  documentTypes?: string[]
+  idType?: string
+  bankName?: string
+  accountNumber?: string
+  safetyEduNumber?: string
+  safetyEduComplete?: boolean
+  confidence?: number
+  needsReview?: boolean
+  notes?: string
+}
+
+const WORKER_DOCUMENT_PROMPT = `이 이미지는 건설현장 근로자 등록 서류입니다.
+한 장에 신분증/운전면허증/통장사본/건설업 기초안전보건교육 이수증이 함께 있거나 일부만 있을 수 있습니다.
+반드시 JSON 하나로만 응답하세요. 모르는 값은 빈 문자열, 확실하지 않은 값은 notes에 이유를 적고 needsReview=true로 두세요.
+주민등록번호는 전체를 쓰지 말고 생년월일 앞 6자리만 birthYYMMDD에 쓰세요.
+계좌번호는 보이는 그대로 적되 공백은 제거하고 하이픈은 유지하세요.
+documentTypes는 다음 값 중 해당하는 것을 배열로 쓰세요: ID_CARD, DRIVER_LICENSE, BANKBOOK, SAFETY_EDU, OTHER.
+{
+  "workerName": "근로자 이름",
+  "birthYYMMDD": "생년월일 6자리",
+  "documentTypes": ["ID_CARD"],
+  "idType": "주민등록증 또는 운전면허증",
+  "bankName": "은행명",
+  "accountNumber": "계좌번호",
+  "safetyEduNumber": "안전교육 이수번호",
+  "safetyEduComplete": true,
+  "confidence": 0.0,
+  "needsReview": true,
+  "notes": "검토 사유"
+}`
+
+function parseJsonObject(text: string) {
+  const match = text.match(/\{[\s\S]*\}/)
+  if (!match) throw new Error('AI 응답에서 JSON을 찾지 못했습니다.')
+  return JSON.parse(match[0])
+}
+
+function imageDimensions(buffer: Buffer, mimeType: string) {
+  if (mimeType === 'image/png' && buffer.length >= 24 && buffer.toString('ascii', 1, 4) === 'PNG') {
+    return { width: buffer.readUInt32BE(16), height: buffer.readUInt32BE(20) }
+  }
+
+  if (mimeType === 'image/jpeg') {
+    let offset = 2
+    while (offset < buffer.length) {
+      if (buffer[offset] !== 0xff) break
+      const marker = buffer[offset + 1]
+      const length = buffer.readUInt16BE(offset + 2)
+      if (marker >= 0xc0 && marker <= 0xc3) {
+        return { height: buffer.readUInt16BE(offset + 5), width: buffer.readUInt16BE(offset + 7) }
+      }
+      offset += 2 + length
+    }
+  }
+
+  return { width: 0, height: 0 }
+}
+
+function documentTypesFromAnalysis(analysis: WorkerDocumentAnalysis) {
+  const allowed = new Set(['ID_CARD', 'DRIVER_LICENSE', 'BANKBOOK', 'SAFETY_EDU', 'OTHER'])
+  const types = (analysis.documentTypes || []).filter(type => allowed.has(type))
+  if (analysis.idType && !types.includes('ID_CARD') && !types.includes('DRIVER_LICENSE')) types.push('ID_CARD')
+  if ((analysis.bankName || analysis.accountNumber) && !types.includes('BANKBOOK')) types.push('BANKBOOK')
+  if ((analysis.safetyEduNumber || analysis.safetyEduComplete) && !types.includes('SAFETY_EDU')) types.push('SAFETY_EDU')
+  return types.length ? types : ['OTHER']
+}
+
+function workerDocumentStatus(analysis: WorkerDocumentAnalysis, qualityNeedsReview: boolean) {
+  const types = documentTypesFromAnalysis(analysis)
+  const hasId = types.some(type => type === 'ID_CARD' || type === 'DRIVER_LICENSE') && !!analysis.birthYYMMDD
+  const hasBank = !!analysis.bankName && !!analysis.accountNumber
+  const hasSafety = !!analysis.safetyEduNumber || analysis.safetyEduComplete === true
+  if (hasId && hasBank && hasSafety && !analysis.needsReview && !qualityNeedsReview) return 'COMPLETE'
+  if (hasId || hasBank || hasSafety) return 'REVIEW'
+  return 'INCOMPLETE'
+}
+
+function safeDriveFolderName(name: string, birthYYMMDD?: string | null) {
+  const suffix = birthYYMMDD || '생년미상'
+  return `${name}_${suffix}`.replace(/[\\/:*?"<>|]/g, '_')
+}
+
+async function appendWorkerDocumentLog(row: unknown[]) {
+  const spreadsheetId = process.env.GOOGLE_WORKER_MASTER_SPREADSHEET_ID
+  if (!spreadsheetId) return
+  await appendSheetValues(spreadsheetId, '서류로그', [row])
+}
+
+async function analyzeWorkerDocumentImage(buffer: Buffer, mimeType: string) {
+  const apiKey = process.env.GOOGLE_GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY
+  if (!apiKey) throw new Error('GOOGLE_GEMINI_API_KEY 또는 GOOGLE_GENERATIVE_AI_API_KEY가 설정되지 않았습니다.')
+  const ai = new GoogleGenAI({ apiKey })
+  const response = await ai.models.generateContent({
+    model: 'gemini-2.5-flash',
+    contents: [
+      {
+        role: 'user',
+        parts: [
+          { inlineData: { data: buffer.toString('base64'), mimeType } },
+          { text: WORKER_DOCUMENT_PROMPT },
+        ],
+      },
+    ],
+  })
+  return parseJsonObject(response.text ?? '') as WorkerDocumentAnalysis
+}
+
+// ════════════════════════════════════════════════════════════════
+//  Google Drive 노무관리 연계
+// ════════════════════════════════════════════════════════════════
+export async function syncWorkersFromDriveMaster(rows: Array<Record<string, any>>, sourceUrl?: string) {
+  const user = await requireAdmin()
+  const job = await prisma.driveSyncJob.create({
+    data: {
+      type: 'WORKER_MASTER_IMPORT',
+      status: 'RUNNING',
+      sourceUrl: sourceUrl || null,
+      startedAt: new Date(),
+      createdBy: user.name,
+    },
+  })
+
+  let created = 0
+  let updated = 0
+  let skipped = 0
+
+  try {
+    for (const row of rows) {
+      const name = String(row['근로자명'] || row['성명'] || '').trim()
+      const birthYYMMDD = String(row['생년월일'] || '').replace(/[^\d]/g, '').slice(0, 6)
+      if (!name) {
+        skipped++
+        continue
+      }
+
+      const patch = {
+        name,
+        birthYYMMDD: birthYYMMDD || null,
+        bankName: row['은행명'] || null,
+        accountNumber: row['계좌번호'] || null,
+        safetyEduNumber: row['안전교육번호'] || null,
+        basicSafetyEdu: String(row['안전교육'] || '').includes('이수'),
+        documentStatus: docStatusFromText(row['서류완비']),
+        driveFolderUrl: row['폴더링크'] || null,
+      }
+
+      const existing = await prisma.worker.findFirst({
+        where: birthYYMMDD ? { name, birthYYMMDD } : { name },
+      })
+
+      if (existing) {
+        await prisma.worker.update({ where: { id: existing.id }, data: patch })
+        updated++
+      } else {
+        await prisma.worker.create({ data: patch })
+        created++
+      }
+    }
+
+    const result = { created, updated, skipped, total: rows.length }
+    await prisma.driveSyncJob.update({
+      where: { id: job.id },
+      data: { status: 'SUCCESS', finishedAt: new Date(), result },
+    })
+    revalidatePath('/workers')
+    return result
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    await prisma.driveSyncJob.update({
+      where: { id: job.id },
+      data: { status: 'FAILED', finishedAt: new Date(), error: message },
+    })
+    throw err
+  }
+}
+
+export async function syncWorkersFromConfiguredDriveMaster() {
+  await requireAdmin()
+  const spreadsheetId = process.env.GOOGLE_WORKER_MASTER_SPREADSHEET_ID
+  const sheetName = process.env.GOOGLE_WORKER_MASTER_SHEET_NAME || '근로자마스터'
+  if (!spreadsheetId) throw new Error('GOOGLE_WORKER_MASTER_SPREADSHEET_ID가 설정되지 않았습니다.')
+
+  const values = await readSheetValues(spreadsheetId, sheetName, 'A1:L1000')
+  const rows = rowsToObjects(values)
+  return syncWorkersFromDriveMaster(
+    rows,
+    `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit#gid=0`,
+  )
+}
+
+export async function processPendingWorkerDocuments(limit: number = 10) {
+  const user = await requireAdmin()
+  const pendingFolderId = process.env.GOOGLE_WORKER_DOC_PENDING_FOLDER_ID
+  const completedFolderId = process.env.GOOGLE_WORKER_DOC_COMPLETED_FOLDER_ID
+  const failedFolderId = process.env.GOOGLE_WORKER_DOC_FAILED_FOLDER_ID
+
+  if (!pendingFolderId) throw new Error('GOOGLE_WORKER_DOC_PENDING_FOLDER_ID가 설정되지 않았습니다.')
+  if (!completedFolderId) throw new Error('GOOGLE_WORKER_DOC_COMPLETED_FOLDER_ID가 설정되지 않았습니다.')
+  if (!failedFolderId) throw new Error('GOOGLE_WORKER_DOC_FAILED_FOLDER_ID가 설정되지 않았습니다.')
+
+  const job = await prisma.driveSyncJob.create({
+    data: {
+      type: 'DOCUMENT_SCAN',
+      status: 'RUNNING',
+      sourceUrl: `https://drive.google.com/drive/folders/${pendingFolderId}`,
+      startedAt: new Date(),
+      createdBy: user.name,
+    },
+  })
+
+  let processed = 0
+  let completed = 0
+  let review = 0
+  let failed = 0
+  const details: any[] = []
+
+  try {
+    const files = (await listDriveFolderFiles(pendingFolderId, Math.min(Math.max(limit, 1), 50)))
+      .filter(file => ['image/jpeg', 'image/png'].includes(file.mimeType))
+
+    for (const file of files) {
+      processed++
+      const sourceUrl = file.webViewLink || `https://drive.google.com/file/d/${file.id}/view`
+
+      try {
+        const buffer = await downloadDriveFile(file.id)
+        const dimensions = imageDimensions(buffer, file.mimeType)
+        const qualityNeedsReview = buffer.length < 250_000 || dimensions.width < 1600 || dimensions.height < 900
+        const analysis = await analyzeWorkerDocumentImage(buffer, file.mimeType)
+        const workerName = String(analysis.workerName || '').trim()
+        const birthYYMMDD = String(analysis.birthYYMMDD || '').replace(/[^\d]/g, '').slice(0, 6)
+        const status = workerDocumentStatus({ ...analysis, birthYYMMDD }, qualityNeedsReview)
+        const noteParts = [
+          analysis.notes || '',
+          qualityNeedsReview ? `이미지 품질 검토 필요(${dimensions.width}x${dimensions.height}, ${buffer.length} bytes)` : '',
+        ].filter(Boolean)
+        const note = noteParts.join(' / ')
+
+        if (!workerName) {
+          const moved = await moveDriveFileToFolder(file.id, failedFolderId, pendingFolderId)
+          failed++
+          await appendWorkerDocumentLog([
+            ymd(new Date()),
+            '',
+            birthYYMMDD,
+            '',
+            JSON.stringify(analysis),
+            file.name,
+            `https://drive.google.com/drive/folders/${failedFolderId}`,
+            file.id,
+            '검토필요',
+            note || '근로자명 판독 실패',
+          ])
+          details.push({ fileName: file.name, status: 'FAILED', reason: '근로자명 판독 실패', parents: moved?.parents })
+          continue
+        }
+
+        const folderName = safeDriveFolderName(workerName, birthYYMMDD)
+        const workerFolder = await findDriveFolderByName(completedFolderId, folderName)
+          || await createDriveFolder(folderName, completedFolderId)
+        const moved = await moveDriveFileToFolder(file.id, workerFolder.id, pendingFolderId)
+        const driveFileUrl = sourceUrl
+        const driveFolderUrl = workerFolder.url
+        const existing = await prisma.worker.findFirst({
+          where: birthYYMMDD ? { name: workerName, birthYYMMDD } : { name: workerName },
+        })
+        const nextWorkerStatus = status === 'COMPLETE'
+          ? 'COMPLETE'
+          : existing?.documentStatus === 'COMPLETE'
+            ? 'COMPLETE'
+            : status
+        const workerPatch = {
+          name: workerName,
+          birthYYMMDD: birthYYMMDD || null,
+          bankName: analysis.bankName || existing?.bankName || null,
+          accountNumber: analysis.accountNumber || existing?.accountNumber || null,
+          safetyEduNumber: analysis.safetyEduNumber || existing?.safetyEduNumber || null,
+          basicSafetyEdu: analysis.safetyEduComplete === true || existing?.basicSafetyEdu || !!analysis.safetyEduNumber,
+          documentStatus: nextWorkerStatus,
+          driveFolderUrl,
+        }
+        const worker = existing
+          ? await prisma.worker.update({ where: { id: existing.id }, data: workerPatch })
+          : await prisma.worker.create({ data: workerPatch })
+
+        const documentTypes = documentTypesFromAnalysis(analysis)
+        for (const documentType of documentTypes) {
+          await prisma.workerDocument.create({
+            data: {
+              workerId: worker.id,
+              workerName,
+              birthYYMMDD: birthYYMMDD || null,
+              documentType,
+              driveFileId: file.id,
+              driveFileUrl,
+              driveFolderUrl,
+              sourceFileName: file.name,
+              extractedData: analysis as any,
+              confidence: typeof analysis.confidence === 'number' ? analysis.confidence : null,
+              status: status === 'COMPLETE' ? 'SUCCESS' : 'REVIEW',
+              note,
+            },
+          })
+          await appendWorkerDocumentLog([
+            ymd(new Date()),
+            workerName,
+            birthYYMMDD,
+            documentType,
+            JSON.stringify(analysis),
+            file.name,
+            driveFolderUrl,
+            file.id,
+            status === 'COMPLETE' ? '성공' : '검토필요',
+            note,
+          ])
+        }
+
+        if (status === 'COMPLETE') completed++
+        else review++
+        details.push({ fileName: file.name, workerName, birthYYMMDD, status, documentTypes, parents: moved?.parents })
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err)
+        const moved = await moveDriveFileToFolder(file.id, failedFolderId, pendingFolderId)
+        failed++
+        await prisma.workerDocument.create({
+          data: {
+            documentType: 'OTHER',
+            driveFileId: file.id,
+            driveFileUrl: sourceUrl,
+            driveFolderUrl: `https://drive.google.com/drive/folders/${failedFolderId}`,
+            sourceFileName: file.name,
+            status: 'FAILED',
+            note: message,
+          },
+        })
+        await appendWorkerDocumentLog([
+          ymd(new Date()),
+          '',
+          '',
+          '',
+          '',
+          file.name,
+          `https://drive.google.com/drive/folders/${failedFolderId}`,
+          file.id,
+          '실패',
+          message,
+        ])
+        details.push({ fileName: file.name, status: 'FAILED', reason: message, parents: moved?.parents })
+      }
+    }
+
+    const result = { processed, completed, review, failed, details }
+    await prisma.driveSyncJob.update({
+      where: { id: job.id },
+      data: {
+        status: 'SUCCESS',
+        targetUrl: `https://drive.google.com/drive/folders/${completedFolderId}`,
+        finishedAt: new Date(),
+        result,
+      },
+    })
+    revalidatePath('/')
+    revalidatePath('/workers')
+    return result
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    await prisma.driveSyncJob.update({
+      where: { id: job.id },
+      data: { status: 'FAILED', finishedAt: new Date(), error: message },
+    })
+    throw err
+  }
+}
+
+export async function getDriveSyncJobs(limit: number = 20) {
+  await requireAdmin()
+  return prisma.driveSyncJob.findMany({
+    orderBy: { createdAt: 'desc' },
+    take: Math.min(Math.max(limit, 1), 100),
+  })
+}
+
+export async function getWorkerDocumentReviews(limit: number = 30) {
+  await requireAdmin()
+  const docs = await prisma.workerDocument.findMany({
+    orderBy: { processedAt: 'desc' },
+    take: Math.min(Math.max(limit, 1), 100),
+    include: {
+      worker: {
+        select: {
+          id: true,
+          name: true,
+          birthYYMMDD: true,
+          bankName: true,
+          accountNumber: true,
+          safetyEduNumber: true,
+          documentStatus: true,
+        },
+      },
+    },
+  })
+
+  return docs.map(doc => ({
+    id: doc.id,
+    workerId: doc.workerId,
+    workerName: doc.workerName,
+    birthYYMMDD: doc.birthYYMMDD,
+    documentType: doc.documentType,
+    driveFileId: doc.driveFileId,
+    driveFileUrl: doc.driveFileUrl,
+    driveFolderUrl: doc.driveFolderUrl,
+    sourceFileName: doc.sourceFileName,
+    extractedData: doc.extractedData,
+    confidence: doc.confidence,
+    status: doc.status,
+    note: doc.note,
+    processedAt: doc.processedAt,
+    worker: doc.worker,
+  }))
+}
+
+export async function saveWorkerDocumentReview(documentId: string, data: any, approve: boolean = false) {
+  await requireAdmin()
+  const doc = await prisma.workerDocument.findUnique({ where: { id: documentId } })
+  if (!doc) throw new Error('검수할 서류를 찾을 수 없습니다.')
+
+  const workerName = String(data.workerName || doc.workerName || '').trim()
+  const birthYYMMDD = String(data.birthYYMMDD || doc.birthYYMMDD || '').replace(/[^\d]/g, '').slice(0, 6)
+  if (approve && !workerName) throw new Error('승인하려면 근로자 이름이 필요합니다.')
+
+  const extractedData = {
+    ...((doc.extractedData as any) || {}),
+    workerName,
+    birthYYMMDD,
+    bankName: data.bankName || '',
+    accountNumber: data.accountNumber || '',
+    safetyEduNumber: data.safetyEduNumber || '',
+    safetyEduComplete: !!data.safetyEduComplete,
+    reviewedByAdmin: true,
+  }
+
+  let workerId = data.workerId || doc.workerId || null
+  let driveFolderUrl = doc.driveFolderUrl
+
+  if (approve) {
+    const existing = workerId
+      ? await prisma.worker.findUnique({ where: { id: workerId } })
+      : await prisma.worker.findFirst({
+        where: birthYYMMDD ? { name: workerName, birthYYMMDD } : { name: workerName },
+      })
+
+    const hasId = !!birthYYMMDD && ['ID_CARD', 'DRIVER_LICENSE'].includes(data.documentType || doc.documentType)
+    const hasBank = !!data.bankName && !!data.accountNumber
+    const hasSafety = !!data.safetyEduNumber || !!data.safetyEduComplete
+    const nextDocumentStatus = hasId || hasBank || hasSafety ? 'COMPLETE' : 'REVIEW'
+
+    const workerPatch = {
+      name: workerName,
+      birthYYMMDD: birthYYMMDD || existing?.birthYYMMDD || null,
+      bankName: data.bankName || existing?.bankName || null,
+      accountNumber: data.accountNumber || existing?.accountNumber || null,
+      safetyEduNumber: data.safetyEduNumber || existing?.safetyEduNumber || null,
+      basicSafetyEdu: !!data.safetyEduComplete || existing?.basicSafetyEdu || !!data.safetyEduNumber,
+      documentStatus: existing?.documentStatus === 'COMPLETE' ? 'COMPLETE' : nextDocumentStatus,
+      driveFolderUrl: driveFolderUrl || existing?.driveFolderUrl || null,
+      isActive: true,
+    }
+
+    const worker = existing
+      ? await prisma.worker.update({ where: { id: existing.id }, data: workerPatch })
+      : await prisma.worker.create({ data: workerPatch })
+    workerId = worker.id
+    driveFolderUrl = worker.driveFolderUrl || driveFolderUrl
+  }
+
+  const updated = await prisma.workerDocument.update({
+    where: { id: documentId },
+    data: {
+      workerId,
+      workerName: workerName || null,
+      birthYYMMDD: birthYYMMDD || null,
+      documentType: data.documentType || doc.documentType,
+      driveFolderUrl,
+      extractedData,
+      confidence: typeof data.confidence === 'number' ? data.confidence : doc.confidence,
+      status: approve ? 'SUCCESS' : (data.status || doc.status || 'REVIEW'),
+      note: data.note || null,
+    },
+  })
+
+  revalidatePath('/')
+  revalidatePath('/workers')
+  return updated
+}
+
+export async function generateMonthlyLaborBilling(siteId: string, year: number, month: number) {
+  const user = await requireAdmin()
+  const start = new Date(year, month - 1, 1)
+  const end = new Date(year, month, 0, 23, 59, 59)
+  const site = await prisma.site.findUnique({ where: { id: siteId } })
+  if (!site) throw new Error('현장을 찾을 수 없습니다.')
+
+  const logs = await prisma.dailyLog.findMany({
+    where: { siteId, date: { gte: start, lte: end } },
+    include: { labors: true },
+    orderBy: { date: 'asc' },
+  })
+
+  const workers = await prisma.worker.findMany()
+  const workerByName = new Map(workers.map(w => [w.name, w]))
+  const groups = new Map<string, any>()
+
+  for (const log of logs) {
+    for (const labor of log.labors) {
+      const key = `${labor.name}::${labor.jobType}::${labor.unitPrice}`
+      const worker = workerByName.get(labor.name)
+      const current = groups.get(key) || {
+        name: labor.name,
+        birthYYMMDD: worker?.birthYYMMDD || null,
+        jobType: labor.jobType,
+        amount: 0,
+        unitPrice: labor.unitPrice,
+        totalPrice: 0,
+        bankName: worker?.bankName || null,
+        accountNumber: worker?.accountNumber || null,
+        documentStatus: worker?.documentStatus || 'UNREGISTERED',
+        driveFolderUrl: worker?.driveFolderUrl || null,
+        note: worker ? '' : '근로자마스터 미등록',
+      }
+      current.amount += parseAmount(labor.amount)
+      current.totalPrice += parseMoney(labor.totalPrice)
+      groups.set(key, current)
+    }
+  }
+
+  const items = Array.from(groups.values()).sort((a, b) => a.name.localeCompare(b.name, 'ko'))
+  const totalLaborCost = items.reduce((sum, item) => sum + item.totalPrice, 0)
+  const totalLaborAmount = items.reduce((sum, item) => sum + item.amount, 0)
+  const readyWorkerCount = items.filter(item => item.documentStatus === 'COMPLETE').length
+  const holdWorkerCount = items.length - readyWorkerCount
+
+  const billing = await prisma.monthlyBilling.upsert({
+    where: { siteId_year_month: { siteId, year, month } },
+    update: {
+      totalLaborCost,
+      totalLaborAmount,
+      workerCount: items.length,
+      readyWorkerCount,
+      holdWorkerCount,
+      summary: { siteName: site.name, items },
+      createdBy: user.name,
+      status: 'DRAFT',
+    },
+    create: {
+      siteId,
+      year,
+      month,
+      totalLaborCost,
+      totalLaborAmount,
+      workerCount: items.length,
+      readyWorkerCount,
+      holdWorkerCount,
+      summary: { siteName: site.name, items },
+      createdBy: user.name,
+      status: 'DRAFT',
+    },
+  })
+
+  return { billing, items }
+}
+
+export async function exportMonthlyLaborBillingToDrive(siteId: string, year: number, month: number) {
+  const user = await requireAdmin()
+  const outputFolderId = process.env.GOOGLE_BILLING_OUTPUT_FOLDER_ID
+  if (!outputFolderId) throw new Error('GOOGLE_BILLING_OUTPUT_FOLDER_ID가 설정되지 않았습니다.')
+
+  const { billing, items } = await generateMonthlyLaborBilling(siteId, year, month)
+  const site = await prisma.site.findUnique({ where: { id: siteId } })
+  if (!site) throw new Error('현장을 찾을 수 없습니다.')
+
+  const ym = `${year}-${String(month).padStart(2, '0')}`
+  const safeSiteName = site.name.replace(/[\\/:*?"<>|]/g, '_')
+  const title = `${safeSiteName}_월별노무투입명세_${ym}`
+  const sheetName = '월별투입명세'
+
+  const spreadsheet = await createSpreadsheet(title, sheetName)
+  await moveDriveFileToFolder(spreadsheet.id, outputFolderId)
+
+  const rows = monthlyBillingRows({
+    siteName: site.name,
+    year,
+    month,
+    totalLaborCost: billing.totalLaborCost,
+    workerCount: billing.workerCount,
+    readyWorkerCount: billing.readyWorkerCount,
+    holdWorkerCount: billing.holdWorkerCount,
+    items,
+  })
+  await writeSheetValues(spreadsheet.id, sheetName, rows)
+  await formatMonthlyBillingSheet(spreadsheet.id, spreadsheet.sheetId, rows.length)
+
+  const pdf = await exportSpreadsheetPdf(spreadsheet.id)
+  const pdfFile = await uploadPdfToDrive(`${title}.pdf`, pdf, outputFolderId)
+
+  const updated = await prisma.monthlyBilling.update({
+    where: { id: billing.id },
+    data: {
+      sheetUrl: spreadsheet.url,
+      pdfUrl: pdfFile.url,
+      status: 'EXPORTED',
+      createdBy: user.name,
+    },
+  })
+
+  await prisma.driveSyncJob.create({
+    data: {
+      type: 'BILLING_EXPORT',
+      status: 'SUCCESS',
+      sourceUrl: spreadsheet.url,
+      targetUrl: pdfFile.url,
+      startedAt: new Date(),
+      finishedAt: new Date(),
+      createdBy: user.name,
+      result: { billingId: billing.id, spreadsheetUrl: spreadsheet.url, pdfUrl: pdfFile.url },
+    },
+  })
+
+  return { billing: updated, items, spreadsheetUrl: spreadsheet.url, pdfUrl: pdfFile.url }
+}
+
