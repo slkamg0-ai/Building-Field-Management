@@ -62,6 +62,7 @@ model Worker {
   updatedAt      DateTime     @updatedAt
   attendances    Attendance[]
   documents      WorkerDocument[]
+  labors         Labor[]
 }
 
 // 출퇴근 기록 (하루 1행 / 근로자)
@@ -147,6 +148,8 @@ model Labor {
   id          String   @id @default(cuid())
   logId       String
   log         DailyLog @relation(fields: [logId], references: [id], onDelete: Cascade)
+  workerId    String?  // 근로자 마스터(Worker) 연결 외래키 (동명이인 구분 및 마스터 연동)
+  worker      Worker?  @relation(fields: [workerId], references: [id], onDelete: SetNull)
   name        String   // 노무자 이름
   jobType     String   // 공종
   unitPrice   Int      // 단가
@@ -154,25 +157,73 @@ model Labor {
   totalPrice  Int      // 총 금액
   note        String?  // 비고
   createdBy   String?  // 작성자 이름 기록
+
+  @@index([logId])
+  @@index([workerId])
+  @@index([name])
+}
+
+// 장비 마스터 (건설기계 및 차량 정보 + 조종원)
+model EquipmentMaster {
+  id             String              @id @default(cuid())
+  name           String              // 장비명/차종 (굴착기, 덤프트럭 등)
+  spec           String?             // 규격 또는 차량번호 (06가1234 등)
+  ownerType      String              @default("SUBCONTRACT") // DIRECT(원청 직영) / SUBCONTRACT(당사 투입)
+  driverName     String?             // 조종원 성명
+  driverPhone    String?             // 조종원 연락처
+  unitPrice      Int                 @default(0) // 기본 단가
+  documentStatus String              @default("UNKNOWN") // UNKNOWN, INCOMPLETE, COMPLETE, REVIEW
+  documentUrl    String?             // 대표 서류 URL
+  note           String?
+  isActive       Boolean             @default(true)
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  documents      EquipmentDocument[]
+  equipments     Equipment[]
+
+  @@index([name])
+  @@index([spec])
+}
+
+// 장비 관련 안전서류 (차량등록증, 배상책임보험증권, 조종사면허증 등)
+model EquipmentDocument {
+  id             String           @id @default(cuid())
+  equipmentId    String?
+  equipment      EquipmentMaster? @relation(fields: [equipmentId], references: [id], onDelete: SetNull)
+  documentType   String           // REGISTRATION(등록증), INSURANCE(보험), LICENSE(면허증), OTHER
+  fileUrl        String
+  extractedData  Json?
+  status         String           @default("REVIEW") // SUCCESS, REVIEW, FAILED
+  note           String?
+  processedAt    DateTime         @default(now())
+  createdAt      DateTime         @default(now())
+
+  @@index([equipmentId])
+  @@index([status])
 }
 
 // 장비
 model Equipment {
-  id             String   @id @default(cuid())
+  id             String           @id @default(cuid())
   logId          String
-  log            DailyLog @relation(fields: [logId], references: [id], onDelete: Cascade)
-  name           String   // 장비명
-  spec           String?  // 규격
-  unitPrice      Int      // 단가
-  amount         Float    // 투입시간/일
-  totalPrice     Int      // 총 금액
+  log            DailyLog         @relation(fields: [logId], references: [id], onDelete: Cascade)
+  equipmentMasterId String?       // 장비 마스터 연결 외래키
+  master         EquipmentMaster? @relation(fields: [equipmentMasterId], references: [id], onDelete: SetNull)
+  name           String           // 장비명
+  spec           String?          // 규격
+  unitPrice      Int              // 단가
+  amount         Float            // 투입시간/일
+  totalPrice     Int              // 총 금액
   note           String?
   createdBy      String?
-  ownerType      String   @default("SUBCONTRACT") // DIRECT(원청 직영) / SUBCONTRACT(당사 투입) — 원가·기성 집계 시 구분
-  taskDescription String? // 작업내용 (예: 터파기, 되메우기, 자재 운반 등)
-  documentStatus String   @default("UNKNOWN") // UNKNOWN/INCOMPLETE/COMPLETE/REVIEW — 장비 안전서류 충족여부
-  documentUrl    String?  // 안전서류(보험, 장비등록증 등) 첨부 링크
-  expenses       Expense[] // 이 장비에 연결된 지출(주유비 등)
+  ownerType      String           @default("SUBCONTRACT") // DIRECT(원청 직영) / SUBCONTRACT(당사 투입) — 원가·기성 집계 시 구분
+  taskDescription String?         // 작업내용 (예: 터파기, 되메우기, 자재 운반 등)
+  documentStatus String           @default("UNKNOWN") // UNKNOWN/INCOMPLETE/COMPLETE/REVIEW — 장비 안전서류 충족여부
+  documentUrl    String?          // 안전서류(보험, 장비등록증 등) 첨부 링크
+  expenses       Expense[]        // 이 장비에 연결된 지출(주유비 등)
+
+  @@index([logId])
+  @@index([equipmentMasterId])
 }
 
 // 자재

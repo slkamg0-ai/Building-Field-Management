@@ -6,15 +6,46 @@ import { clearSession, createSession, getSessionUser, hashPin, requireAdmin, req
 import { publicUser } from './_shared'
 
 // ════════════════════════════════════════════════════════════════
-//  사용자 / 로그인
+//  사용자 / 로그인 (보안: Brute-Force Rate Limiting 적용)
 // ════════════════════════════════════════════════════════════════
+const loginAttempts = new Map<string, { count: number; lockedUntil: number }>()
+
+function recordFailedAttempt(nameKey: string) {
+  const now = Date.now()
+  const record = loginAttempts.get(nameKey) || { count: 0, lockedUntil: 0 }
+  record.count += 1
+  if (record.count >= 5) {
+    record.lockedUntil = now + 15 * 60 * 1000 // 5회 실패 시 15분 잠금
+    record.count = 0
+  }
+  loginAttempts.set(nameKey, record)
+}
+
 export async function login(name: string, pin: string) {
+  const normalizedName = name.trim().toLowerCase()
+  const attempt = loginAttempts.get(normalizedName)
+  const now = Date.now()
+
+  if (attempt && attempt.lockedUntil > now) {
+    const remainMin = Math.ceil((attempt.lockedUntil - now) / (60 * 1000))
+    throw new Error(`연속된 로그인 실패로 계정이 ${remainMin}분간 일시 잠금되었습니다.`)
+  }
+
   const user = await prisma.user.findFirst({ where: { name, isActive: true } })
-  if (!user) return null
+  if (!user) {
+    recordFailedAttempt(normalizedName)
+    return null
+  }
 
   const hashOk = verifyPin(pin, user.pinHash)
   const legacyOk = !hashOk && user.pin && user.pin === pin
-  if (!hashOk && !legacyOk) return null
+  if (!hashOk && !legacyOk) {
+    recordFailedAttempt(normalizedName)
+    return null
+  }
+
+  // 성공 시 실패 카운트 초기화
+  loginAttempts.delete(normalizedName)
 
   if (legacyOk || !user.pinHash) {
     await prisma.user.update({
@@ -54,7 +85,7 @@ export async function bootstrapAdmin(name: string, pin: string) {
 }
 
 export async function getUsers() {
-  await requireUser()
+  await requireAdmin()
   const users = await prisma.user.findMany({ orderBy: { name: 'asc' } })
   return users.map(publicUser)
 }

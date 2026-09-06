@@ -73,12 +73,25 @@ async function getServiceAccountAccessToken() {
   return json.access_token as string
 }
 
+let cachedToken: { token: string; expiresAt: number } | null = null
+
 async function getAccessToken() {
+  const now = Date.now()
+  if (cachedToken && cachedToken.expiresAt > now + 300 * 1000) {
+    return cachedToken.token
+  }
+
   const oauthToken = await getOAuthAccessToken()
-  if (oauthToken) return oauthToken
+  if (oauthToken) {
+    cachedToken = { token: oauthToken, expiresAt: now + 3500 * 1000 }
+    return oauthToken
+  }
 
   const serviceAccountToken = await getServiceAccountAccessToken()
-  if (serviceAccountToken) return serviceAccountToken
+  if (serviceAccountToken) {
+    cachedToken = { token: serviceAccountToken, expiresAt: now + 3500 * 1000 }
+    return serviceAccountToken
+  }
 
   throw new Error('Google 인증 환경변수가 설정되지 않았습니다. OAuth 방식은 GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET, GOOGLE_OAUTH_REFRESH_TOKEN이 필요합니다.')
 }

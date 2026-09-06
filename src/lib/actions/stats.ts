@@ -53,20 +53,31 @@ export async function getSiteTotalStats(siteId: string) {
   const site = await prisma.site.findUnique({ where: { id: siteId } })
   if (!site) return null
 
-  const logs = await prisma.dailyLog.findMany({
-    where: { siteId },
-    include: { labors: true, equipments: true, expenses: true, outsourcings: true },
-  })
+  const [laborAgg, equipAgg, expenseAgg, outAgg] = await Promise.all([
+    prisma.labor.aggregate({
+      _sum: { totalPrice: true },
+      where: { log: { siteId } },
+    }),
+    prisma.equipment.aggregate({
+      _sum: { totalPrice: true },
+      where: { log: { siteId } },
+    }),
+    prisma.expense.aggregate({
+      _sum: { amount: true },
+      where: { log: { siteId } },
+    }),
+    prisma.outsourcing.aggregate({
+      _sum: { amount: true },
+      where: { log: { siteId } },
+    }),
+  ])
 
-  let totalLabor = 0, totalEquipment = 0, totalExpense = 0, totalOutsourcing = 0
-  logs.forEach(log => {
-    totalLabor += log.labors.reduce((s, i) => s + i.totalPrice, 0)
-    totalEquipment += log.equipments.reduce((s, i) => s + i.totalPrice, 0)
-    totalExpense += log.expenses.reduce((s, i) => s + i.amount, 0)
-    totalOutsourcing += log.outsourcings.reduce((s, i) => s + i.amount, 0)
-  })
-
+  const totalLabor = laborAgg._sum.totalPrice || 0
+  const totalEquipment = equipAgg._sum.totalPrice || 0
+  const totalExpense = expenseAgg._sum.amount || 0
+  const totalOutsourcing = outAgg._sum.amount || 0
   const grandTotal = totalLabor + totalEquipment + totalExpense + totalOutsourcing
+
   const startDate = new Date(site.startDate)
   const endDate = new Date(site.endDate)
   const totalDays = Math.max(1, Math.ceil((endDate.getTime() - startDate.getTime()) / 86400000))

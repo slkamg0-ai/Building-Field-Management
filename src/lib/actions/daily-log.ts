@@ -20,18 +20,34 @@ export async function getDailyLog(dateString: string, siteId: string) {
   })
   if (log) return log
 
-  const newLog = await prisma.dailyLog.create({ data: { siteId, date: startOfDay } })
-  return { ...newLog, labors: [], equipments: [], materials: [], expenses: [], outsourcings: [], photos: [] }
+  try {
+    const newLog = await prisma.dailyLog.create({ data: { siteId, date: startOfDay } })
+    return { ...newLog, labors: [], equipments: [], materials: [], expenses: [], outsourcings: [], photos: [] }
+  } catch (e) {
+    // 동시성 요청으로 이미 생성된 경우 재조회하여 반환 (P2002 에러 방지)
+    const existing = await prisma.dailyLog.findFirst({
+      where: { siteId, date: { gte: startOfDay, lte: endOfDay } },
+      include: { labors: true, equipments: true, materials: true, expenses: true, outsourcings: true, photos: true },
+    })
+    if (existing) return existing
+    throw e
+  }
 }
 
 // 노무/장비/자재/경비/외주 추가
 export async function addLabor(logId: string, data: any, creatorName: string) {
   const { user } = await requireLogSiteAccess(logId)
+  const workerId = data.workerId || null
   await prisma.labor.create({ data: {
-    logId, name: data.name, jobType: data.jobType,
-    unitPrice: parseInt(data.unitPrice), amount: parseFloat(data.amount),
+    logId,
+    workerId,
+    name: data.name,
+    jobType: data.jobType,
+    unitPrice: parseInt(data.unitPrice),
+    amount: parseFloat(data.amount),
     totalPrice: parseInt(data.unitPrice) * parseFloat(data.amount),
-    note: data.note || null, createdBy: user.name,
+    note: data.note || null,
+    createdBy: user.name,
   } })
   revalidatePath('/')
 }
@@ -177,18 +193,121 @@ export async function uploadPhoto(logId: string, dataUrl: string, creatorName?: 
   return url
 }
 
-// 자동완성 검색
-export async function searchLabors(query: string) {
-  if (!query || query.length < 1) return []
-  const data = await prisma.labor.findMany({
-    where: { name: { contains: query, mode: 'insensitive' } },
-    select: { name: true, jobType: true, unitPrice: true }, take: 20,
+// 전일 투입 노무 인력 1-클릭 복제 (아침 조례 시간 90% 단축)
+export async function copyPreviousDayLabor(targetLogId: string, siteId: string, currentDateString: string) {
+  const { user } = await requireLogSiteAccess(targetLogId)
+  const curr = new Date(currentDateString)
+  curr.setHours(0, 0, 0, 0)
+
+  // 오늘 이전 가장 최근에 노무 입력이 있었던 일보 찾기
+  const prevLog = await prisma.dailyLog.findFirst({
+    where: {
+      siteId,
+      date: { lt: curr },
+      labors: { some: {} },
+    },
+    include: { labors: true },
+    orderBy: { date: 'desc' },
   })
+
+  if (!prevLog || prevLog.labors.length === 0) {
+    throw new Error('복제할 이전 노무 기록이 없습니다.')
+  }
+
+  // 대상 일보의 기존 노무자 확인
+  const existingLabors = await prisma.labor.findMany({
+    where: { logId: targetLogId },
+    select: { name: true, workerId: true },
+  })
+  const existingSet = new Set(existingLabors.map(l => l.workerId || l.name))
+
+  // 중복되지 않은 인원만 복제
+  const toCreate = prevLog.labors.filter(l => !existingSet.has(l.workerId || l.name))
+  if (toCreate.length === 0) {
+    throw new Error('이전 투입 인원이 이미 모두 등록되어 있습니다.')
+  }
+
+  await prisma.labor.createMany({
+    data: toCreate.map(l => ({
+      logId: targetLogId,
+      workerId: l.workerId,
+      name: l.name,
+      jobType: l.jobType,
+      unitPrice: l.unitPrice,
+      amount: l.amount || 1,
+      totalPrice: l.unitPrice * (l.amount || 1),
+      note: l.note || '전일 복제',
+      createdBy: user.name,
+    })),
+  })
+
+  revalidatePath('/')
+  return { copiedCount: toCreate.length }
+}
+
+// 자동완성 검색 (보안: requireUser() 적용 및 Worker 마스터 연동)
+export async function searchLabors(query: string) {
+  await requireUser()
+  if (!query || query.trim().length < 1) return []
+  const q = query.trim()
+
+  // 1. Worker 마스터 검색 (우선순위 높음, 동명이인 구분용 생년월일 포함)
+  const masterWorkers = await prisma.worker.findMany({
+    where: {
+      name: { contains: q, mode: 'insensitive' },
+      isActive: true,
+    },
+    select: { id: true, name: true, jobType: true, birthYYMMDD: true },
+    take: 10,
+  })
+
+  // 2. 과거 Labor 레코드에서 최근 단가 참조
+  const recentLabors = await prisma.labor.findMany({
+    where: { name: { contains: q, mode: 'insensitive' } },
+    select: { workerId: true, name: true, jobType: true, unitPrice: true },
+    orderBy: { id: 'desc' },
+    take: 20,
+  })
+
+  const priceMap = new Map<string, number>()
+  for (const l of recentLabors) {
+    const key = l.workerId || l.name
+    if (!priceMap.has(key)) priceMap.set(key, l.unitPrice)
+  }
+
+  const results: Array<{ workerId?: string; name: string; jobType: string; unitPrice: number; birthYYMMDD?: string }> = []
   const seen = new Set<string>()
-  return data.filter(r => { if (seen.has(r.name)) return false; seen.add(r.name); return true }).slice(0, 5)
+
+  // 마스터 등록 인원 먼저 추가 (동명이인 구분을 위해 birthYYMMDD 표기)
+  for (const w of masterWorkers) {
+    seen.add(w.name)
+    results.push({
+      workerId: w.id,
+      name: w.name,
+      jobType: w.jobType || '보통인부',
+      unitPrice: priceMap.get(w.id) || priceMap.get(w.name) || 160000,
+      birthYYMMDD: w.birthYYMMDD || undefined,
+    })
+  }
+
+  // 과거 일보에만 있고 마스터에 없는 인원 보충
+  for (const l of recentLabors) {
+    if (!seen.has(l.name)) {
+      seen.add(l.name)
+      results.push({
+        workerId: l.workerId || undefined,
+        name: l.name,
+        jobType: l.jobType,
+        unitPrice: l.unitPrice,
+      })
+    }
+  }
+
+  return results.slice(0, 8)
 }
 
 export async function searchEquipments(query: string) {
+  await requireUser()
   if (!query || query.length < 1) return []
   const data = await prisma.equipment.findMany({
     where: { name: { contains: query, mode: 'insensitive' } },
@@ -199,6 +318,7 @@ export async function searchEquipments(query: string) {
 }
 
 export async function searchMaterials(query: string) {
+  await requireUser()
   if (!query || query.length < 1) return []
   const data = await prisma.material.findMany({
     where: { name: { contains: query, mode: 'insensitive' } },
@@ -209,6 +329,7 @@ export async function searchMaterials(query: string) {
 }
 
 export async function searchOutsourcings(query: string) {
+  await requireUser()
   if (!query || query.length < 1) return []
   const data = await prisma.outsourcing.findMany({
     where: { companyName: { contains: query, mode: 'insensitive' } },

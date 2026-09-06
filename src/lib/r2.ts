@@ -46,6 +46,7 @@ const ALLOWED_TYPES: Record<string, string> = {
   'image/png': 'png',
   'image/webp': 'webp',
   'image/heic': 'heic',
+  'application/pdf': 'pdf',
 }
 const MAX_UPLOAD_BYTES = 15 * 1024 * 1024 // 15MB
 

@@ -3,7 +3,7 @@
 import prisma from '../prisma'
 import { GoogleGenAI } from '@google/genai'
 import { revalidatePath } from 'next/cache'
-import { requireAdmin, requireSiteAccess } from '../auth'
+import { requireAdmin, requireSiteAccess, requireUser } from '../auth'
 import {
   appendSheetValues,
   createDriveFolder,
@@ -1035,4 +1035,160 @@ export async function exportMonthlyLaborBillingToDrive(siteId: string, year: num
 
   return { billing: updated, items, spreadsheetUrl: spreadsheet.url, pdfUrl: pdfFile.url }
 }
+
+// ════════════════════════════════════════════════════════════════
+//  v2.0 스마트 스캔 승인 & 저장 액션 (Alternative 1)
+// ════════════════════════════════════════════════════════════════
+export async function saveSmartScannedWorkerDoc(data: {
+  workerId?: string | null
+  workerName: string
+  birthYYMMDD?: string | null
+  bankName?: string | null
+  accountNumber?: string | null
+  safetyEduNumber?: string | null
+  basicSafetyEdu?: boolean
+  jobType?: string | null
+  fileUrl?: string | null
+  documentType?: string
+  status?: string
+  note?: string | null
+}) {
+  await requireUser()
+  const name = data.workerName.trim()
+  if (!name) throw new Error('근로자 성명은 필수입니다.')
+
+  const birthYYMMDD = (data.birthYYMMDD || '').replace(/[^\d]/g, '').slice(0, 6) || null
+
+  let worker = null
+  if (data.workerId) {
+    worker = await prisma.worker.findUnique({ where: { id: data.workerId } })
+  }
+  if (!worker && birthYYMMDD) {
+    worker = await prisma.worker.findFirst({
+      where: { name, birthYYMMDD },
+    })
+  }
+  if (!worker) {
+    worker = await prisma.worker.findFirst({
+      where: { name },
+    })
+  }
+
+  const hasBank = !!(data.bankName && data.accountNumber) || !!(worker?.bankName && worker?.accountNumber)
+  const hasSafety = !!(data.safetyEduNumber || data.basicSafetyEdu) || !!(worker?.safetyEduNumber || worker?.basicSafetyEdu)
+  const hasBirth = !!birthYYMMDD || !!worker?.birthYYMMDD
+  const docStatus = (hasBank && hasSafety && hasBirth) ? 'COMPLETE' : 'REVIEW'
+
+  const workerPatch = {
+    name,
+    birthYYMMDD: birthYYMMDD || worker?.birthYYMMDD || null,
+    bankName: data.bankName || worker?.bankName || null,
+    accountNumber: data.accountNumber || worker?.accountNumber || null,
+    safetyEduNumber: data.safetyEduNumber || worker?.safetyEduNumber || null,
+    basicSafetyEdu: data.basicSafetyEdu !== undefined ? data.basicSafetyEdu : (worker?.basicSafetyEdu || !!data.safetyEduNumber),
+    jobType: data.jobType || worker?.jobType || null,
+    documentStatus: worker?.documentStatus === 'COMPLETE' ? 'COMPLETE' : docStatus,
+    isActive: true,
+  }
+
+  if (worker) {
+    worker = await prisma.worker.update({
+      where: { id: worker.id },
+      data: workerPatch,
+    })
+  } else {
+    worker = await prisma.worker.create({
+      data: workerPatch,
+    })
+  }
+
+  if (data.fileUrl) {
+    await prisma.workerDocument.create({
+      data: {
+        workerId: worker.id,
+        workerName: name,
+        birthYYMMDD,
+        documentType: data.documentType || 'OTHER',
+        driveFileUrl: data.fileUrl,
+        status: data.status || 'SUCCESS',
+        extractedData: data as any,
+        note: data.note || 'v2.0 스마트 스캔 등록',
+      },
+    })
+  }
+
+  revalidatePath('/workers')
+  revalidatePath('/')
+  return worker
+}
+
+export async function saveSmartScannedEquipmentDoc(data: {
+  equipmentMasterId?: string | null
+  name: string
+  spec?: string | null
+  ownerType?: string
+  driverName?: string | null
+  driverPhone?: string | null
+  unitPrice?: number | string | null
+  fileUrl?: string | null
+  documentType?: string
+  status?: string
+  note?: string | null
+}) {
+  await requireUser()
+  const name = data.name.trim()
+  if (!name) throw new Error('장비명은 필수입니다.')
+
+  const spec = data.spec?.trim() || null
+  const unitPrice = typeof data.unitPrice === 'number' ? data.unitPrice : parseInt(String(data.unitPrice || '0')) || 0
+
+  let master = null
+  if (data.equipmentMasterId) {
+    master = await prisma.equipmentMaster.findUnique({ where: { id: data.equipmentMasterId } })
+  }
+  if (!master && spec) {
+    master = await prisma.equipmentMaster.findFirst({ where: { spec } })
+  }
+
+  const patch = {
+    name,
+    spec,
+    ownerType: ['DIRECT', 'SUBCONTRACT'].includes(data.ownerType || '') ? data.ownerType! : 'SUBCONTRACT',
+    driverName: data.driverName?.trim() || master?.driverName || null,
+    driverPhone: data.driverPhone?.trim() || master?.driverPhone || null,
+    unitPrice: unitPrice || master?.unitPrice || 0,
+    documentStatus: data.fileUrl ? 'COMPLETE' : (master?.documentStatus || 'UNKNOWN'),
+    documentUrl: data.fileUrl || master?.documentUrl || null,
+    note: data.note || master?.note || null,
+    isActive: true,
+  }
+
+  if (master) {
+    master = await prisma.equipmentMaster.update({
+      where: { id: master.id },
+      data: patch,
+    })
+  } else {
+    master = await prisma.equipmentMaster.create({
+      data: patch,
+    })
+  }
+
+  if (data.fileUrl) {
+    await prisma.equipmentDocument.create({
+      data: {
+        equipmentId: master.id,
+        documentType: data.documentType || 'REGISTRATION',
+        fileUrl: data.fileUrl,
+        extractedData: data as any,
+        status: data.status || 'SUCCESS',
+        note: data.note || 'v2.0 스마트 스캔 등록',
+      },
+    })
+  }
+
+  revalidatePath('/')
+  return master
+}
+
 

@@ -16,6 +16,8 @@ import NotifyButton from './NotifyButton'
 import BillingPanel from './BillingPanel'
 import FeedbackPanel from './FeedbackPanel'
 import CornerMarkers from '@/components/CornerMarkers'
+import SmartScanModal from '@/components/SmartScanModal'
+import ToastContainer from '@/components/Toast'
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState('dashboard') // dashboard, labor, equipment, material, outsourcing
@@ -23,6 +25,10 @@ export default function Home() {
   const [currentDate, setCurrentDate] = useState(new Date().toISOString().split('T')[0])
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1)
+  
+  // v2.0 원스톱 스마트 스캔 모달 상태
+  const [showSmartScan, setShowSmartScan] = useState(false)
+  const [smartScanCategory, setSmartScanCategory] = useState<'worker' | 'equipment'>('worker')
   
   // 현장(Site) 상태
   const [sites, setSites] = useState<any[]>([])
@@ -105,7 +111,7 @@ export default function Home() {
       loadSiteTotalStats()
       setShowAddForm(false)
     }
-  }, [currentDate, selectedSiteId, activeTab, selectedYear, selectedMonth])
+  }, [currentDate, selectedSiteId, selectedYear, selectedMonth])
 
   async function loadSites() {
     try {
@@ -345,7 +351,7 @@ export default function Home() {
               FM
             </div>
             <div className="flex flex-col truncate">
-              <span className="text-[10px] font-black text-[#5980a6] tracking-widest uppercase">Field manage</span>
+              <span className="text-[10px] font-black text-[#5980a6] tracking-widest uppercase">Field manage v2.0</span>
               <span className="text-sm font-bold text-[#1d1f20] truncate">
                 {sites.find(s => s.id === selectedSiteId)?.name || '현장 선택'}
               </span>
@@ -406,7 +412,7 @@ export default function Home() {
             <div className="flex items-center gap-2 min-w-0">
               <div className="flex flex-col min-w-0">
                 <div className="flex items-center gap-1.5">
-                  <span className="bg-[#5980a6] text-[#f2f2f3] font-black text-[10px] px-1.5 py-0.5 rounded uppercase tracking-wider">Field manage</span>
+                  <span className="bg-[#5980a6] text-[#f2f2f3] font-black text-[10px] px-1.5 py-0.5 rounded uppercase tracking-wider">Field manage v2.0</span>
                 </div>
                 {sites.length > 0 && (
                   <div className="flex items-center gap-1 mt-1 min-w-0">
@@ -949,6 +955,9 @@ export default function Home() {
                   totalLabors={totalLabors}
                   handleDeleteItem={handleDeleteItem}
                   onChanged={refreshLog}
+                  onOpenSmartScan={() => { setSmartScanCategory('worker'); setShowSmartScan(true) }}
+                  selectedSiteId={selectedSiteId}
+                  currentDate={currentDate}
                 />
               )}
 
@@ -966,6 +975,7 @@ export default function Home() {
                   totalEquipments={totalEquipments}
                   handleDeleteItem={handleDeleteItem}
                   onChanged={refreshLog}
+                  onOpenSmartScan={() => { setSmartScanCategory('equipment'); setShowSmartScan(true) }}
                 />
               )}
 
@@ -1224,6 +1234,20 @@ export default function Home() {
           </div>
         </div>
       )}
+
+      {/* v2.0 원스톱 스마트 서류 스캔 모달 */}
+      <SmartScanModal
+        isOpen={showSmartScan}
+        onClose={() => setShowSmartScan(false)}
+        initialCategory={smartScanCategory}
+        onSuccess={() => {
+          refreshLog()
+          loadWorkerDocMap()
+        }}
+      />
+
+      {/* v2.0 인앱 토스트 알림 컨테이너 */}
+      <ToastContainer />
     </>
   )
 }
