@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { getDailyLog, getSites, createSite, updateSite, resetSiteData, getMonthlyStats, getSiteTotalStats, getUsers, createUser, deleteUser, toggleUserActive, updateUserPin, updateUserRole, updateDailyLogDescription, addPhotoRecord, deletePhoto, uploadPhoto, getCurrentUser, logout, getWorkers, getUserSiteIds, setUserSites, exportDatabaseBackup } from '@/lib/actions'
+import { getDailyLog, getSites, createSite, updateSite, resetSiteData, getMonthlyStats, getSiteTotalStats, getUsers, createUser, deleteUser, toggleUserActive, updateUserPin, updateUserRole, updateDailyLogDescription, addPhotoRecord, deletePhoto, uploadPhoto, getCurrentUser, logout, getWorkers, getUserSiteIds, setUserSites, exportDatabaseBackup, changeMyPin } from '@/lib/actions'
 import DashboardTab from './DashboardTab'
 import LaborTab from './LaborTab'
 import EquipmentTab from './EquipmentTab'
@@ -146,6 +146,41 @@ export default function Home() {
       toast.error(err.message || '백업 다운로드에 실패했습니다.')
     } finally {
       setIsBackingUp(false)
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  //  내 비밀번호(PIN) 직접 변경
+  // ════════════════════════════════════════════════════════════════
+  const [showChangePinModal, setShowChangePinModal] = useState(false)
+  const [myPinForm, setMyPinForm] = useState({ currentPin: '', newPin: '', confirmPin: '' })
+  const [isChangingMyPin, setIsChangingMyPin] = useState(false)
+
+  async function handleChangeMyPin(e: React.FormEvent) {
+    e.preventDefault()
+    if (!myPinForm.currentPin || !myPinForm.newPin) {
+      toast.warning('현재 PIN과 새 PIN을 모두 입력해 주세요.')
+      return
+    }
+    if (!/^\d{4,8}$/.test(myPinForm.newPin)) {
+      toast.warning('새 PIN은 4~8자리 숫자로 입력해야 합니다.')
+      return
+    }
+    if (myPinForm.newPin !== myPinForm.confirmPin) {
+      toast.warning('새 PIN과 확인 입력이 일치하지 않습니다.')
+      return
+    }
+
+    setIsChangingMyPin(true)
+    try {
+      await changeMyPin(myPinForm.currentPin, myPinForm.newPin)
+      toast.success('비밀번호(PIN)가 성공적으로 변경되었습니다.')
+      setShowChangePinModal(false)
+      setMyPinForm({ currentPin: '', newPin: '', confirmPin: '' })
+    } catch (err: any) {
+      toast.error(err.message || '비밀번호 변경 중 오류가 발생했습니다.')
+    } finally {
+      setIsChangingMyPin(false)
     }
   }
 
@@ -537,6 +572,13 @@ export default function Home() {
                     <Users className="w-4 h-4" />
                   </button>
                 )}
+                <button
+                  onClick={() => setShowChangePinModal(true)}
+                  className="w-8 h-8 shrink-0 flex items-center justify-center rounded-lg hover:bg-[#282a2d] transition-colors text-slate-300 hover:text-emerald-400"
+                  title="내 비밀번호(PIN) 변경"
+                >
+                  <KeyRound className="w-4 h-4" />
+                </button>
                 <button onClick={handleLogout} className="w-8 h-8 shrink-0 flex items-center justify-center rounded-lg hover:bg-[#282a2d] transition-colors text-slate-300 hover:text-red-400" title="로그아웃">
                   <LogOut className="w-4 h-4" />
                 </button>
@@ -1316,6 +1358,14 @@ export default function Home() {
                     <span>현재 현장 정보 수정</span>
                   </button>
                 )}
+
+                <button 
+                  onClick={() => { setShowMobileMenu(false); setShowChangePinModal(true); }}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-[#22252a] hover:bg-[#2c3036] text-white text-sm font-medium transition-all"
+                >
+                  <KeyRound className="w-5 h-5 text-emerald-400" />
+                  <span>내 비밀번호(PIN) 변경</span>
+                </button>
               </div>
             </div>
 
@@ -1326,6 +1376,81 @@ export default function Home() {
               <LogOut className="w-5 h-5" />
               <span>로그아웃</span>
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* 내 비밀번호(PIN) 변경 모달 */}
+      {showChangePinModal && (
+        <div className="fixed inset-0 bg-black/80 z-[110] flex items-center justify-center p-4">
+          <div className="bg-white border border-[rgba(29,31,32,0.16)] p-6 rounded-2xl w-full max-w-sm shadow-2xl">
+            <div className="flex justify-between items-center mb-5">
+              <h3 className="text-lg font-bold text-[#1d1f20] flex items-center gap-2">
+                <KeyRound className="text-[#5980a6] w-5 h-5" /> 내 비밀번호(PIN) 변경
+              </h3>
+              <button onClick={() => setShowChangePinModal(false)} className="text-[rgba(29,31,32,0.5)] hover:text-[#1d1f20]">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleChangeMyPin} className="space-y-4">
+              <div>
+                <label className="text-xs font-bold text-[rgba(29,31,32,0.7)] mb-1 block">현재 PIN 번호</label>
+                <input
+                  type="password"
+                  maxLength={8}
+                  required
+                  placeholder="현재 4~8자리 숫자"
+                  className="w-full bg-[#f2f2f3] border border-[rgba(29,31,32,0.25)] rounded-lg px-3 py-2 text-[#1d1f20] font-semibold outline-none focus:border-[#5980a6] tracking-widest text-center"
+                  value={myPinForm.currentPin}
+                  onChange={e => setMyPinForm({ ...myPinForm, currentPin: e.target.value.replace(/\D/g, '') })}
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-[rgba(29,31,32,0.7)] mb-1 block">새 PIN 번호 (4~8자리 숫자)</label>
+                <input
+                  type="password"
+                  maxLength={8}
+                  required
+                  placeholder="새 4~8자리 숫자"
+                  className="w-full bg-[#f2f2f3] border border-[rgba(29,31,32,0.25)] rounded-lg px-3 py-2 text-[#1d1f20] font-semibold outline-none focus:border-[#5980a6] tracking-widest text-center"
+                  value={myPinForm.newPin}
+                  onChange={e => setMyPinForm({ ...myPinForm, newPin: e.target.value.replace(/\D/g, '') })}
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-[rgba(29,31,32,0.7)] mb-1 block">새 PIN 번호 확인</label>
+                <input
+                  type="password"
+                  maxLength={8}
+                  required
+                  placeholder="새 PIN 재입력"
+                  className="w-full bg-[#f2f2f3] border border-[rgba(29,31,32,0.25)] rounded-lg px-3 py-2 text-[#1d1f20] font-semibold outline-none focus:border-[#5980a6] tracking-widest text-center"
+                  value={myPinForm.confirmPin}
+                  onChange={e => setMyPinForm({ ...myPinForm, confirmPin: e.target.value.replace(/\D/g, '') })}
+                />
+              </div>
+
+              <div className="pt-2 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowChangePinModal(false)}
+                  className="flex-1 py-2.5 bg-[#ededed] hover:bg-[#e2e8f0] text-[#1d1f20] font-bold rounded-lg text-sm transition-colors"
+                >
+                  취소
+                </button>
+                <button
+                  type="submit"
+                  disabled={isChangingMyPin}
+                  className="flex-1 py-2.5 bg-[#5980a6] hover:bg-[#416180] text-white font-bold rounded-lg text-sm shadow-sm transition-all active:scale-95 disabled:opacity-50"
+                >
+                  {isChangingMyPin ? '변경 중...' : '변경 완료'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

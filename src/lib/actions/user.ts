@@ -121,6 +121,28 @@ export async function updateUserPin(id: string, newPin: string) {
   revalidatePath('/')
 }
 
+export async function changeMyPin(currentPin: string, newPin: string) {
+  const sessionUser = await requireUser()
+  if (!/^\d{4,8}$/.test(newPin)) throw new Error('새 PIN은 4~8자리 숫자로 입력해 주세요.')
+
+  const user = await prisma.user.findUnique({ where: { id: sessionUser.id } })
+  if (!user) throw new Error('사용자 정보를 찾을 수 없습니다.')
+
+  const hashOk = verifyPin(currentPin, user.pinHash)
+  const legacyOk = !hashOk && user.pin && user.pin === currentPin
+  if (!hashOk && !legacyOk) {
+    throw new Error('현재 비밀번호(PIN)가 일치하지 않습니다.')
+  }
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { pin: '', pinHash: hashPin(newPin) },
+  })
+
+  revalidatePath('/')
+  return { success: true }
+}
+
 export async function toggleUserActive(id: string, isActive: boolean) {
   const admin = await requireAdmin()
   if (admin.id === id && !isActive) throw new Error('현재 로그인한 관리자는 비활성화할 수 없습니다.')
