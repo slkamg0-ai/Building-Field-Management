@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { getDailyLog, getSites, createSite, updateSite, resetSiteData, getMonthlyStats, getSiteTotalStats, getUsers, createUser, deleteUser, toggleUserActive, updateUserPin, updateUserRole, updateDailyLogDescription, addPhotoRecord, deletePhoto, uploadPhoto, getCurrentUser, logout, getWorkers, getUserSiteIds, setUserSites } from '@/lib/actions'
+import { getDailyLog, getSites, createSite, updateSite, resetSiteData, getMonthlyStats, getSiteTotalStats, getUsers, createUser, deleteUser, toggleUserActive, updateUserPin, updateUserRole, updateDailyLogDescription, addPhotoRecord, deletePhoto, uploadPhoto, getCurrentUser, logout, getWorkers, getUserSiteIds, setUserSites, exportDatabaseBackup } from '@/lib/actions'
 import DashboardTab from './DashboardTab'
 import LaborTab from './LaborTab'
 import EquipmentTab from './EquipmentTab'
@@ -11,13 +11,14 @@ import ExpenseTab from './ExpenseTab'
 import SettlementTab from './SettlementTab'
 import IntegrationTab from './IntegrationTab'
 import { useRouter } from 'next/navigation'
-import { Users, User, LogOut, Shield, Trash2, UserPlus, Power, KeyRound, Check, X, UserCheck, Menu } from 'lucide-react'
+import { Users, User, LogOut, Shield, Trash2, UserPlus, Power, KeyRound, Check, X, UserCheck, Menu, Download, Database } from 'lucide-react'
 import NotifyButton from './NotifyButton'
 import BillingPanel from './BillingPanel'
 import FeedbackPanel from './FeedbackPanel'
 import CornerMarkers from '@/components/CornerMarkers'
 import SmartScanModal from '@/components/SmartScanModal'
-import ToastContainer from '@/components/Toast'
+import ToastContainer, { toast } from '@/components/Toast'
+import { saveAs } from 'file-saver'
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState('dashboard') // dashboard, labor, equipment, material, outsourcing
@@ -128,6 +129,26 @@ export default function Home() {
     }
   }
 
+  // ════════════════════════════════════════════════════════════════
+  //  전체 DB 백업 다운로드 핸들러
+  // ════════════════════════════════════════════════════════════════
+  const [isBackingUp, setIsBackingUp] = useState(false)
+
+  async function handleDownloadBackup() {
+    setIsBackingUp(true)
+    try {
+      const jsonStr = await exportDatabaseBackup()
+      const blob = new Blob([jsonStr], { type: 'application/json;charset=utf-8' })
+      const dateStr = new Date().toISOString().split('T')[0]
+      saveAs(blob, `field_manage_backup_${dateStr}.json`)
+      toast.success('전체 DB 백업 파일이 성공적으로 다운로드되었습니다.')
+    } catch (err: any) {
+      toast.error(err.message || '백업 다운로드에 실패했습니다.')
+    } finally {
+      setIsBackingUp(false)
+    }
+  }
+
   useEffect(() => {
     if (selectedSiteId) {
       loadData()
@@ -198,18 +219,25 @@ export default function Home() {
 
   async function handleResetSite() {
     if (!selectedSiteId) return
-    const firstConfirm = confirm('경고: 이 현장에 입력된 모든 노무, 장비, 자재, 비용 데이터가 영구적으로 삭제됩니다. 계속하시겠습니까?')
-    if (firstConfirm) {
-      const secondConfirm = confirm('정말로 모든 데이터를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')
-      if (secondConfirm) {
-        await resetSiteData(selectedSiteId)
-        setShowNewSiteForm(false)
-        setIsEditingSite(false)
-        loadData()
-        loadMonthlyData()
-        loadSiteTotalStats()
-        alert('현장 데이터가 모두 초기화되었습니다.')
-      }
+    const firstConfirm = confirm('🚨 [DB 보안 경고] 이 현장에 입력된 모든 노무, 장비, 자재, 비용 데이터가 영구적으로 삭제됩니다. 계속하시겠습니까?')
+    if (!firstConfirm) return
+
+    const inputPhrase = prompt('🛡️ [DB 안전 잠금장치] 데이터 영구 삭제를 진행하려면 아래 문구를 정확히 입력하세요:\n\n현장데이터초기화확인')
+    if (inputPhrase !== '현장데이터초기화확인') {
+      alert('안전 잠금장치: 확인 문구가 일치하지 않아 삭제가 안전하게 차단되었습니다.')
+      return
+    }
+
+    try {
+      await resetSiteData(selectedSiteId, inputPhrase)
+      setShowNewSiteForm(false)
+      setIsEditingSite(false)
+      loadData()
+      loadMonthlyData()
+      loadSiteTotalStats()
+      alert('현장 데이터가 초기화되었습니다.')
+    } catch (err: any) {
+      alert(err.message || '초기화 실패')
     }
   }
 
@@ -657,11 +685,37 @@ export default function Home() {
             <div className="bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] p-6 rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-xl font-bold text-[#1d1f20] flex items-center gap-2">
-                  <Shield className="text-[#5980a6]" /> 사용자 및 권한 관리
+                  <Shield className="text-[#5980a6]" /> 시스템 관리 및 데이터 보호
                 </h3>
                 <button onClick={() => setShowUserManagement(false)} className="text-[rgba(29,31,32,0.6)] hover:text-[#1d1f20]">
                   <span className="material-symbols-outlined">close</span>
                 </button>
+              </div>
+
+              {/* DB 안전 잠금 및 전체 백업 카드 */}
+              <div className="bg-white p-4 rounded-xl border border-[#5980a6]/30 mb-6 shadow-sm">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold bg-emerald-500/15 text-emerald-700 px-2.5 py-0.5 rounded-full flex items-center gap-1 border border-emerald-500/30">
+                        🔒 DB 안전 잠금 활성화
+                      </span>
+                      <span className="text-[11px] text-[rgba(29,31,32,0.55)] font-semibold">무손실 스키마 보호</span>
+                    </div>
+                    <p className="text-xs text-[rgba(29,31,32,0.7)] font-medium leading-relaxed">
+                      업데이트나 스키마 수정 시 기존 데이터가 삭제되지 않도록 보호 잠금이 적용되어 있습니다.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleDownloadBackup}
+                    disabled={isBackingUp}
+                    className="shrink-0 px-3.5 py-2.5 bg-[#5980a6] hover:bg-[#416180] text-white text-xs font-bold rounded-lg flex items-center gap-1.5 shadow-sm transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    {isBackingUp ? '백업 생성 중...' : '전체 DB 백업 다운로드'}
+                  </button>
+                </div>
               </div>
 
               {/* 새 사용자 추가 폼 */}

@@ -53,8 +53,11 @@ export async function updateSite(id: string, name: string, contractAmount: numbe
   return data
 }
 
-export async function resetSiteData(siteId: string) {
+export async function resetSiteData(siteId: string, safetyConfirmation: string) {
   await requireAdmin()
+  if (safetyConfirmation !== '현장데이터초기화확인') {
+    throw new Error('안전 잠금장치: 확인 문구가 일치하지 않아 데이터 삭제가 차단되었습니다.')
+  }
   await prisma.dailyLog.deleteMany({ where: { siteId } })
   revalidatePath('/')
 }

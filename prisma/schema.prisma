@@ -1,5 +1,11 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
+// ════════════════════════════════════════════════════════════════
+// 🚨 DB 안전 잠금장치 (Database Data-Loss Protection Lock)
+//
+// 1. 본 DB는 상용 현장 데이터(노무, 장비, 자재, 경비, 기성)와 직결되어 있습니다.
+// 2. 컬럼 삭제/모델 삭제/타입 변경 등 데이터 유실을 유발하는 파괴적 변경은 엄격히 금지됩니다.
+// 3. 신규 필드는 반드시 Optional(? 또는 @default)로만 추가해야 무손실 안전 배포가 보장됩니다.
+// 4. 빌드 스크립트(scripts/db-sync.js)는 --accept-data-loss를 허용하지 않으며 파괴적 변경 시 즉시 차단합니다.
+// ════════════════════════════════════════════════════════════════
 
 generator client {
   provider      = "prisma-client-js"
