@@ -90,12 +90,12 @@ export default function DashboardTab({
 
           {monthlyLoading ? (
             <div className="h-56 flex items-center justify-center text-[#6266a8] text-sm">데이터를 불러오는 중...</div>
-          ) : monthlyStats?.dailyData?.length === 0 ? (
+          ) : !monthlyStats?.dailyData || monthlyStats.dailyData.length === 0 ? (
             <div className="h-56 flex items-center justify-center text-[#6266a8] text-sm">입력된 데이터가 없습니다.</div>
           ) : (
             <div className="h-56 w-full xl:h-[26rem]">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={monthlyStats.dailyData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
+                <BarChart data={monthlyStats.dailyData || []} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#2e3192" strokeOpacity={0.15} vertical={false} />
                   <XAxis dataKey="name" stroke="#6266a8" fontSize={11} tickLine={false} axisLine={false} />
                   <YAxis stroke="#6266a8" fontSize={11} tickFormatter={(val) => `₩${(val/10000).toFixed(0)}만`} tickLine={false} axisLine={false} />
@@ -195,33 +195,33 @@ export default function DashboardTab({
                     <td className="py-1.5 px-1 text-[#23255c] font-medium flex items-center gap-1.5">
                       <span className="w-1.5 h-1.5 dash-pill bg-[#2e3192] shrink-0"></span> 노무비
                     </td>
-                    <td className="py-1.5 px-1 text-right text-[#23255c] font-bold">₩{monthlyStats?.summary?.totalLabor?.toLocaleString()}</td>
+                    <td className="py-1.5 px-1 text-right text-[#23255c] font-bold">₩{(monthlyStats?.summary?.totalLabor || 0).toLocaleString()}</td>
                     <td className="py-1.5 px-1 text-right text-[#6266a8]">{((monthlyStats?.summary?.totalLabor / monthlyStats?.summary?.grandTotal) * 100 || 0).toFixed(1)}%</td>
                   </tr>
                   <tr className="border-b border-[#2e3192]/20">
                     <td className="py-1.5 px-1 text-[#23255c] font-medium flex items-center gap-1.5">
                       <span className="w-1.5 h-1.5 dash-pill bg-[#5b6fd6] shrink-0"></span> 장비대
                     </td>
-                    <td className="py-1.5 px-1 text-right text-[#23255c] font-bold">₩{monthlyStats?.summary?.totalEquipment?.toLocaleString()}</td>
+                    <td className="py-1.5 px-1 text-right text-[#23255c] font-bold">₩{(monthlyStats?.summary?.totalEquipment || 0).toLocaleString()}</td>
                     <td className="py-1.5 px-1 text-right text-[#6266a8]">{((monthlyStats?.summary?.totalEquipment / monthlyStats?.summary?.grandTotal) * 100 || 0).toFixed(1)}%</td>
                   </tr>
                   <tr className="border-b border-[#2e3192]/20">
                     <td className="py-1.5 px-1 text-[#23255c] font-medium flex items-center gap-1.5">
                       <span className="w-1.5 h-1.5 dash-pill bg-[#93a5f0] shrink-0"></span> 외주비
                     </td>
-                    <td className="py-1.5 px-1 text-right text-[#23255c] font-bold">₩{monthlyStats?.summary?.totalOutsourcing?.toLocaleString()}</td>
+                    <td className="py-1.5 px-1 text-right text-[#23255c] font-bold">₩{(monthlyStats?.summary?.totalOutsourcing || 0).toLocaleString()}</td>
                     <td className="py-1.5 px-1 text-right text-[#6266a8]">{((monthlyStats?.summary?.totalOutsourcing / monthlyStats?.summary?.grandTotal) * 100 || 0).toFixed(1)}%</td>
                   </tr>
                   <tr className="border-b border-[#2e3192]/20">
                     <td className="py-1.5 px-1 text-[#23255c] font-medium flex items-center gap-1.5">
                       <span className="w-1.5 h-1.5 dash-pill bg-[#c9d3fa] shrink-0"></span> 경비
                     </td>
-                    <td className="py-1.5 px-1 text-right text-[#23255c] font-bold">₩{monthlyStats?.summary?.totalExpense?.toLocaleString()}</td>
+                    <td className="py-1.5 px-1 text-right text-[#23255c] font-bold">₩{(monthlyStats?.summary?.totalExpense || 0).toLocaleString()}</td>
                     <td className="py-1.5 px-1 text-right text-[#6266a8]">{((monthlyStats?.summary?.totalExpense / monthlyStats?.summary?.grandTotal) * 100 || 0).toFixed(1)}%</td>
                   </tr>
                   <tr className="bg-[#2e3192]/5">
                     <td className="py-2 px-1 text-[#2e3192] font-bold">합계</td>
-                    <td className="py-2 px-1 text-right text-[#2e3192] font-bold">₩{monthlyStats?.summary?.grandTotal?.toLocaleString()}</td>
+                    <td className="py-2 px-1 text-right text-[#2e3192] font-bold">₩{(monthlyStats?.summary?.grandTotal || 0).toLocaleString()}</td>
                     <td className="py-2 px-1 text-right text-[#2e3192] font-bold">100%</td>
                   </tr>
                 </tbody>

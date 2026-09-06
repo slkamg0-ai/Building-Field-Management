@@ -234,12 +234,12 @@ export default function EquipmentTab({
         <div className="grid grid-cols-1 gap-3">
           {loading ? (
             <div className="text-center py-10 text-[rgba(29,31,32,0.55)]">데이터를 불러오는 중...</div>
-          ) : logData?.equipments.length === 0 ? (
+          ) : !logData?.equipments || logData.equipments.length === 0 ? (
             <div className="bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded-xl p-8 text-center text-[rgba(29,31,32,0.55)]">
               입력된 투입 장비가 없습니다.
             </div>
           ) : (
-            logData?.equipments.map((eq: any) => (
+            (logData.equipments || []).map((eq: any) => (
               <div
                 key={eq.id}
                 className="bg-[#f2f2f3] border border-[rgba(29,31,32,0.2)] rounded-xl p-4 flex justify-between items-center hover:border-[#5980a6] transition-colors group"

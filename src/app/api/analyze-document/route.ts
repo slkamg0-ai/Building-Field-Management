@@ -6,8 +6,6 @@ import { getSessionUser } from '@/lib/auth'
 // Vercel 서버리스 함수 기본 제한(짧으면 10초)보다 여유를 두어 Gemini Vision 응답 지연에 대비
 export const maxDuration = 60
 
-const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY || '' })
-
 // 공통 지시: 한국어 문서 OCR에서 흔한 오류를 모델 단계에서 줄인다
 const COMMON_RULES = `
 규칙:
@@ -110,6 +108,9 @@ const FORM_DEFS: Record<string, { prompt: string; schema: Schema }> = {
 }
 
 async function callGemini(base64Data: string, mimeType: string, def: { prompt: string; schema: Schema }, modelName = 'gemini-2.5-flash') {
+  const apiKey = process.env.GOOGLE_GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY
+  if (!apiKey) throw new Error('Gemini API 키가 설정되지 않았습니다.')
+  const ai = new GoogleGenAI({ apiKey })
   const response = await ai.models.generateContent({
     model: modelName,
     contents: [

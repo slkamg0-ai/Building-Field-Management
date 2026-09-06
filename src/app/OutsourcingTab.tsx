@@ -91,7 +91,7 @@ export default function OutsourcingTab({
           <span className="text-xs font-bold text-[#5980a6] bg-[#5980a6]/10 px-2 py-1 rounded border border-[#5980a6]/20">{totalOutsourcings} 건</span>
         </div>
         <div className="grid grid-cols-1 gap-3">
-          {loading ? <div className="text-center py-8 text-[rgba(29,31,32,0.55)]">데이터를 불러오는 중...</div> : logData?.outsourcings.length === 0 ? <div className="bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded-xl p-8 text-center text-[rgba(29,31,32,0.55)]">입력된 외주 항목이 없습니다.</div> : logData?.outsourcings.map((out: any) => (
+          {loading ? <div className="text-center py-8 text-[rgba(29,31,32,0.55)]">데이터를 불러오는 중...</div> : !logData?.outsourcings || logData.outsourcings.length === 0 ? <div className="bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded-xl p-8 text-center text-[rgba(29,31,32,0.55)]">입력된 외주 항목이 없습니다.</div> : (logData.outsourcings || []).map((out: any) => (
                 <div key={out.id} className="bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded-xl p-4 flex justify-between items-center hover:border-[#5980a6]/50 transition-colors group">
                   <div className="flex items-center gap-3 w-2/3">
                     <div className="w-12 h-12 bg-[rgba(29,31,32,0.16)] rounded-lg flex items-center justify-center shrink-0"><span className="material-symbols-outlined text-[#7c3aed]">handshake</span></div>

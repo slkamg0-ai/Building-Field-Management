@@ -75,13 +75,22 @@ export default function Home() {
   }, [])
 
   async function initialize() {
-    const user = await getCurrentUser()
-    if (!user) {
-      router.push('/login')
-      return
+    try {
+      const user = await getCurrentUser()
+      if (!user) {
+        router.push('/login')
+        return
+      }
+      setCurrentUser(user)
+
+      const tasks: Promise<any>[] = [loadSites(), loadWorkerDocMap()]
+      if (user.role === 'ADMIN') {
+        tasks.push(loadAllUsers())
+      }
+      await Promise.allSettled(tasks)
+    } catch (e) {
+      console.error('Initialize error:', e)
     }
-    setCurrentUser(user)
-    await Promise.all([loadSites(), loadAllUsers(), loadWorkerDocMap()])
   }
 
   // 근로자 서류 상태 조회 (이름 기준) — 노무 입력 목록에 서류 미비 경고를 띄우기 위함
@@ -89,19 +98,34 @@ export default function Home() {
     try {
       const workers = await getWorkers(true)
       const map: Record<string, string> = {}
-      for (const w of workers) map[w.name.trim().toLowerCase()] = w.documentStatus
+      if (Array.isArray(workers)) {
+        for (const w of workers) {
+          if (w?.name) map[w.name.trim().toLowerCase()] = w.documentStatus || 'UNKNOWN'
+        }
+      }
       setWorkerDocMap(map)
-    } catch {}
+    } catch (e) {
+      console.error('Failed to load worker doc map', e)
+      setWorkerDocMap({})
+    }
   }
 
   async function handleLogout() {
-    await logout()
-    router.push('/login')
+    try {
+      await logout()
+    } finally {
+      router.push('/login')
+    }
   }
 
   async function loadAllUsers() {
-    const users = await getUsers()
-    setAllUsers(users)
+    try {
+      const users = await getUsers()
+      setAllUsers(Array.isArray(users) ? users : [])
+    } catch (e) {
+      console.error('Failed to load users (worker access or error)', e)
+      setAllUsers([])
+    }
   }
 
   useEffect(() => {
@@ -116,14 +140,16 @@ export default function Home() {
   async function loadSites() {
     try {
       const fetchedSites = await getSites()
-      setSites(fetchedSites)
-      if (fetchedSites.length > 0 && !selectedSiteId) {
-        setSelectedSiteId(fetchedSites[0].id)
-      } else if (fetchedSites.length === 0) {
+      const safeSites = Array.isArray(fetchedSites) ? fetchedSites : []
+      setSites(safeSites)
+      if (safeSites.length > 0 && !selectedSiteId) {
+        setSelectedSiteId(safeSites[0].id)
+      } else if (safeSites.length === 0) {
         setShowNewSiteForm(true)
       }
     } catch (e) {
-      console.error("Failed to load sites", e)
+      console.error('Failed to load sites', e)
+      setSites([])
     }
   }
 
@@ -131,9 +157,10 @@ export default function Home() {
     if (!selectedSiteId) return
     try {
       const data = await getSiteTotalStats(selectedSiteId)
-      setSiteTotalStats(data)
+      setSiteTotalStats(data || null)
     } catch (e) {
-      console.error(e)
+      console.error('Failed to load site total stats', e)
+      setSiteTotalStats(null)
     }
   }
 
@@ -191,10 +218,11 @@ export default function Home() {
     setLoading(true)
     try {
       const data = await getDailyLog(currentDate, selectedSiteId)
-      setLogData(data)
-      setWorkDescription(data.description || '')
+      setLogData(data || null)
+      setWorkDescription(data?.description || '')
     } catch (e) {
-      console.error(e)
+      console.error('Failed to load daily log', e)
+      setLogData(null)
     } finally {
       setLoading(false)
     }
@@ -207,9 +235,10 @@ export default function Home() {
       // 시차 문제 해결: 로컬 날짜 문자열 직접 생성 (YYYY-MM-DD)
       const targetDate = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-01`
       const data = await getMonthlyStats(selectedSiteId, targetDate)
-      setMonthlyStats(data)
+      setMonthlyStats(data || null)
     } catch (e) {
-      console.error(e)
+      console.error('Failed to load monthly stats', e)
+      setMonthlyStats(null)
     } finally {
       setMonthlyLoading(false)
     }
@@ -340,6 +369,18 @@ export default function Home() {
       e.target.value = '';
     }
   };
+
+  if (!currentUser) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#f2f2f3] text-[#1d1f20] font-body gap-3">
+        <div className="w-12 h-12 rounded-xl bg-[#5980a6] text-white font-black flex items-center justify-center text-base shadow-md animate-pulse">
+          FM
+        </div>
+        <div className="text-xs font-bold text-[rgba(29,31,32,0.6)] uppercase tracking-wider">Field Manage v2.0</div>
+        <div className="text-xs text-[rgba(29,31,32,0.45)]">사용자 세션 확인 중...</div>
+      </div>
+    )
+  }
 
   return (
     <>

@@ -253,7 +253,7 @@ export default function LaborTab({
         <div className="grid grid-cols-1 gap-3">
           {loading ? (
             <div className="text-center py-10 text-[rgba(29,31,32,0.55)]">데이터를 불러오는 중...</div>
-          ) : logData?.labors.length === 0 ? (
+          ) : !logData?.labors || logData.labors.length === 0 ? (
             <div className="bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded-xl p-8 text-center text-[rgba(29,31,32,0.55)]">
               입력된 노무 인력이 없습니다.
               <div className="mt-2 text-xs text-[#5980a6] font-semibold">
@@ -261,7 +261,7 @@ export default function LaborTab({
               </div>
             </div>
           ) : (
-            logData?.labors.map((labor: any) => {
+            (logData.labors || []).map((labor: any) => {
               const docStatus = workerDocMap[labor.name.trim().toLowerCase()]
               const docWarning = docStatus === undefined ? '근로자 미등록' : docStatus !== 'COMPLETE' ? '서류 미비' : null
               return (

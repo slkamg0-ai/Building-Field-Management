@@ -6,8 +6,6 @@ import { normalizeEquipmentName, normalizeJobType, normalizeNumber, validatePlat
 
 export const maxDuration = 60
 
-const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY || '' })
-
 const COMMON_RULES = `
 규칙:
 - 글자가 흐리거나 가려져 판독이 불확실한 값은 추측하지 말고 빈 문자열("")로 두세요.
@@ -81,6 +79,12 @@ export async function POST(req: NextRequest) {
     const schema = isEquipment ? EQUIPMENT_SCHEMA : WORKER_SCHEMA
 
     // 1. Gemini Vision 호출
+    const apiKey = process.env.GOOGLE_GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY
+    if (!apiKey) {
+      return NextResponse.json({ error: 'Gemini API 키가 설정되지 않았습니다.' }, { status: 500 })
+    }
+    const ai = new GoogleGenAI({ apiKey })
+
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: [

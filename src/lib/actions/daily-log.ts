@@ -7,10 +7,77 @@ import { requireAdmin, requireSiteAccess, requireUser } from '../auth'
 import { requireLogSiteAccess, requireRecordSiteAccess } from './_shared'
 
 // ════════════════════════════════════════════════════════════════
-//  일일 로그
+//  일일 로그 및 DB 스키마 자가 치유(Self-Healing) 마이그레이션
 // ════════════════════════════════════════════════════════════════
+let schemaEnsured = false
+
+export async function ensureSchemaUpdated() {
+  if (schemaEnsured) return
+  try {
+    await prisma.$executeRawUnsafe(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns 
+          WHERE table_name='Labor' AND column_name='workerId'
+        ) THEN
+          ALTER TABLE "Labor" ADD COLUMN "workerId" TEXT;
+        END IF;
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns 
+          WHERE table_name='Equipment' AND column_name='equipmentMasterId'
+        ) THEN
+          ALTER TABLE "Equipment" ADD COLUMN "equipmentMasterId" TEXT;
+        END IF;
+      END $$;
+    `)
+
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "EquipmentMaster" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "name" TEXT NOT NULL,
+        "spec" TEXT,
+        "ownerType" TEXT NOT NULL DEFAULT 'SUBCONTRACT',
+        "driverName" TEXT,
+        "driverPhone" TEXT,
+        "unitPrice" INTEGER NOT NULL DEFAULT 0,
+        "documentStatus" TEXT NOT NULL DEFAULT 'UNKNOWN',
+        "documentUrl" TEXT,
+        "note" TEXT,
+        "isActive" BOOLEAN NOT NULL DEFAULT true,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+    `)
+
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "EquipmentDocument" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "equipmentId" TEXT,
+        "documentType" TEXT NOT NULL,
+        "fileUrl" TEXT NOT NULL,
+        "extractedData" JSONB,
+        "status" TEXT NOT NULL DEFAULT 'REVIEW',
+        "note" TEXT,
+        "processedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+    `)
+
+    await prisma.$executeRawUnsafe(`
+      CREATE INDEX IF NOT EXISTS "Labor_workerId_idx" ON "Labor"("workerId");
+      CREATE INDEX IF NOT EXISTS "Equipment_equipmentMasterId_idx" ON "Equipment"("equipmentMasterId");
+    `)
+
+    schemaEnsured = true
+  } catch (err) {
+    console.error('Schema auto-sync error (non-fatal):', err)
+  }
+}
+
 export async function getDailyLog(dateString: string, siteId: string) {
   await requireSiteAccess(siteId)
+  await ensureSchemaUpdated()
   const startOfDay = new Date(dateString); startOfDay.setHours(0, 0, 0, 0)
   const endOfDay = new Date(dateString); endOfDay.setHours(23, 59, 59, 999)
 
