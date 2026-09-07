@@ -18,6 +18,16 @@
 
 import { AwsClient } from 'aws4fetch'
 
+export function isR2Configured(): boolean {
+  return Boolean(
+    process.env.R2_ACCESS_KEY_ID &&
+    process.env.R2_SECRET_ACCESS_KEY &&
+    process.env.R2_ACCOUNT_ID &&
+    process.env.R2_BUCKET_NAME &&
+    process.env.R2_PUBLIC_URL
+  )
+}
+
 function getClient() {
   const accessKeyId = process.env.R2_ACCESS_KEY_ID
   const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY
@@ -80,15 +90,20 @@ export async function uploadDataUrlToR2(dataUrl: string, prefix: string) {
   return `${getPublicUrl()}/${key}`
 }
 
-// R2 공개 URL에서 객체 키를 추출해 삭제한다. (사진 삭제 시 사용, 실패해도 앱 흐름은 막지 않도록 호출부에서 try/catch 권장)
+// R2 공개 URL에서 객체 키를 추출해 삭제한다. (사진 삭제 시 사용, 실패해도 앱 흐름은 막지 않도록 안전 처리)
 export async function deleteFromR2(publicUrl: string) {
-  const base = getPublicUrl()
-  if (!publicUrl.startsWith(base)) return // R2가 아닌(예: 과거 로컬 경로) URL은 무시
-  const key = publicUrl.slice(base.length + 1)
-  if (!key) return
-  const client = getClient()
-  const res = await client.fetch(`${getEndpointBase()}/${key}`, { method: 'DELETE' })
-  if (!res.ok && res.status !== 404) {
-    throw new Error(`R2 삭제 실패 (${res.status})`)
+  if (!isR2Configured() || !publicUrl || publicUrl.startsWith('data:')) return
+  try {
+    const base = getPublicUrl()
+    if (!publicUrl.startsWith(base)) return // R2가 아닌(예: 과거 로컬 경로, dataUrl 등) URL은 무시
+    const key = publicUrl.slice(base.length + 1)
+    if (!key) return
+    const client = getClient()
+    const res = await client.fetch(`${getEndpointBase()}/${key}`, { method: 'DELETE' })
+    if (!res.ok && res.status !== 404) {
+      console.warn(`R2 삭제 응답 코드: ${res.status}`)
+    }
+  } catch (e) {
+    console.warn('R2 삭제 처리 중 예외(무시):', e)
   }
 }

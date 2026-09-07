@@ -184,6 +184,9 @@ export default function Home() {
     }
   }
 
+  // 현장 사진 확대 모달 상태
+  const [viewingPhotoUrl, setViewingPhotoUrl] = useState<string | null>(null)
+
   useEffect(() => {
     if (selectedSiteId) {
       loadData()
@@ -355,7 +358,7 @@ export default function Home() {
           const canvas = document.createElement('canvas');
           let width = img.width;
           let height = img.height;
-          const max_size = mode === 'document' ? 1792 : 1024;
+          const max_size = mode === 'document' ? 1792 : 1280;
 
           if (width > height) {
             if (width > max_size) {
@@ -372,8 +375,9 @@ export default function Home() {
           canvas.height = height;
           const ctx = canvas.getContext('2d');
           ctx?.drawImage(img, 0, 0, width, height);
-          resolve(canvas.toDataURL('image/jpeg', mode === 'document' ? 0.85 : 0.6));
+          resolve(canvas.toDataURL('image/jpeg', mode === 'document' ? 0.85 : 0.7));
         };
+        img.onerror = () => reject(new Error('이미지를 불러오지 못했습니다. 올바른 사진 파일 형식인지 확인해 주세요.'));
       };
       reader.onerror = error => reject(error);
     });
@@ -420,9 +424,13 @@ export default function Home() {
     setIsUploading(true);
     try {
       const optimizedBase64 = await optimizeImage(file);
-      await uploadPhoto(logData.id, optimizedBase64, currentUser?.name ?? null);
+      const res = await uploadPhoto(logData.id, optimizedBase64, currentUser?.name ?? null);
+      if (res && typeof res === 'object' && 'success' in res && !res.success) {
+        throw new Error(res.error || '사진 저장에 실패했습니다.');
+      }
 
-      loadData();
+      await loadData();
+      toast.success('현장 사진이 성공적으로 등록되었습니다.');
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err)
       console.error("Upload failed", msg);
@@ -1229,8 +1237,13 @@ export default function Home() {
                 </div>
                 <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
                   {logData?.photos?.map((photo: any) => (
-                    <div key={photo.id} className="aspect-square bg-surface-container-high relative group cursor-pointer overflow-hidden rounded-lg border border-[rgba(29,31,32,0.16)]">
-                      <img className="w-full h-full object-cover group-hover:scale-110 transition-transform" src={photo.url} alt="Site Photo" />
+                    <div 
+                      key={photo.id} 
+                      onClick={() => setViewingPhotoUrl(photo.url)}
+                      className="aspect-square bg-[#ededed] relative group cursor-pointer overflow-hidden rounded-lg border border-[rgba(29,31,32,0.16)] hover:shadow-md transition-shadow"
+                      title="클릭하여 원본 확대"
+                    >
+                      <img className="w-full h-full object-cover group-hover:scale-105 transition-transform" src={photo.url} alt="Site Photo" />
                       <button 
                         onClick={async (e) => {
                           e.stopPropagation();
@@ -1239,7 +1252,8 @@ export default function Home() {
                             loadData();
                           }
                         }}
-                        className="absolute top-1 right-1 bg-black/60 text-[#1d1f20] p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="absolute top-1 right-1 bg-black/70 hover:bg-black text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="사진 삭제"
                       >
                         <span className="material-symbols-outlined text-xs">close</span>
                       </button>
@@ -1451,6 +1465,32 @@ export default function Home() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* 현장 사진 원본 확대 모달 */}
+      {viewingPhotoUrl && (
+        <div 
+          className="fixed inset-0 z-50 bg-black/85 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-150"
+          onClick={() => setViewingPhotoUrl(null)}
+        >
+          <div 
+            className="relative max-w-4xl max-h-[90vh] bg-[#1d1f20] rounded-xl overflow-hidden shadow-2xl flex flex-col items-center border border-[rgba(255,255,255,0.1)]"
+            onClick={e => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setViewingPhotoUrl(null)}
+              className="absolute top-3 right-3 z-10 w-9 h-9 rounded-full bg-black/70 hover:bg-black text-white flex items-center justify-center transition-colors shadow-md"
+              title="닫기"
+            >
+              <span className="material-symbols-outlined text-lg">close</span>
+            </button>
+            <img 
+              src={viewingPhotoUrl} 
+              alt="현장 사진 원본 확대" 
+              className="max-h-[85vh] w-auto object-contain rounded-lg"
+            />
           </div>
         </div>
       )}

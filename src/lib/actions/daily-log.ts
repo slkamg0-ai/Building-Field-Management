@@ -2,7 +2,7 @@
 
 import prisma from '../prisma'
 import { revalidatePath } from 'next/cache'
-import { uploadDataUrlToR2, deleteFromR2 } from '../r2'
+import { uploadDataUrlToR2, deleteFromR2, isR2Configured } from '../r2'
 import { requireAdmin, requireSiteAccess, requireUser } from '../auth'
 import { requireLogSiteAccess, requireRecordSiteAccess } from './_shared'
 
@@ -245,19 +245,56 @@ export async function deletePhoto(photoId: string) {
   revalidatePath('/')
 }
 
-// 범용 이미지 업로드(얼굴/출퇴근 사진 등) — R2에 업로드하고 공개 URL만 반환
+// 범용 이미지 업로드(얼굴/출퇴근 사진 등) — R2 우선 업로드, 미설정 또는 실패 시 dataUrl 그대로 안전 반환
 export async function uploadImage(dataUrl: string, prefix: string = 'img') {
   await requireUser()
-  return uploadDataUrlToR2(dataUrl, prefix)
+  if (isR2Configured()) {
+    try {
+      return await uploadDataUrlToR2(dataUrl, prefix)
+    } catch (e) {
+      console.warn('[uploadImage] R2 업로드 실패, dataUrl 직접 유지:', e)
+      return dataUrl
+    }
+  }
+  return dataUrl
 }
 
-// 작업일보 사진 업로드 — R2 업로드 + Photo 레코드
+// 작업일보 사진 업로드 — R2 우선 업로드 + R2 미설정/실패 시 DB 직접 저장 (Fail-Safe 이중화)
 export async function uploadPhoto(logId: string, dataUrl: string, creatorName?: string | null) {
-  const { user } = await requireLogSiteAccess(logId)
-  const url = await uploadDataUrlToR2(dataUrl, logId)
-  await prisma.photo.create({ data: { logId, url, createdBy: user.name } })
-  revalidatePath('/')
-  return url
+  try {
+    const { user } = await requireLogSiteAccess(logId)
+    let finalUrl = dataUrl
+    let storageType: 'R2' | 'DATABASE' = 'DATABASE'
+
+    if (isR2Configured()) {
+      try {
+        finalUrl = await uploadDataUrlToR2(dataUrl, logId)
+        storageType = 'R2'
+      } catch (r2Err) {
+        console.warn('[uploadPhoto] R2 업로드 실패, DB 직접 저장으로 자동 우회:', r2Err)
+        finalUrl = dataUrl
+        storageType = 'DATABASE'
+      }
+    } else {
+      console.log('[uploadPhoto] R2 미설정: 사진을 DB에 직접 안전하게 저장합니다.')
+    }
+
+    const photo = await prisma.photo.create({
+      data: {
+        logId,
+        url: finalUrl,
+        createdBy: user.name,
+      },
+    })
+    revalidatePath('/')
+    return { success: true, photoId: photo.id, url: finalUrl, storage: storageType }
+  } catch (err: any) {
+    console.error('[uploadPhoto error]:', err)
+    return {
+      success: false,
+      error: err?.message || '사진 업로드 중 서버 오류가 발생했습니다.',
+    }
+  }
 }
 
 // 전일 투입 노무 인력 1-클릭 복제 (아침 조례 시간 90% 단축)
