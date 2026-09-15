@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { getDailyLog, getSites, createSite, updateSite, resetSiteData, getMonthlyStats, getSiteTotalStats, getUsers, createUser, deleteUser, toggleUserActive, updateUserPin, updateUserRole, updateDailyLogDescription, addPhotoRecord, deletePhoto, uploadPhoto, getCurrentUser, logout, getWorkers, getUserSiteIds, setUserSites, exportDatabaseBackup, changeMyPin } from '@/lib/actions'
 import DashboardTab from './DashboardTab'
+import WebCommandDashboard from '@/components/WebCommandDashboard'
 import LaborTab from './LaborTab'
 import EquipmentTab from './EquipmentTab'
 import OutsourcingTab from './OutsourcingTab'
@@ -22,6 +23,7 @@ import { saveAs } from 'file-saver'
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState('dashboard') // dashboard, labor, equipment, material, outsourcing
+  const [dashboardView, setDashboardView] = useState<'stitch' | 'classic'>('stitch')
   const [showMobileMenu, setShowMobileMenu] = useState(false)
   const [currentDate, setCurrentDate] = useState(new Date().toISOString().split('T')[0])
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
@@ -455,7 +457,55 @@ export default function Home() {
 
   return (
     <>
-      {/* Desktop Sidebar */}
+            {activeTab === 'dashboard' && dashboardView === 'stitch' ? (
+        <WebCommandDashboard
+          currentDate={currentDate}
+          onDateChange={(date) => {
+            const d = new Date(date)
+            setCurrentDate(date)
+            setSelectedYear(d.getFullYear())
+            setSelectedMonth(d.getMonth() + 1)
+          }}
+          site={sites.find(s => s.id === selectedSiteId)}
+          sites={sites}
+          selectedSiteId={selectedSiteId}
+          onSelectSite={setSelectedSiteId}
+          logData={logData}
+          siteTotalStats={siteTotalStats}
+          monthlyStats={monthlyStats}
+          monthlyLoading={monthlyLoading}
+          monthName={monthName}
+          grandTotal={grandTotal}
+          isOverBudgetToday={!!isOverBudgetToday}
+          currentUser={currentUser}
+          workerDocMap={workerDocMap}
+          onNavigateTab={(tab) => {
+            setActiveTab(tab)
+          }}
+          onOpenUserModal={() => { loadAllUsers(); setShowUserManagement(true); }}
+          onOpenSiteModal={openEditSiteModal}
+          onOpenBackup={handleDownloadBackup}
+          onOpenChangePin={() => setShowChangePinModal(true)}
+          onLogout={handleLogout}
+          onViewPhoto={(url) => setViewingPhotoUrl(url)}
+          workDescription={workDescription}
+          onWorkDescriptionChange={setWorkDescription}
+          onSaveWorkDescription={async () => {
+            if (logData) await updateDailyLogDescription(logData.id, workDescription);
+          }}
+          onPhotoUpload={handlePhotoUpload}
+          onDeletePhoto={async (photoId) => {
+            if (confirm('사진을 삭제하시겠습니까?')) {
+              await deletePhoto(photoId);
+              loadData();
+            }
+          }}
+          isUploading={isUploading}
+          onSwitchToClassic={() => setDashboardView('classic')}
+        />
+      ) : (
+        <div className="min-h-screen bg-[#e9e9ea] text-[#1d1f20] font-sans antialiased flex flex-col justify-between">
+{/* Desktop Sidebar */}
       <aside className="fixed inset-y-0 left-0 z-40 hidden xl:flex flex-col h-full w-72 border-r border-[rgba(29,31,32,0.16)] bg-[#f2f2f3] transition-all">
         <div className="p-8 flex flex-col gap-6">
           <div className="flex items-center gap-3">
@@ -550,6 +600,18 @@ export default function Home() {
             </div>
 
             <div className="flex items-center gap-1 shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('dashboard')
+                  setDashboardView('stitch')
+                }}
+                className="hidden sm:flex items-center gap-1.5 bg-[#5980a6] hover:bg-[#416180] text-white px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all shadow-xs"
+                title="Google Stitch 통합관제센터(v4.2)로 전환"
+              >
+                <span className="material-symbols-outlined text-[15px]">grid_view</span>
+                <span>스마트 관제센터 (Stitch)</span>
+              </button>
               <NotifyButton userName={currentUser?.name} />
 
               {/* 모바일·태블릿(~lg 미만) 통합 메뉴 버튼: 아이콘 바가 잘리지 않도록 lg 미만에서는 항상 드로어로 통합 */}
@@ -669,318 +731,6 @@ export default function Home() {
             </div>
           </section>
         
-        {/* 새 현장 추가 모달 */}
-        {showNewSiteForm && (
-          <div className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4">
-            <div className="bg-[#f2f2f3] border border-[#5980a6] p-6 rounded-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
-              <h3 className="text-xl font-bold text-[#5980a6] mb-4">
-                {isEditingSite ? '현장 정보 수정' : '새 현장 추가'}
-              </h3>
-              <form onSubmit={handleCreateSite} className="space-y-4">
-                <div>
-                  <label className="block text-sm text-[rgba(29,31,32,0.6)] mb-1">현장명</label>
-                  <input type="text" required className="w-full bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded px-4 py-3 text-[#1d1f20] outline-none focus:border-[#5980a6]" value={newSiteName} onChange={e => setNewSiteName(e.target.value)} placeholder="예: 서울 강남구 복합시설 현장" />
-                </div>
-                <div>
-                  <label className="block text-sm text-[rgba(29,31,32,0.6)] mb-1">도급액 (예산)</label>
-                  <input type="number" required className="w-full bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded px-4 py-3 text-[#1d1f20] outline-none focus:border-[#5980a6]" value={newSiteContractAmount} onChange={e => setNewSiteContractAmount(e.target.value)} placeholder="0" />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-sm text-[rgba(29,31,32,0.6)] mb-1">착공일</label>
-                    <input type="date" required className="w-full bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded px-4 py-3 text-[#1d1f20] outline-none focus:border-[#5980a6]" value={newSiteStartDate} onChange={e => setNewSiteStartDate(e.target.value)} />
-                  </div>
-                  <div>
-                    <label className="block text-sm text-[rgba(29,31,32,0.6)] mb-1">준공예정일</label>
-                    <input type="date" required className="w-full bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded px-4 py-3 text-[#1d1f20] outline-none focus:border-[#5980a6]" value={newSiteEndDate} onChange={e => setNewSiteEndDate(e.target.value)} />
-                  </div>
-                </div>
-                <div className="flex gap-3 pt-4">
-                  <button 
-                    type="button" 
-                    onClick={() => {
-                      setShowNewSiteForm(false)
-                      setIsEditingSite(false)
-                      setNewSiteName('')
-                      setNewSiteContractAmount('0')
-                    }} 
-                    className="flex-1 py-3 rounded border border-[rgba(29,31,32,0.16)] text-[rgba(29,31,32,0.6)] hover:text-[#1d1f20]"
-                  >
-                    취소
-                  </button>
-                  <button type="submit" className="flex-1 py-3 rounded bg-[#5980a6] text-[#f2f2f3] font-bold hover:opacity-90">
-                    {isEditingSite ? '수정하기' : '생성하기'}
-                  </button>
-                </div>
-                {isEditingSite && (
-                  <div className="pt-6 border-t border-[rgba(29,31,32,0.16)] mt-6">
-                    <p className="text-[10px] text-[rgba(29,31,32,0.55)] font-bold uppercase tracking-widest mb-2">위험 구역</p>
-                    <button 
-                      type="button" 
-                      onClick={handleResetSite}
-                      className="w-full py-2 rounded border border-red-500/30 text-red-500 text-xs font-bold hover:bg-red-500 hover:text-[#1d1f20] transition-all flex items-center justify-center gap-2"
-                    >
-                      <Trash2 className="w-3 h-3" /> 이 현장의 모든 데이터 초기화
-                    </button>
-                  </div>
-                )}
-              </form>
-            </div>
-          </div>
-        )}
-
-        {/* 사용자 관리 모달 */}
-        {showUserManagement && (
-          <div className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4">
-            <div className="bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] p-6 rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-bold text-[#1d1f20] flex items-center gap-2">
-                  <Shield className="text-[#5980a6]" /> 시스템 관리 및 데이터 보호
-                </h3>
-                <button onClick={() => setShowUserManagement(false)} className="text-[rgba(29,31,32,0.6)] hover:text-[#1d1f20]">
-                  <span className="material-symbols-outlined">close</span>
-                </button>
-              </div>
-
-              {/* DB 안전 잠금 및 전체 백업 카드 */}
-              <div className="bg-white p-4 rounded-xl border border-[#5980a6]/30 mb-6 shadow-sm">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold bg-emerald-500/15 text-emerald-700 px-2.5 py-0.5 rounded-full flex items-center gap-1 border border-emerald-500/30">
-                        🔒 DB 안전 잠금 활성화
-                      </span>
-                      <span className="text-[11px] text-[rgba(29,31,32,0.55)] font-semibold">무손실 스키마 보호</span>
-                    </div>
-                    <p className="text-xs text-[rgba(29,31,32,0.7)] font-medium leading-relaxed">
-                      업데이트나 스키마 수정 시 기존 데이터가 삭제되지 않도록 보호 잠금이 적용되어 있습니다.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleDownloadBackup}
-                    disabled={isBackingUp}
-                    className="shrink-0 px-3.5 py-2.5 bg-[#5980a6] hover:bg-[#416180] text-white text-xs font-bold rounded-lg flex items-center gap-1.5 shadow-sm transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    {isBackingUp ? '백업 생성 중...' : '전체 DB 백업 다운로드'}
-                  </button>
-                </div>
-              </div>
-
-              {/* 새 사용자 추가 폼 */}
-              <div className="bg-[#f2f2f3] p-4 rounded-lg border border-[rgba(29,31,32,0.16)] mb-6">
-                <h4 className="text-sm font-bold text-[#5980a6] mb-3 flex items-center gap-2">
-                  <UserPlus className="w-4 h-4" /> 신규 접속자 등록
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                  <input 
-                    type="text" 
-                    placeholder="이름" 
-                    className="bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded px-3 py-2 text-[#1d1f20] outline-none focus:border-[#5980a6]"
-                    value={newUserForm.name}
-                    onChange={e => setNewUserForm({...newUserForm, name: e.target.value})}
-                  />
-                  <input
-                    type="text"
-                    placeholder="PIN (4~8자리)"
-                    maxLength={8}
-                    className="bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded px-3 py-2 text-[#1d1f20] outline-none focus:border-[#5980a6]"
-                    value={newUserForm.pin}
-                    onChange={e => setNewUserForm({...newUserForm, pin: e.target.value.replace(/\D/g, '')})}
-                  />
-                  <select 
-                    className="bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded px-3 py-2 text-[#1d1f20] outline-none focus:border-[#5980a6]"
-                    value={newUserForm.role}
-                    onChange={e => setNewUserForm({...newUserForm, role: e.target.value})}
-                  >
-                    <option value="WORKER">작업자 (WORKER)</option>
-                    <option value="ADMIN">관리자 (ADMIN)</option>
-                  </select>
-                  <button 
-                    onClick={async () => {
-                      if (!newUserForm.name || !/^\d{4,8}$/.test(newUserForm.pin)) return
-                      await createUser(newUserForm.name, newUserForm.pin, newUserForm.role)
-                      setNewUserForm({ name: '', pin: '', role: 'WORKER' })
-                      loadAllUsers()
-                    }}
-                    className="bg-[#5980a6] text-[#f2f2f3] font-bold rounded py-2 hover:opacity-90 transition-colors"
-                  >
-                    등록
-                  </button>
-                </div>
-              </div>
-
-              {/* 사용자 리스트 */}
-              <div className="space-y-2">
-                <h4 className="text-sm font-bold text-[rgba(29,31,32,0.55)] mb-2 uppercase tracking-widest">등록된 접속자 목록</h4>
-                {allUsers.map(u => (
-                  <div key={u.id} className="flex items-center justify-between bg-[#f2f2f3] p-3 rounded-lg border border-[rgba(29,31,32,0.16)]">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center ${u.role === 'ADMIN' ? 'bg-[#5980a6]/20 text-[#5980a6]' : 'bg-[#ededed] text-[rgba(29,31,32,0.6)]'}`}>
-                        {u.role === 'ADMIN' ? <Shield className="w-4 h-4" /> : <User className="w-4 h-4" />}
-                      </div>
-                      <div>
-                        <div className="text-[#1d1f20] font-bold text-sm">{u.name}</div>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          {u.name !== '관리자' ? (
-                            <button
-                              onClick={async () => {
-                                const newRole = u.role === 'ADMIN' ? 'WORKER' : 'ADMIN'
-                                await updateUserRole(u.id, newRole)
-                                loadAllUsers()
-                              }}
-                              className={`text-[10px] font-bold tracking-widest px-1.5 py-0.5 rounded transition-colors ${u.role === 'ADMIN' ? 'bg-[#5980a6]/20 text-[#5980a6] hover:bg-[#5980a6]/30' : 'bg-[#ededed] text-[rgba(29,31,32,0.6)] hover:bg-[#e0e0e0]'}`}
-                              title="클릭하여 역할 변경"
-                            >
-                              {u.role}
-                            </button>
-                          ) : (
-                            <span className="text-[10px] font-bold tracking-widest px-1.5 py-0.5 rounded bg-[#5980a6]/20 text-[#5980a6]">{u.role}</span>
-                          )}
-                          <span className="text-[10px] text-[rgba(29,31,32,0.55)]">PIN 보호됨</span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {changingPinId === u.id ? (
-                        <div className="flex items-center gap-1">
-                          <input
-                            type="password"
-                            maxLength={8}
-                            placeholder="새 PIN (4~8자리)"
-                            value={newPinInput}
-                            onChange={e => setNewPinInput(e.target.value.replace(/\D/g, ''))}
-                            className="w-28 bg-[#f2f2f3] border border-[#5980a6] rounded px-2 py-1 text-[#1d1f20] text-sm outline-none text-center tracking-widest"
-                            autoFocus
-                          />
-                          <button
-                            onClick={async () => {
-                              if (!/^\d{4,8}$/.test(newPinInput)) return
-                              await updateUserPin(u.id, newPinInput)
-                              setChangingPinId(null)
-                              setNewPinInput('')
-                              loadAllUsers()
-                            }}
-                            className="p-1.5 rounded bg-[#16a34a]/10 text-[#16a34a] hover:bg-[#16a34a]/20 transition-colors"
-                            title="저장"
-                          >
-                            <Check className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => { setChangingPinId(null); setNewPinInput('') }}
-                            className="p-1.5 rounded hover:bg-[#ededed] text-[rgba(29,31,32,0.55)] transition-colors"
-                            title="취소"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => { setChangingPinId(u.id); setNewPinInput('') }}
-                          className="p-2 rounded hover:bg-[#ededed] text-[rgba(29,31,32,0.55)] hover:text-[#5980a6] transition-colors"
-                          title="PIN 변경"
-                        >
-                          <KeyRound className="w-4 h-4" />
-                        </button>
-                      )}
-                      <button
-                        onClick={async () => {
-                          await toggleUserActive(u.id, !u.isActive)
-                          loadAllUsers()
-                        }}
-                        className={`p-2 rounded hover:bg-[#ededed] transition-colors ${u.isActive ? 'text-[#16a34a]' : 'text-[rgba(29,31,32,0.5)]'}`}
-                        title={u.isActive ? "비활성화" : "활성화"}
-                      >
-                        <Power className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={async () => {
-                          if (editingSitesForUserId === u.id) {
-                            setEditingSitesForUserId(null)
-                            return
-                          }
-                          try {
-                            const siteIds = await getUserSiteIds(u.id)
-                            setEditingSiteIds(siteIds)
-                            setEditingSitesForUserId(u.id)
-                          } catch (e) {
-                            alert('현장 배정 정보를 불러오지 못했습니다: ' + (e instanceof Error ? e.message : String(e)))
-                          }
-                        }}
-                        className={`p-2 rounded hover:bg-[#ededed] transition-colors ${editingSitesForUserId === u.id ? 'text-[#5980a6]' : 'text-[rgba(29,31,32,0.55)]'}`}
-                        title="현장 배정"
-                      >
-                        <span className="material-symbols-outlined text-[18px]">apartment</span>
-                      </button>
-                      {u.name !== '관리자' && (
-                        <button
-                          onClick={async () => {
-                            if (confirm('정말로 이 사용자를 삭제하시겠습니까?')) {
-                              await deleteUser(u.id)
-                              loadAllUsers()
-                            }
-                          }}
-                          className="p-2 rounded hover:bg-red-500/10 text-[rgba(29,31,32,0.5)] hover:text-red-600 transition-colors"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-                {editingSitesForUserId && (() => {
-                  const editingUser = allUsers.find(u => u.id === editingSitesForUserId)
-                  if (!editingUser) return null
-                  return (
-                    <div className="bg-[#f2f2f3] p-4 rounded-lg border border-[#5980a6] space-y-2">
-                      <h5 className="text-xs font-bold text-[#5980a6] uppercase tracking-widest">{editingUser.name}님의 접근 가능 현장</h5>
-                      <div className="space-y-1.5">
-                        {sites.map(s => (
-                          <label key={s.id} className="flex items-center gap-2 text-sm text-[#1d1f20] cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={editingSiteIds.includes(s.id)}
-                              onChange={e => {
-                                setEditingSiteIds(prev =>
-                                  e.target.checked ? [...prev, s.id] : prev.filter(id => id !== s.id)
-                                )
-                              }}
-                            />
-                            {s.name}
-                          </label>
-                        ))}
-                        {sites.length === 0 && <p className="text-xs text-[rgba(29,31,32,0.55)]">등록된 현장이 없습니다.</p>}
-                      </div>
-                      <div className="flex gap-2 pt-1">
-                        <button
-                          onClick={async () => {
-                            try {
-                              await setUserSites(editingSitesForUserId, editingSiteIds)
-                              setEditingSitesForUserId(null)
-                            } catch (e) {
-                              alert('현장 배정 저장에 실패했습니다: ' + (e instanceof Error ? e.message : String(e)))
-                            }
-                          }}
-                          className="bg-[#5980a6] text-[#f2f2f3] text-xs font-bold rounded px-3 py-1.5 hover:opacity-90 transition-colors"
-                        >
-                          저장
-                        </button>
-                        <button
-                          onClick={() => setEditingSitesForUserId(null)}
-                          className="text-xs font-bold rounded px-3 py-1.5 hover:bg-[#ededed] text-[rgba(29,31,32,0.6)] transition-colors"
-                        >
-                          취소
-                        </button>
-                      </div>
-                    </div>
-                  )
-                })()}
-              </div>
-            </div>
-          </div>
-        )}
-
         {!selectedSiteId && !showNewSiteForm ? (
           <div className="mt-20 text-center text-[rgba(29,31,32,0.55)]">
             <span className="material-symbols-outlined text-6xl mb-4">apartment</span>
@@ -1314,6 +1064,10 @@ export default function Home() {
         </button>
       )}
 
+      
+        </div>
+      )}
+
       {/* 모바일 우측 슬라이드 메뉴 드로어 */}
       {showMobileMenu && (
         <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm flex justify-end animate-fade-in" onClick={() => setShowMobileMenu(false)}>
@@ -1335,6 +1089,14 @@ export default function Home() {
               </div>
 
               <div className="space-y-2">
+                <button 
+                  onClick={() => { setShowMobileMenu(false); setActiveTab('dashboard'); setDashboardView('stitch'); }}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-[#5980a6]/20 hover:bg-[#5980a6]/30 text-[#5980a6] text-sm font-bold transition-all border border-[#5980a6]/30"
+                >
+                  <span className="material-symbols-outlined text-xl">grid_view</span>
+                  <span>스마트 관제센터 (Stitch v4.2)</span>
+                </button>
+
                 <button 
                   onClick={() => { setShowMobileMenu(false); router.push('/attendance'); }}
                   className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-[#22252a] hover:bg-[#2c3036] text-white text-sm font-medium transition-all"
@@ -1494,6 +1256,320 @@ export default function Home() {
           </div>
         </div>
       )}
+
+      {/* 새 현장 추가 모달 */}
+        {showNewSiteForm && (
+          <div className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4">
+            <div className="bg-[#f2f2f3] border border-[#5980a6] p-6 rounded-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+              <h3 className="text-xl font-bold text-[#5980a6] mb-4">
+                {isEditingSite ? '현장 정보 수정' : '새 현장 추가'}
+              </h3>
+              <form onSubmit={handleCreateSite} className="space-y-4">
+                <div>
+                  <label className="block text-sm text-[rgba(29,31,32,0.6)] mb-1">현장명</label>
+                  <input type="text" required className="w-full bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded px-4 py-3 text-[#1d1f20] outline-none focus:border-[#5980a6]" value={newSiteName} onChange={e => setNewSiteName(e.target.value)} placeholder="예: 서울 강남구 복합시설 현장" />
+                </div>
+                <div>
+                  <label className="block text-sm text-[rgba(29,31,32,0.6)] mb-1">도급액 (예산)</label>
+                  <input type="number" required className="w-full bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded px-4 py-3 text-[#1d1f20] outline-none focus:border-[#5980a6]" value={newSiteContractAmount} onChange={e => setNewSiteContractAmount(e.target.value)} placeholder="0" />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm text-[rgba(29,31,32,0.6)] mb-1">착공일</label>
+                    <input type="date" required className="w-full bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded px-4 py-3 text-[#1d1f20] outline-none focus:border-[#5980a6]" value={newSiteStartDate} onChange={e => setNewSiteStartDate(e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-[rgba(29,31,32,0.6)] mb-1">준공예정일</label>
+                    <input type="date" required className="w-full bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded px-4 py-3 text-[#1d1f20] outline-none focus:border-[#5980a6]" value={newSiteEndDate} onChange={e => setNewSiteEndDate(e.target.value)} />
+                  </div>
+                </div>
+                <div className="flex gap-3 pt-4">
+                  <button 
+                    type="button" 
+                    onClick={() => {
+                      setShowNewSiteForm(false)
+                      setIsEditingSite(false)
+                      setNewSiteName('')
+                      setNewSiteContractAmount('0')
+                    }} 
+                    className="flex-1 py-3 rounded border border-[rgba(29,31,32,0.16)] text-[rgba(29,31,32,0.6)] hover:text-[#1d1f20]"
+                  >
+                    취소
+                  </button>
+                  <button type="submit" className="flex-1 py-3 rounded bg-[#5980a6] text-[#f2f2f3] font-bold hover:opacity-90">
+                    {isEditingSite ? '수정하기' : '생성하기'}
+                  </button>
+                </div>
+                {isEditingSite && (
+                  <div className="pt-6 border-t border-[rgba(29,31,32,0.16)] mt-6">
+                    <p className="text-[10px] text-[rgba(29,31,32,0.55)] font-bold uppercase tracking-widest mb-2">위험 구역</p>
+                    <button 
+                      type="button" 
+                      onClick={handleResetSite}
+                      className="w-full py-2 rounded border border-red-500/30 text-red-500 text-xs font-bold hover:bg-red-500 hover:text-[#1d1f20] transition-all flex items-center justify-center gap-2"
+                    >
+                      <Trash2 className="w-3 h-3" /> 이 현장의 모든 데이터 초기화
+                    </button>
+                  </div>
+                )}
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* 사용자 관리 모달 */}
+        {showUserManagement && (
+          <div className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4">
+            <div className="bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] p-6 rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-bold text-[#1d1f20] flex items-center gap-2">
+                  <Shield className="text-[#5980a6]" /> 시스템 관리 및 데이터 보호
+                </h3>
+                <button onClick={() => setShowUserManagement(false)} className="text-[rgba(29,31,32,0.6)] hover:text-[#1d1f20]">
+                  <span className="material-symbols-outlined">close</span>
+                </button>
+              </div>
+
+              {/* DB 안전 잠금 및 전체 백업 카드 */}
+              <div className="bg-white p-4 rounded-xl border border-[#5980a6]/30 mb-6 shadow-sm">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold bg-emerald-500/15 text-emerald-700 px-2.5 py-0.5 rounded-full flex items-center gap-1 border border-emerald-500/30">
+                        🔒 DB 안전 잠금 활성화
+                      </span>
+                      <span className="text-[11px] text-[rgba(29,31,32,0.55)] font-semibold">무손실 스키마 보호</span>
+                    </div>
+                    <p className="text-xs text-[rgba(29,31,32,0.7)] font-medium leading-relaxed">
+                      업데이트나 스키마 수정 시 기존 데이터가 삭제되지 않도록 보호 잠금이 적용되어 있습니다.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleDownloadBackup}
+                    disabled={isBackingUp}
+                    className="shrink-0 px-3.5 py-2.5 bg-[#5980a6] hover:bg-[#416180] text-white text-xs font-bold rounded-lg flex items-center gap-1.5 shadow-sm transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    {isBackingUp ? '백업 생성 중...' : '전체 DB 백업 다운로드'}
+                  </button>
+                </div>
+              </div>
+
+              {/* 새 사용자 추가 폼 */}
+              <div className="bg-[#f2f2f3] p-4 rounded-lg border border-[rgba(29,31,32,0.16)] mb-6">
+                <h4 className="text-sm font-bold text-[#5980a6] mb-3 flex items-center gap-2">
+                  <UserPlus className="w-4 h-4" /> 신규 접속자 등록
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                  <input 
+                    type="text" 
+                    placeholder="이름" 
+                    className="bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded px-3 py-2 text-[#1d1f20] outline-none focus:border-[#5980a6]"
+                    value={newUserForm.name}
+                    onChange={e => setNewUserForm({...newUserForm, name: e.target.value})}
+                  />
+                  <input
+                    type="text"
+                    placeholder="PIN (4~8자리)"
+                    maxLength={8}
+                    className="bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded px-3 py-2 text-[#1d1f20] outline-none focus:border-[#5980a6]"
+                    value={newUserForm.pin}
+                    onChange={e => setNewUserForm({...newUserForm, pin: e.target.value.replace(/\D/g, '')})}
+                  />
+                  <select 
+                    className="bg-[#f2f2f3] border border-[rgba(29,31,32,0.16)] rounded px-3 py-2 text-[#1d1f20] outline-none focus:border-[#5980a6]"
+                    value={newUserForm.role}
+                    onChange={e => setNewUserForm({...newUserForm, role: e.target.value})}
+                  >
+                    <option value="WORKER">작업자 (WORKER)</option>
+                    <option value="ADMIN">관리자 (ADMIN)</option>
+                  </select>
+                  <button 
+                    onClick={async () => {
+                      if (!newUserForm.name || !/^\d{4,8}$/.test(newUserForm.pin)) return
+                      await createUser(newUserForm.name, newUserForm.pin, newUserForm.role)
+                      setNewUserForm({ name: '', pin: '', role: 'WORKER' })
+                      loadAllUsers()
+                    }}
+                    className="bg-[#5980a6] text-[#f2f2f3] font-bold rounded py-2 hover:opacity-90 transition-colors"
+                  >
+                    등록
+                  </button>
+                </div>
+              </div>
+
+              {/* 사용자 리스트 */}
+              <div className="space-y-2">
+                <h4 className="text-sm font-bold text-[rgba(29,31,32,0.55)] mb-2 uppercase tracking-widest">등록된 접속자 목록</h4>
+                {allUsers.map(u => (
+                  <div key={u.id} className="flex items-center justify-between bg-[#f2f2f3] p-3 rounded-lg border border-[rgba(29,31,32,0.16)]">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center ${u.role === 'ADMIN' ? 'bg-[#5980a6]/20 text-[#5980a6]' : 'bg-[#ededed] text-[rgba(29,31,32,0.6)]'}`}>
+                        {u.role === 'ADMIN' ? <Shield className="w-4 h-4" /> : <User className="w-4 h-4" />}
+                      </div>
+                      <div>
+                        <div className="text-[#1d1f20] font-bold text-sm">{u.name}</div>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          {u.name !== '관리자' ? (
+                            <button
+                              onClick={async () => {
+                                const newRole = u.role === 'ADMIN' ? 'WORKER' : 'ADMIN'
+                                await updateUserRole(u.id, newRole)
+                                loadAllUsers()
+                              }}
+                              className={`text-[10px] font-bold tracking-widest px-1.5 py-0.5 rounded transition-colors ${u.role === 'ADMIN' ? 'bg-[#5980a6]/20 text-[#5980a6] hover:bg-[#5980a6]/30' : 'bg-[#ededed] text-[rgba(29,31,32,0.6)] hover:bg-[#e0e0e0]'}`}
+                              title="클릭하여 역할 변경"
+                            >
+                              {u.role}
+                            </button>
+                          ) : (
+                            <span className="text-[10px] font-bold tracking-widest px-1.5 py-0.5 rounded bg-[#5980a6]/20 text-[#5980a6]">{u.role}</span>
+                          )}
+                          <span className="text-[10px] text-[rgba(29,31,32,0.55)]">PIN 보호됨</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {changingPinId === u.id ? (
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="password"
+                            maxLength={8}
+                            placeholder="새 PIN (4~8자리)"
+                            value={newPinInput}
+                            onChange={e => setNewPinInput(e.target.value.replace(/\D/g, ''))}
+                            className="w-28 bg-[#f2f2f3] border border-[#5980a6] rounded px-2 py-1 text-[#1d1f20] text-sm outline-none text-center tracking-widest"
+                            autoFocus
+                          />
+                          <button
+                            onClick={async () => {
+                              if (!/^\d{4,8}$/.test(newPinInput)) return
+                              await updateUserPin(u.id, newPinInput)
+                              setChangingPinId(null)
+                              setNewPinInput('')
+                              loadAllUsers()
+                            }}
+                            className="p-1.5 rounded bg-[#16a34a]/10 text-[#16a34a] hover:bg-[#16a34a]/20 transition-colors"
+                            title="저장"
+                          >
+                            <Check className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => { setChangingPinId(null); setNewPinInput('') }}
+                            className="p-1.5 rounded hover:bg-[#ededed] text-[rgba(29,31,32,0.55)] transition-colors"
+                            title="취소"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => { setChangingPinId(u.id); setNewPinInput('') }}
+                          className="p-2 rounded hover:bg-[#ededed] text-[rgba(29,31,32,0.55)] hover:text-[#5980a6] transition-colors"
+                          title="PIN 변경"
+                        >
+                          <KeyRound className="w-4 h-4" />
+                        </button>
+                      )}
+                      <button
+                        onClick={async () => {
+                          await toggleUserActive(u.id, !u.isActive)
+                          loadAllUsers()
+                        }}
+                        className={`p-2 rounded hover:bg-[#ededed] transition-colors ${u.isActive ? 'text-[#16a34a]' : 'text-[rgba(29,31,32,0.5)]'}`}
+                        title={u.isActive ? "비활성화" : "활성화"}
+                      >
+                        <Power className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={async () => {
+                          if (editingSitesForUserId === u.id) {
+                            setEditingSitesForUserId(null)
+                            return
+                          }
+                          try {
+                            const siteIds = await getUserSiteIds(u.id)
+                            setEditingSiteIds(siteIds)
+                            setEditingSitesForUserId(u.id)
+                          } catch (e) {
+                            alert('현장 배정 정보를 불러오지 못했습니다: ' + (e instanceof Error ? e.message : String(e)))
+                          }
+                        }}
+                        className={`p-2 rounded hover:bg-[#ededed] transition-colors ${editingSitesForUserId === u.id ? 'text-[#5980a6]' : 'text-[rgba(29,31,32,0.55)]'}`}
+                        title="현장 배정"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">apartment</span>
+                      </button>
+                      {u.name !== '관리자' && (
+                        <button
+                          onClick={async () => {
+                            if (confirm('정말로 이 사용자를 삭제하시겠습니까?')) {
+                              await deleteUser(u.id)
+                              loadAllUsers()
+                            }
+                          }}
+                          className="p-2 rounded hover:bg-red-500/10 text-[rgba(29,31,32,0.5)] hover:text-red-600 transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {editingSitesForUserId && (() => {
+                  const editingUser = allUsers.find(u => u.id === editingSitesForUserId)
+                  if (!editingUser) return null
+                  return (
+                    <div className="bg-[#f2f2f3] p-4 rounded-lg border border-[#5980a6] space-y-2">
+                      <h5 className="text-xs font-bold text-[#5980a6] uppercase tracking-widest">{editingUser.name}님의 접근 가능 현장</h5>
+                      <div className="space-y-1.5">
+                        {sites.map(s => (
+                          <label key={s.id} className="flex items-center gap-2 text-sm text-[#1d1f20] cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={editingSiteIds.includes(s.id)}
+                              onChange={e => {
+                                setEditingSiteIds(prev =>
+                                  e.target.checked ? [...prev, s.id] : prev.filter(id => id !== s.id)
+                                )
+                              }}
+                            />
+                            {s.name}
+                          </label>
+                        ))}
+                        {sites.length === 0 && <p className="text-xs text-[rgba(29,31,32,0.55)]">등록된 현장이 없습니다.</p>}
+                      </div>
+                      <div className="flex gap-2 pt-1">
+                        <button
+                          onClick={async () => {
+                            try {
+                              await setUserSites(editingSitesForUserId, editingSiteIds)
+                              setEditingSitesForUserId(null)
+                            } catch (e) {
+                              alert('현장 배정 저장에 실패했습니다: ' + (e instanceof Error ? e.message : String(e)))
+                            }
+                          }}
+                          className="bg-[#5980a6] text-[#f2f2f3] text-xs font-bold rounded px-3 py-1.5 hover:opacity-90 transition-colors"
+                        >
+                          저장
+                        </button>
+                        <button
+                          onClick={() => setEditingSitesForUserId(null)}
+                          className="text-xs font-bold rounded px-3 py-1.5 hover:bg-[#ededed] text-[rgba(29,31,32,0.6)] transition-colors"
+                        >
+                          취소
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })()}
+              </div>
+            </div>
+          </div>
+        )}
+
+        
 
       {/* v2.0 원스톱 스마트 서류 스캔 모달 */}
       <SmartScanModal

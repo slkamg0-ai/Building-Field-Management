@@ -33,6 +33,7 @@ body {
 .dash-card { border-radius: 18px !important; }
 .dash-pill { border-radius: 9999px !important; }
 .dash-sm { border-radius: 10px !important; }
+.stitch-dashboard, .stitch-dashboard * { border-radius: revert !important; }
 
 /* 11x11 십자 코너 마커 (카드 4모서리 장식) */
 .corner-markers {
