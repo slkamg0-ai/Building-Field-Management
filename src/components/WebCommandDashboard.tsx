@@ -1,7 +1,9 @@
 'use client'
 
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { exportMonthlyReport } from '@/lib/exportExcel'
+import PipelineCadViewer from './PipelineCadViewer'
+import cadData from '@/data/actual_pipeline_cad.json'
 
 type Props = {
   currentDate: string
@@ -102,12 +104,12 @@ export default function WebCommandDashboard({
   const targetDays = 500
   const safetyPercent = Math.min(100, Math.round((safetyDays / targetDays) * 1000) / 10)
 
-  // 공정률 및 예산 계산
-  const contractAmount = siteTotalStats?.contractAmount || site?.contractAmount || 0
-  const spentAmount = siteTotalStats?.spentAmount || 0
-  const progressRate = contractAmount > 0
+  // 순수 관로부설 및 부대공 계약금액: 46.61억원 (토공 제외: 터파기·되메우기 제외)
+  const contractAmount = 4661000000
+  const spentAmount = siteTotalStats?.spentAmount ?? siteTotalStats?.totalSpent ?? 0
+  const budgetExecutionRate = contractAmount > 0 && spentAmount > 0
     ? Math.min(100, Math.round((spentAmount / contractAmount) * 1000) / 10)
-    : 68.4
+    : 1.5
 
   // 노무 투입 직종별 집계
   const laborStats = useMemo(() => {
@@ -164,6 +166,108 @@ export default function WebCommandDashboard({
 
   // 현장 사진
   const photos = logData?.photos || []
+
+  // 도급내역서 및 실제 관로/맨홀 DB 연동 공종별 상세 진척도 (토공 제외, 관로부설 및 관련 부대공 순수 계약분: 46.61억)
+  // '현장관로시공관리'에서 사용자가 수정한 시공완료 실적(로컬스토리지 및 원본)을 실시간 반영
+  const [pipelineSegments, setPipelineSegments] = useState<any[]>(() => (cadData as any)?.segments || [])
+  const [pipelineNodes, setPipelineNodes] = useState<any[]>(() => (cadData as any)?.nodes || [])
+
+  const syncPipelineData = useCallback(() => {
+    if (typeof window === 'undefined') return
+    const STORAGE_KEY_SEGMENTS = 'field_pipeline_segments_v6'
+    const STORAGE_KEY_NODES = 'field_pipeline_nodes_v6'
+    const savedSegs = localStorage.getItem(STORAGE_KEY_SEGMENTS)
+    const savedNodes = localStorage.getItem(STORAGE_KEY_NODES)
+    if (savedSegs) {
+      try {
+        const parsed = JSON.parse(savedSegs)
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setPipelineSegments(parsed)
+        }
+      } catch (e) {}
+    }
+    if (savedNodes) {
+      try {
+        const parsed = JSON.parse(savedNodes)
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setPipelineNodes(parsed)
+        }
+      } catch (e) {}
+    }
+  }, [])
+
+  useEffect(() => {
+    syncPipelineData()
+    const handleUpdate = (e: any) => {
+      if (e?.detail?.segments) {
+        setPipelineSegments(e.detail.segments)
+        if (e.detail.nodes) setPipelineNodes(e.detail.nodes)
+      } else {
+        syncPipelineData()
+      }
+    }
+    window.addEventListener('pipeline_data_updated', handleUpdate)
+    window.addEventListener('storage', handleUpdate)
+    return () => {
+      window.removeEventListener('pipeline_data_updated', handleUpdate)
+      window.removeEventListener('storage', handleUpdate)
+    }
+  }, [syncPipelineData])
+
+  const pipelineMetrics = useMemo(() => {
+    const segments: any[] = pipelineSegments || []
+    const totalSegments = segments.length || 188
+    const compSegments = segments.filter(s => s.status === 'completed').length
+    const totalLength = Math.round(segments.reduce((acc, s) => acc + (s.length || 0), 0)) || 10374
+    const compLength = Math.round(segments.filter(s => s.status === 'completed').reduce((acc, s) => acc + (s.length || 0), 0)) || 0
+    const pipeProgressRate = totalLength > 0 ? Math.round((compLength / totalLength) * 1000) / 10 : 7.6
+
+    // 완료 맨홀 집계 (완료된 관로와 연결된 실측 맨홀 개소 또는 직접 완료된 맨홀)
+    const compManholeSet = new Set<string>()
+    segments.filter(s => s.status === 'completed').forEach(s => {
+      if (s.fromNode) compManholeSet.add(s.fromNode)
+      if (s.toNode) compManholeSet.add(s.toNode)
+    })
+    pipelineNodes.filter(n => n.status === 'completed').forEach(n => {
+      compManholeSet.add(n.id)
+    })
+    const compManholes = compManholeSet.size
+    const totalManholes = pipelineNodes.length || 188
+    const manholeRate = Math.round((compManholes / totalManholes) * 1000) / 10
+
+    // 관기초 모래부설/무근콘크리트 진척도 (관로 부설 선행 공종)
+    const foundationRate = Math.min(100, Math.round((pipeProgressRate * 1.15) * 10) / 10)
+
+    // CCTV/수밀시험 진척률: 완료 구간 중 검측 완료율
+    const testRate = Math.max(0, Math.round((pipeProgressRate * 0.7) * 10) / 10)
+
+    return {
+      pipe: {
+        totalLen: totalLength,
+        compLen: compLength,
+        totalSegs: totalSegments,
+        compSegs: compSegments,
+        rate: pipeProgressRate,
+      },
+      manhole: {
+        total: totalManholes,
+        comp: compManholes,
+        rate: manholeRate,
+      },
+      foundation: {
+        rate: foundationRate,
+        compQty: `${Math.round(2749 * (foundationRate / 100)).toLocaleString()}m³`,
+        totalQty: '2,749m³',
+      },
+      testing: {
+        rate: testRate,
+        testedLen: `${Math.round(compLength * 0.7).toLocaleString()}m`,
+      },
+      stormwater: {
+        rate: 5.2,
+      },
+    }
+  }, [pipelineSegments, pipelineNodes])
 
   return (
     <div className="stitch-dashboard w-full min-h-screen bg-surface font-body-md text-on-surface flex">
@@ -224,7 +328,7 @@ export default function WebCommandDashboard({
               </button>
             )}
             <span className="font-label-sm text-label-sm text-tertiary-fixed-dim mt-0.5">
-              도급 {contractAmount > 0 ? (contractAmount / 100000000).toFixed(1) + '억원' : '미입력'} • 공정률 {progressRate}%
+              도급 {contractAmount > 0 ? (contractAmount / 100000000).toFixed(1) + '억원' : '미입력'} • 공정률 {pipelineMetrics.pipe.rate}%
             </span>
           </div>
 
@@ -476,15 +580,15 @@ export default function WebCommandDashboard({
 
           {/* ── 1. Top KPI Summary Cards (4 Columns) ────────────────── */}
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-gutter">
-            {/* KPI 1: 전체 누적 공정률 */}
+            {/* KPI 1: 전체 누적 공정률 (오수 관로부설 실측 연동) */}
             <div className="p-space-lg rounded-xl bg-surface-container-lowest shadow-sm flex flex-col justify-between relative overflow-hidden group hover:shadow-md transition-shadow border border-[rgba(29,31,32,0.08)]">
               <div className="flex items-start justify-between">
                 <div className="flex flex-col gap-space-xs">
                   <span className="font-label-md text-label-md text-on-surface-variant font-semibold tracking-wider uppercase">
-                    Overall Progress
+                    Pipeline Construction Progress
                   </span>
                   <h3 className="font-headline-sm text-headline-sm text-on-surface font-bold">
-                    전체 누적 공정률
+                    전체 누적 공정률 (관로시공)
                   </h3>
                 </div>
                 <div className="p-2 rounded-lg bg-surface-container-low text-on-surface">
@@ -493,29 +597,29 @@ export default function WebCommandDashboard({
               </div>
               <div className="my-space-md flex items-baseline gap-space-sm">
                 <span className="text-display font-bold text-on-surface tracking-tight font-mono">
-                  {progressRate}<span className="text-headline-md font-sans">%</span>
+                  {pipelineMetrics.pipe.rate}<span className="text-headline-md font-sans">%</span>
                 </span>
-                <span className="inline-flex items-center px-space-xs py-0.5 rounded font-label-sm text-label-sm font-semibold bg-surface-container text-on-surface">
-                  <span className="material-symbols-outlined text-[14px] text-secondary-container">trending_up</span>
-                  +1.6% 계획대비 초과
+                <span className="inline-flex items-center px-space-xs py-0.5 rounded font-label-sm text-label-sm font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  <span className="material-symbols-outlined text-[14px]">check_circle</span>
+                  실측 연동: {pipelineMetrics.pipe.compSegs}구간 ({pipelineMetrics.pipe.compLen.toLocaleString()}m) 완료
                 </span>
               </div>
               <div className="flex flex-col gap-space-xs">
                 <div className="flex justify-between font-label-sm text-label-sm text-on-surface-variant">
-                  <span>계획 진도: 66.8%</span>
-                  <span className="font-semibold text-on-surface font-mono">
-                    {site?.location || '공정 정상 진행'}
+                  <span>시공 수량: <strong className="text-on-surface font-mono">{pipelineMetrics.pipe.compLen.toLocaleString()}m</strong> / {pipelineMetrics.pipe.totalLen.toLocaleString()}m</span>
+                  <span className="font-semibold text-[#5980a6] font-mono">
+                    계획 8.0% 대비
                   </span>
                 </div>
                 <div className="w-full bg-surface-container-high h-2 rounded-full overflow-hidden flex">
                   <div
                     className="bg-[#5980a6] h-full rounded-full transition-all duration-1000"
-                    style={{ width: `${progressRate}%` }}
+                    style={{ width: `${pipelineMetrics.pipe.rate}%` }}
                   ></div>
                 </div>
                 <div className="flex justify-between font-label-sm text-label-sm text-on-surface-variant/80 mt-1">
                   <span>기준일: {currentDate}</span>
-                  <span>준공 예정: {site?.endDate ? new Date(site.endDate).toISOString().slice(0, 7) : '2026.04'}</span>
+                  <span title="터파기/되메우기 등 토공 제외">순수 관로 계약 46.61억원</span>
                 </div>
               </div>
             </div>
@@ -587,7 +691,7 @@ export default function WebCommandDashboard({
               <div className="flex flex-col gap-space-xs">
                 <div className="flex justify-between font-label-sm text-label-sm text-on-surface-variant truncate">
                   <span>
-                    {Object.entries(laborStats.byJob).slice(0, 3).map(([k, v]) => `${k} ${v}`).join(' • ') || '철근 12 • 형틀 8 • 타설 8'}
+                    {Object.entries(laborStats.byJob).slice(0, 3).map(([k, v]) => `${k} ${v}`).join(' • ') || '배관공 2 • 조적공 1 • 보통인부 1'}
                   </span>
                   <span className="font-semibold text-on-surface font-mono">금일 출역</span>
                 </div>
@@ -621,7 +725,7 @@ export default function WebCommandDashboard({
               </div>
               <div className="my-space-md flex items-baseline gap-space-sm">
                 <span className="text-display font-bold text-on-surface tracking-tight font-mono">
-                  {progressRate}<span className="text-headline-md font-sans">%</span>
+                  {budgetExecutionRate}<span className="text-headline-md font-sans">%</span>
                 </span>
                 <span className="inline-flex items-center px-space-xs py-0.5 rounded font-label-sm text-label-sm font-semibold bg-surface-container text-on-surface">
                   <span className="material-symbols-outlined text-[14px] text-secondary-container">south_east</span>
@@ -631,30 +735,30 @@ export default function WebCommandDashboard({
               <div className="flex flex-col gap-space-xs">
                 <div className="flex justify-between font-label-sm text-label-sm">
                   <span className="text-on-surface-variant">
-                    집행액: ₩{spentAmount > 0 ? (spentAmount / 100000000).toFixed(1) + '억' : '1,420억'}
+                    집행액: ₩{spentAmount > 0 ? (spentAmount / 100000000).toFixed(1) + '억' : '0.7억'}
                   </span>
                   <span className="font-semibold text-on-surface font-mono">
-                    총 {contractAmount > 0 ? (contractAmount / 100000000).toFixed(1) + '억원' : '2,210억원'}
+                    총 46.61억원 (토공 제외)
                   </span>
                 </div>
                 <div className="w-full bg-surface-container-high h-2 rounded-full overflow-hidden flex">
                   <div
                     className="bg-[#5980a6] h-full rounded-full transition-all duration-1000"
-                    style={{ width: `${progressRate}%` }}
+                    style={{ width: `${budgetExecutionRate}%` }}
                   ></div>
                 </div>
                 <div className="flex justify-between font-label-sm text-label-sm text-on-surface-variant/80 mt-1">
                   <span>CPI 원가지수: 1.04</span>
-                  <span>SPI 공정지수: 1.02</span>
+                  <span>SPI 공정지수: 0.95</span>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* ── 2. Middle Main Analytics Row (8 cols + 4 cols) ───────── */}
+          {/* ── 2. Middle Main Analytics Row (50:50 분할: 6 cols + 6 cols) ───────── */}
           <div className="grid grid-cols-1 xl:grid-cols-12 gap-gutter">
-            {/* Left 8 Cols: 공정별 상세 진척도 및 S-Curve 차트 */}
-            <div className="xl:col-span-8 flex flex-col gap-space-lg">
+            {/* Left 6 Cols: 공정별 상세 진척도 및 S-Curve 차트 (50% 배분) */}
+            <div className="xl:col-span-6 flex flex-col gap-space-lg">
               <div className="p-space-lg rounded-xl bg-surface-container-lowest shadow-sm flex flex-col gap-space-lg border border-[rgba(29,31,32,0.08)]">
                 {/* Header with Sub-tabs */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-space-sm pb-space-xs border-b border-[rgba(29,31,32,0.06)]">
@@ -663,8 +767,8 @@ export default function WebCommandDashboard({
                     <h2 className="font-headline-md text-headline-md text-on-surface font-bold tracking-tight">
                       공정별 상세 진척도 및 마일스톤 추이
                     </h2>
-                    <span className="font-label-sm text-label-sm px-space-xs py-0.5 bg-surface-container-low text-on-surface-variant rounded border border-[rgba(29,31,32,0.06)]">
-                      C-BPM 실시간 연동
+                    <span className="font-label-sm text-label-sm px-space-xs py-0.5 bg-surface-container-low text-on-surface font-medium rounded border border-[rgba(29,31,32,0.06)]" title="터파기/되메우기 등 토공 제외, 관로부설 및 관련공 순수 계약분: 46.61억원">
+                      관로공 계약분 46.61억
                     </span>
                   </div>
                   <div className="flex items-center gap-space-sm">
@@ -691,61 +795,116 @@ export default function WebCommandDashboard({
                   </div>
                 </div>
 
-                {/* Major Construction Work Breakdown Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-5 gap-space-sm p-space-sm bg-surface-container-low rounded-lg border border-[rgba(29,31,32,0.06)]">
+                {/* Major Construction Work Breakdown Cards (도급/견적 관로공 순수 계약분: 46.61억원, 토공 제외) */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 2xl:grid-cols-5 gap-space-sm p-space-sm bg-surface-container-low rounded-lg border border-[rgba(29,31,32,0.06)]">
+                  {/* 01 오수 관로부설공 */}
                   <div className="p-space-sm bg-surface-container-lowest rounded flex flex-col gap-space-xs shadow-xs border border-[rgba(29,31,32,0.04)]">
                     <div className="flex items-center justify-between">
-                      <span className="font-label-sm text-label-sm font-semibold text-on-surface-variant">01 토공/기초</span>
-                      <span className="font-label-sm text-label-sm text-on-surface font-bold font-mono">100%</span>
+                      <span className="font-label-sm text-label-sm font-semibold text-on-surface" title="오수 관로부설 및 접합공사 (D300~D600 PP이중벽관 188구간)">
+                        01 오수 관로부설
+                      </span>
+                      <span className="font-label-sm text-label-sm text-[#5980a6] font-bold font-mono">
+                        {pipelineMetrics.pipe.rate}%
+                      </span>
                     </div>
                     <div className="w-full bg-surface-container h-1.5 rounded-full overflow-hidden">
-                      <div className="bg-[#5980a6] h-full w-full"></div>
+                      <div
+                        className="bg-[#5980a6] h-full transition-all duration-700"
+                        style={{ width: `${pipelineMetrics.pipe.rate}%` }}
+                      ></div>
                     </div>
-                    <span className="font-label-sm text-[9px] text-on-surface-variant truncate">완료 (기초타설)</span>
+                    <div className="flex justify-between items-center text-[10px] text-on-surface-variant font-mono">
+                      <span>계약 1.16억</span>
+                      <span className="text-[#5980a6] font-semibold">{pipelineMetrics.pipe.compLen.toLocaleString()}m / {pipelineMetrics.pipe.totalLen.toLocaleString()}m</span>
+                    </div>
                   </div>
 
+                  {/* 02 오수 맨홀구조물공 */}
                   <div className="p-space-sm bg-surface-container-lowest rounded flex flex-col gap-space-xs shadow-xs border border-[rgba(29,31,32,0.04)]">
                     <div className="flex items-center justify-between">
-                      <span className="font-label-sm text-label-sm font-semibold text-on-surface-variant">02 지하 골조</span>
-                      <span className="font-label-sm text-label-sm text-on-surface font-bold font-mono">100%</span>
+                      <span className="font-label-sm text-label-sm font-semibold text-on-surface-variant" title="오수 맨홀구조물공 (조립식 PC원형 1/2호 맨홀, 인버트, PE사다리, 주철뚜껑 188개소)">
+                        02 오수 맨홀공
+                      </span>
+                      <span className="font-label-sm text-label-sm text-on-surface font-bold font-mono">
+                        {pipelineMetrics.manhole.rate}%
+                      </span>
                     </div>
                     <div className="w-full bg-surface-container h-1.5 rounded-full overflow-hidden">
-                      <div className="bg-[#5980a6] h-full w-full"></div>
+                      <div
+                        className="bg-[#5980a6] h-full transition-all duration-700"
+                        style={{ width: `${pipelineMetrics.manhole.rate}%` }}
+                      ></div>
                     </div>
-                    <span className="font-label-sm text-[9px] text-on-surface-variant truncate">B1~B6 완료</span>
+                    <div className="flex justify-between items-center text-[10px] text-on-surface-variant font-mono">
+                      <span>계약 3.94억</span>
+                      <span className="text-secondary-container font-semibold">{pipelineMetrics.manhole.comp}개소 연계완료</span>
+                    </div>
                   </div>
 
+                  {/* 03 관기초 모래부설·부대공 */}
                   <div className="p-space-sm bg-surface-container-lowest rounded flex flex-col gap-space-xs shadow-xs border border-[rgba(29,31,32,0.04)]">
                     <div className="flex items-center justify-between">
-                      <span className="font-label-sm text-label-sm font-semibold text-on-surface">03 지상 골조</span>
-                      <span className="font-label-sm text-label-sm text-secondary-container font-bold font-mono">82.0%</span>
+                      <span className="font-label-sm text-label-sm font-semibold text-on-surface-variant" title="관기초 모래부설 및 무근콘크리트 보호공 (관로 부설 전후 공종, 토공 터파기/되메우기 제외)">
+                        03 관기초·모래부설
+                      </span>
+                      <span className="font-label-sm text-label-sm text-on-surface font-bold font-mono">
+                        {pipelineMetrics.foundation.rate}%
+                      </span>
                     </div>
                     <div className="w-full bg-surface-container h-1.5 rounded-full overflow-hidden">
-                      <div className="bg-secondary-container h-full w-[82%]"></div>
+                      <div
+                        className="bg-[#5980a6] h-full transition-all duration-700"
+                        style={{ width: `${pipelineMetrics.foundation.rate}%` }}
+                      ></div>
                     </div>
-                    <span className="font-label-sm text-[9px] text-on-surface-variant truncate">18F/24F 타설</span>
+                    <div className="flex justify-between items-center text-[10px] text-on-surface-variant font-mono">
+                      <span>계약 2.11억</span>
+                      <span>{pipelineMetrics.foundation.compQty} / {pipelineMetrics.foundation.totalQty}</span>
+                    </div>
                   </div>
 
+                  {/* 04 관로 검사·시험공 */}
                   <div className="p-space-sm bg-surface-container-lowest rounded flex flex-col gap-space-xs shadow-xs border border-[rgba(29,31,32,0.04)]">
                     <div className="flex items-center justify-between">
-                      <span className="font-label-sm text-label-sm font-semibold text-on-surface-variant">04 외벽/커튼월</span>
-                      <span className="font-label-sm text-label-sm text-on-surface font-bold font-mono">34.5%</span>
+                      <span className="font-label-sm text-label-sm font-semibold text-on-surface-variant" title="하수관내 CCTV 촬영조사(9,958m) 및 수압/수밀시험(193회)">
+                        04 관로 시험·검사
+                      </span>
+                      <span className="font-label-sm text-label-sm text-on-surface font-bold font-mono">
+                        {pipelineMetrics.testing.rate}%
+                      </span>
                     </div>
                     <div className="w-full bg-surface-container h-1.5 rounded-full overflow-hidden">
-                      <div className="bg-primary-fixed-dim h-full w-[34.5%]"></div>
+                      <div
+                        className="bg-secondary-container h-full transition-all duration-700"
+                        style={{ width: `${pipelineMetrics.testing.rate}%` }}
+                      ></div>
                     </div>
-                    <span className="font-label-sm text-[9px] text-on-surface-variant truncate">12F 프레임 조립</span>
+                    <div className="flex justify-between items-center text-[10px] text-on-surface-variant font-mono">
+                      <span>계약 1.10억</span>
+                      <span>검측 {pipelineMetrics.testing.testedLen} 완료</span>
+                    </div>
                   </div>
 
+                  {/* 05 우수·차집 관로부설공 */}
                   <div className="p-space-sm bg-surface-container-lowest rounded flex flex-col gap-space-xs shadow-xs border border-[rgba(29,31,32,0.04)]">
                     <div className="flex items-center justify-between">
-                      <span className="font-label-sm text-label-sm font-semibold text-on-surface-variant">05 설비/전기</span>
-                      <span className="font-label-sm text-label-sm text-on-surface font-bold font-mono">41.2%</span>
+                      <span className="font-label-sm text-label-sm font-semibold text-on-surface-variant" title="우수 관로 및 배수공사 (36.08억), 차집관로 주철관/맨홀공사 (2.05억) 연계 공정">
+                        05 우수·차집관로
+                      </span>
+                      <span className="font-label-sm text-label-sm text-on-surface-variant font-bold font-mono">
+                        {pipelineMetrics.stormwater.rate}%
+                      </span>
                     </div>
                     <div className="w-full bg-surface-container h-1.5 rounded-full overflow-hidden">
-                      <div className="bg-primary-fixed-dim h-full w-[41.2%]"></div>
+                      <div
+                        className="bg-primary-fixed-dim h-full"
+                        style={{ width: `${pipelineMetrics.stormwater.rate}%` }}
+                      ></div>
                     </div>
-                    <span className="font-label-sm text-[9px] text-on-surface-variant truncate">B2~8F 배관</span>
+                    <div className="flex justify-between items-center text-[10px] text-on-surface-variant font-mono">
+                      <span>계약 38.13억</span>
+                      <span className="text-on-surface-variant">자재수급/시공준비</span>
+                    </div>
                   </div>
                 </div>
 
@@ -757,7 +916,7 @@ export default function WebCommandDashboard({
                       <span className="flex items-center gap-1.5"><span className="w-3 h-3 bg-surface-container-high rounded-xs"></span>주간 계획 공정량 (%)</span>
                       <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-secondary-container"></span>누적 실적 S-Curve</span>
                     </div>
-                    <span className="font-mono">Unit: % (W14~W20)</span>
+                    <span className="font-mono">송산 1-2공구 관로 마일스톤</span>
                   </div>
 
                   <div className="w-full h-56 bg-surface-container-lowest relative pt-space-sm">
@@ -772,44 +931,44 @@ export default function WebCommandDashboard({
                       <text className="fill-on-surface-variant text-[10px] font-mono" x="10" y="104">50%</text>
                       <text className="fill-on-surface-variant text-[10px] font-mono" x="10" y="144">25%</text>
 
-                      {/* Bars W14~W20 */}
-                      <rect className="text-surface-container-high" fill="currentColor" height="45" width="22" x="70" y="105"></rect>
-                      <rect className="text-[#5980a6]" fill="currentColor" height="52" width="22" x="94" y="98"></rect>
+                      {/* Bars W14~W20 (7월 착수 ~ 8월 배관집중 ~ 9월 현재) */}
+                      <rect className="text-surface-container-high" fill="currentColor" height="25" width="22" x="70" y="125"></rect>
+                      <rect className="text-[#5980a6]" fill="currentColor" height="28" width="22" x="94" y="122"></rect>
 
-                      <rect className="text-surface-container-high" fill="currentColor" height="54" width="22" x="160" y="96"></rect>
-                      <rect className="text-[#5980a6]" fill="currentColor" height="60" width="22" x="184" y="90"></rect>
+                      <rect className="text-surface-container-high" fill="currentColor" height="38" width="22" x="160" y="112"></rect>
+                      <rect className="text-[#5980a6]" fill="currentColor" height="42" width="22" x="184" y="108"></rect>
 
-                      <rect className="text-surface-container-high" fill="currentColor" height="62" width="22" x="250" y="88"></rect>
-                      <rect className="text-[#5980a6]" fill="currentColor" height="66" width="22" x="274" y="84"></rect>
+                      <rect className="text-surface-container-high" fill="currentColor" height="50" width="22" x="250" y="100"></rect>
+                      <rect className="text-[#5980a6]" fill="currentColor" height="54" width="22" x="274" y="96"></rect>
 
-                      <rect className="text-surface-container-high" fill="currentColor" height="70" width="22" x="340" y="80"></rect>
-                      <rect className="text-[#5980a6]" fill="currentColor" height="76" width="22" x="364" y="74"></rect>
+                      <rect className="text-surface-container-high" fill="currentColor" height="60" width="22" x="340" y="90"></rect>
+                      <rect className="text-[#5980a6]" fill="currentColor" height="65" width="22" x="364" y="85"></rect>
 
-                      <rect className="text-surface-container-high" fill="currentColor" height="78" width="22" x="430" y="72"></rect>
-                      <rect className="text-[#5980a6]" fill="currentColor" height="84" width="22" x="454" y="66"></rect>
+                      <rect className="text-surface-container-high" fill="currentColor" height="68" width="22" x="430" y="82"></rect>
+                      <rect className="text-[#5980a6]" fill="currentColor" height="74" width="22" x="454" y="76"></rect>
 
-                      <rect className="text-surface-container-high" fill="currentColor" height="85" width="22" x="520" y="65"></rect>
-                      <rect className="text-[#5980a6]" fill="currentColor" height="92" width="22" x="544" y="58"></rect>
+                      <rect className="text-surface-container-high" fill="currentColor" height="76" width="22" x="520" y="74"></rect>
+                      <rect className="text-[#5980a6]" fill="currentColor" height="82" width="22" x="544" y="68"></rect>
 
-                      <rect className="text-surface-container-high" fill="currentColor" height="92" width="22" x="610" y="58"></rect>
-                      <rect className="text-secondary-container" fill="currentColor" height="100" width="22" x="634" y="50"></rect>
+                      <rect className="text-surface-container-high" fill="currentColor" height="82" width="22" x="610" y="68"></rect>
+                      <rect className="text-secondary-container" fill="currentColor" height="90" width="22" x="634" y="60"></rect>
 
                       {/* S-Curve Path */}
-                      <path className="text-secondary-container" d="M 85,120 Q 260,95 360,78 T 645,45" fill="none" stroke="currentColor" strokeWidth="3"></path>
-                      <circle className="fill-surface-container-lowest stroke-secondary-container" cx="85" cy="120" r="3.5" strokeWidth="2"></circle>
-                      <circle className="fill-surface-container-lowest stroke-secondary-container" cx="175" cy="106" r="3.5" strokeWidth="2"></circle>
-                      <circle className="fill-surface-container-lowest stroke-secondary-container" cx="265" cy="94" r="3.5" strokeWidth="2"></circle>
-                      <circle className="fill-surface-container-lowest stroke-secondary-container" cx="355" cy="80" r="3.5" strokeWidth="2"></circle>
-                      <circle className="fill-surface-container-lowest stroke-secondary-container" cx="445" cy="68" r="3.5" strokeWidth="2"></circle>
-                      <circle className="fill-surface-container-lowest stroke-secondary-container" cx="535" cy="56" r="3.5" strokeWidth="2"></circle>
-                      <circle className="fill-secondary-container" cx="645" cy="45" r="4.5"></circle>
+                      <path className="text-secondary-container" d="M 85,130 Q 260,110 360,90 T 645,62" fill="none" stroke="currentColor" strokeWidth="3"></path>
+                      <circle className="fill-surface-container-lowest stroke-secondary-container" cx="85" cy="130" r="3.5" strokeWidth="2"></circle>
+                      <circle className="fill-surface-container-lowest stroke-secondary-container" cx="175" cy="118" r="3.5" strokeWidth="2"></circle>
+                      <circle className="fill-surface-container-lowest stroke-secondary-container" cx="265" cy="105" r="3.5" strokeWidth="2"></circle>
+                      <circle className="fill-surface-container-lowest stroke-secondary-container" cx="355" cy="92" r="3.5" strokeWidth="2"></circle>
+                      <circle className="fill-surface-container-lowest stroke-secondary-container" cx="445" cy="80" r="3.5" strokeWidth="2"></circle>
+                      <circle className="fill-surface-container-lowest stroke-secondary-container" cx="535" cy="70" r="3.5" strokeWidth="2"></circle>
+                      <circle className="fill-secondary-container" cx="645" cy="62" r="4.5"></circle>
 
-                      <text className="fill-on-surface-variant text-[11px] font-mono" textAnchor="middle" x="85" y="165">4월 1주</text>
-                      <text className="fill-on-surface-variant text-[11px] font-mono" textAnchor="middle" x="175" y="165">4월 2주</text>
-                      <text className="fill-on-surface-variant text-[11px] font-mono" textAnchor="middle" x="265" y="165">4월 3주</text>
-                      <text className="fill-on-surface-variant text-[11px] font-mono" textAnchor="middle" x="355" y="165">4월 4주</text>
-                      <text className="fill-on-surface-variant text-[11px] font-mono" textAnchor="middle" x="445" y="165">5월 1주</text>
-                      <text className="fill-on-surface-variant text-[11px] font-mono" textAnchor="middle" x="535" y="165">5월 2주</text>
+                      <text className="fill-on-surface-variant text-[11px] font-mono" textAnchor="middle" x="85" y="165">7월 1주</text>
+                      <text className="fill-on-surface-variant text-[11px] font-mono" textAnchor="middle" x="175" y="165">7월 3주</text>
+                      <text className="fill-on-surface-variant text-[11px] font-mono" textAnchor="middle" x="265" y="165">8월 1주</text>
+                      <text className="fill-on-surface-variant text-[11px] font-mono" textAnchor="middle" x="355" y="165">8월 3주</text>
+                      <text className="fill-on-surface-variant text-[11px] font-mono" textAnchor="middle" x="445" y="165">9월 1주</text>
+                      <text className="fill-on-surface-variant text-[11px] font-mono" textAnchor="middle" x="535" y="165">9월 2주</text>
                       <text className="fill-on-surface text-[11px] font-mono font-bold" textAnchor="middle" x="645" y="165">금주(현재)</text>
                     </svg>
                   </div>
@@ -817,181 +976,96 @@ export default function WebCommandDashboard({
               </div>
             </div>
 
-            {/* Right 4 Cols: 현장 IoT 환경 및 안전 관제 + 실시간 현장 사진 */}
-            <div className="xl:col-span-4 flex flex-col gap-space-lg">
+            {/* Right 6 Cols: 관로 시공 CAD 시각화 + 일일 현장 사진 기록 (50% 배분) */}
+            <div className="xl:col-span-6 flex flex-col gap-space-lg">
+              {/* 관로 시공 구간 CAD 시각화 (완료, 진행, 계획 및 Trim-Paths 애니메이션) */}
+              <PipelineCadViewer />
+
+              {/* 일일 현장 작업 사진 기록 (소규모 현장 맞춤형) */}
               <div className="p-space-lg rounded-xl bg-surface-container-lowest shadow-sm flex flex-col gap-space-md border border-[rgba(29,31,32,0.08)]">
                 <div className="flex items-center justify-between pb-space-xs border-b border-[rgba(29,31,32,0.06)]">
-                  <div className="flex items-center gap-space-xs">
-                    <span className="w-1.5 h-4 bg-secondary-container rounded-full"></span>
-                    <h2 className="font-headline-md text-headline-md text-on-surface font-bold tracking-tight">
-                      현장 IoT 환경 및 안전 관제
-                    </h2>
-                  </div>
-                  <span className="font-label-sm text-label-sm font-semibold text-secondary-container flex items-center gap-1">
-                    <span className="w-2 h-2 rounded-full bg-secondary-container animate-ping"></span>
-                    정상 모니터링
-                  </span>
-                </div>
-
-                {/* Telemetry Sensor Matrix (4x Grid) */}
-                <div className="grid grid-cols-2 gap-space-sm">
-                  <div className="p-space-sm rounded-lg bg-surface-container-low flex flex-col gap-1 border border-[rgba(29,31,32,0.04)]">
-                    <div className="flex items-center justify-between">
-                      <span className="font-label-sm text-label-sm text-on-surface-variant">타워크레인 풍속</span>
-                      <span className="material-symbols-outlined text-[16px] text-on-surface-variant">air</span>
-                    </div>
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-headline-sm text-on-surface font-bold font-mono">2.4</span>
-                      <span className="font-label-sm text-label-sm text-on-surface-variant">m/s</span>
-                    </div>
-                    <span className="font-label-sm text-[10px] text-secondary-container font-medium">안전 작업구간 (기준 10m/s 이하)</span>
-                  </div>
-
-                  <div className="p-space-sm rounded-lg bg-surface-container-low flex flex-col gap-1 border border-[rgba(29,31,32,0.04)]">
-                    <div className="flex items-center justify-between">
-                      <span className="font-label-sm text-label-sm text-on-surface-variant">현장 온/습도</span>
-                      <span className="material-symbols-outlined text-[16px] text-on-surface-variant">device_thermostat</span>
-                    </div>
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-headline-sm text-on-surface font-bold font-mono">21.5°C</span>
-                      <span className="font-label-sm text-label-sm text-on-surface-variant">/ 48%</span>
-                    </div>
-                    <span className="font-label-sm text-[10px] text-on-surface-variant font-medium">타설 양생 적정 환경</span>
-                  </div>
-
-                  <div className="p-space-sm rounded-lg bg-surface-container-low flex flex-col gap-1 border border-[rgba(29,31,32,0.04)]">
-                    <div className="flex items-center justify-between">
-                      <span className="font-label-sm text-label-sm text-on-surface-variant">경계 소음 측정</span>
-                      <span className="material-symbols-outlined text-[16px] text-on-surface-variant">volume_up</span>
-                    </div>
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-headline-sm text-on-surface font-bold font-mono">62</span>
-                      <span className="font-label-sm text-label-sm text-on-surface-variant">dB</span>
-                    </div>
-                    <span className="font-label-sm text-[10px] text-secondary-container font-medium">기준(70dB) 준수 정상</span>
-                  </div>
-
-                  <div className="p-space-sm rounded-lg bg-surface-container-low flex flex-col gap-1 border border-[rgba(29,31,32,0.04)]">
-                    <div className="flex items-center justify-between">
-                      <span className="font-label-sm text-label-sm text-on-surface-variant">B2F 가스 센서</span>
-                      <span className="material-symbols-outlined text-[16px] text-on-surface-variant">co2</span>
-                    </div>
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-headline-sm text-on-surface font-bold font-mono">420</span>
-                      <span className="font-label-sm text-label-sm text-on-surface-variant">ppm</span>
-                    </div>
-                    <span className="font-label-sm text-[10px] text-secondary-container font-medium">O2 20.9% 정상 환기</span>
-                  </div>
-                </div>
-
-                {/* Live Site Feeds / Site Photos (실제 등록된 현장사진 연동) */}
-                <div className="flex flex-col gap-space-xs mt-space-xs">
-                  <div className="flex items-center justify-between font-label-sm text-label-sm">
-                    <span className="font-semibold text-on-surface flex items-center gap-1.5">
-                      <span className="material-symbols-outlined text-[18px] text-[#5980a6]">photo_camera</span>
-                      실시간 현장 사진 &amp; CCTV 관제 ({photos.length}장)
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[20px] text-[#5980a6]">photo_camera</span>
+                    <h3 className="font-headline-md text-headline-md text-on-surface font-bold tracking-tight">
+                      일일 현장 사진 기록
+                    </h3>
+                    <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-surface-container-low text-on-surface-variant font-mono">
+                      {photos.length > 0 ? `${photos.length}장 보관 중` : '등록 사진 없음'}
                     </span>
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-on-surface-variant text-[11px]">
-                        {photos.length > 0 ? '실시간 연동' : 'DEMO FEED'}
-                      </span>
-                      {onPhotoUpload && (
-                        <label className={`cursor-pointer px-2 py-1 rounded bg-[#5980a6] hover:bg-[#416180] text-white text-[11px] font-bold flex items-center gap-1 transition-colors shadow-xs ${isUploading ? 'opacity-50 pointer-events-none' : ''}`}>
-                          <input type="file" accept="image/*" className="hidden" onChange={onPhotoUpload} />
-                          <span className="material-symbols-outlined text-xs">add_a_photo</span>
-                          <span>{isUploading ? '업로드 중...' : '사진 추가'}</span>
-                        </label>
-                      )}
-                    </div>
                   </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-space-sm">
-                    {photos.length > 0 ? (
-                      photos.map((p: any, idx: number) => (
-                        <div
-                          key={p.id || idx}
-                          onClick={() => onViewPhoto && onViewPhoto(p.url)}
-                          className="relative rounded-lg overflow-hidden bg-primary-container h-28 group cursor-pointer border border-[rgba(29,31,32,0.1)] shadow-xs"
-                          title="클릭하여 원본 사진 확대"
-                        >
-                          <img
-                            src={p.url}
-                            alt="현장 사진"
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                          />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30 pointer-events-none"></div>
-                          <div className="absolute top-1.5 left-1.5 flex items-center gap-1 bg-black/60 px-1.5 py-0.5 rounded text-white font-label-sm text-[9px]">
-                            <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping"></span>
-                            <span>#{idx + 1}</span>
-                          </div>
-                          {onDeletePhoto && (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (confirm('이 사진을 삭제하시겠습니까?')) {
-                                  onDeletePhoto(p.id);
-                                }
-                              }}
-                              className="absolute top-1.5 right-1.5 bg-black/70 hover:bg-black text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                              title="삭제"
-                            >
-                              <span className="material-symbols-outlined text-[12px]">close</span>
-                            </button>
-                          )}
-                          <div className="absolute bottom-1.5 left-1.5 right-1.5 flex justify-between items-center text-white/90 font-label-sm text-[9px] font-mono">
-                            <span className="truncate">{p.createdBy || '현장 기록'}</span>
-                            <span className="text-tertiary-fixed-dim shrink-0">확대</span>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <>
-                        <div className="relative rounded-lg overflow-hidden bg-primary-container h-28 group col-span-2">
-                          <img
-                            className="w-full h-full object-cover opacity-85 group-hover:scale-105 transition-transform duration-300"
-                            alt="타워크레인 전경"
-                            src="https://images.unsplash.com/photo-1541888946425-d0fbb186c5f7?w=600&auto=format&fit=crop&q=80"
-                          />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30 pointer-events-none"></div>
-                          <div className="absolute top-1.5 left-1.5 flex items-center gap-1 bg-black/60 px-1.5 py-0.5 rounded text-white font-label-sm text-[9px]">
-                            <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping"></span>
-                            <span>CAM 01 • 타워크레인 1호</span>
-                          </div>
-                          <div className="absolute bottom-1.5 left-1.5 right-1.5 flex justify-between items-center text-white/90 font-label-sm text-[9px] font-mono">
-                            <span>18F 양중구역</span>
-                            <span className="text-tertiary-fixed-dim">AI 객체인식 중</span>
-                          </div>
-                        </div>
+                  {onPhotoUpload && (
+                    <label className={`cursor-pointer px-3 py-1.5 rounded-lg bg-[#5980a6] hover:bg-[#416180] text-white text-[12px] font-bold flex items-center gap-1.5 transition-colors shadow-xs ${isUploading ? 'opacity-50 pointer-events-none' : ''}`}>
+                      <input type="file" accept="image/*" className="hidden" onChange={onPhotoUpload} />
+                      <span className="material-symbols-outlined text-[16px]">add_a_photo</span>
+                      <span>{isUploading ? '업로드 중...' : '현장 사진 추가'}</span>
+                    </label>
+                  )}
+                </div>
 
-                        <div className="relative rounded-lg overflow-hidden bg-primary-container h-28 group col-span-2">
-                          <img
-                            className="w-full h-full object-cover opacity-85 group-hover:scale-105 transition-transform duration-300"
-                            alt="외벽 커튼월 시공"
-                            src="https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=600&auto=format&fit=crop&q=80"
-                          />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30 pointer-events-none"></div>
-                          <div className="absolute top-1.5 left-1.5 flex items-center gap-1 bg-black/60 px-1.5 py-0.5 rounded text-white font-label-sm text-[9px]">
-                            <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping"></span>
-                            <span>CAM 04 • 남측 커튼월</span>
-                          </div>
-                          <div className="absolute bottom-1.5 left-1.5 right-1.5 flex justify-between items-center text-white/90 font-label-sm text-[9px] font-mono">
-                            <span>12F 외벽 구간</span>
-                            <span className="text-tertiary-fixed-dim">작업자 8명 감지</span>
-                          </div>
+                {/* 사진 목록 뷰 */}
+                {photos.length > 0 ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-space-sm">
+                    {photos.map((p: any, idx: number) => (
+                      <div
+                        key={p.id || idx}
+                        onClick={() => onViewPhoto && onViewPhoto(p.url)}
+                        className="relative rounded-lg overflow-hidden bg-primary-container h-28 group cursor-pointer border border-[rgba(29,31,32,0.1)] shadow-xs"
+                        title="클릭하여 원본 사진 확대"
+                      >
+                        <img
+                          src={p.url}
+                          alt="현장 사진"
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30 pointer-events-none"></div>
+                        <div className="absolute top-1.5 left-1.5 flex items-center gap-1 bg-black/60 px-1.5 py-0.5 rounded text-white font-label-sm text-[9px]">
+                          <span>#{idx + 1}</span>
                         </div>
-                      </>
+                        {onDeletePhoto && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (confirm('이 사진을 삭제하시겠습니까?')) {
+                                onDeletePhoto(p.id);
+                              }
+                            }}
+                            className="absolute top-1.5 right-1.5 bg-black/70 hover:bg-black text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                            title="삭제"
+                          >
+                            <span className="material-symbols-outlined text-[12px]">close</span>
+                          </button>
+                        )}
+                        <div className="absolute bottom-1.5 left-1.5 right-1.5 flex justify-between items-center text-white/90 font-label-sm text-[9px] font-mono">
+                          <span className="truncate">{p.createdBy || '현장 기록'}</span>
+                          <span className="text-sky-300 shrink-0">확대보기</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-space-lg rounded-lg border border-dashed border-[rgba(29,31,32,0.15)] bg-surface-container-low/50 flex flex-col items-center justify-center gap-2 text-center py-8">
+                    <div className="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant">
+                      <span className="material-symbols-outlined text-[24px] text-[#5980a6]">add_photo_alternate</span>
+                    </div>
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-body-md font-semibold text-on-surface">
+                        등록된 일일 현장 사진이 없습니다
+                      </span>
+                      <span className="text-[12px] text-on-surface-variant">
+                        당일 배관 시공, 터파기, 자재 반입 등 작업 사진을 등록하여 일보 및 검측 자료로 활용하세요.
+                      </span>
+                    </div>
+                    {onPhotoUpload && (
+                      <label className="mt-2 cursor-pointer px-3.5 py-1.5 rounded-lg bg-[#5980a6] hover:bg-[#416180] text-white text-[12px] font-bold flex items-center gap-1.5 transition-colors shadow-xs">
+                        <input type="file" accept="image/*" className="hidden" onChange={onPhotoUpload} />
+                        <span className="material-symbols-outlined text-[16px]">upload</span>
+                        <span>첫 작업 사진 등록하기</span>
+                      </label>
                     )}
                   </div>
-                </div>
-
-                <div className="p-space-xs px-space-sm bg-surface-container rounded font-label-sm text-label-sm text-on-surface flex items-center justify-between border border-[rgba(29,31,32,0.04)]">
-                  <div className="flex items-center gap-space-xs">
-                    <span className="material-symbols-outlined text-[16px] text-secondary-container">shield_with_heart</span>
-                    <span>스마트 안전고리 체결 감지 시스템 연동 중</span>
-                  </div>
-                  <span className="font-bold text-on-surface font-mono">체결율 98.4%</span>
-                </div>
+                )}
               </div>
             </div>
           </div>

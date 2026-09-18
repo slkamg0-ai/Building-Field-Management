@@ -64,10 +64,8 @@ export async function ensureSchemaUpdated() {
       );
     `)
 
-    await prisma.$executeRawUnsafe(`
-      CREATE INDEX IF NOT EXISTS "Labor_workerId_idx" ON "Labor"("workerId");
-      CREATE INDEX IF NOT EXISTS "Equipment_equipmentMasterId_idx" ON "Equipment"("equipmentMasterId");
-    `)
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "Labor_workerId_idx" ON "Labor"("workerId")`)
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "Equipment_equipmentMasterId_idx" ON "Equipment"("equipmentMasterId")`)
 
     schemaEnsured = true
   } catch (err) {
