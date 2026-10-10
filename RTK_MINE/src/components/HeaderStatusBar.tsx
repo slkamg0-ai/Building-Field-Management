@@ -5,6 +5,7 @@ import {
   Mic, 
   MicOff, 
   Bluetooth, 
+  Usb,
   Wifi, 
   Battery, 
   BatteryCharging,
@@ -104,8 +105,12 @@ export const HeaderStatusBar: React.FC<HeaderStatusBarProps> = ({
                 : 'neu-inset-sm text-slate-400'
             }`}
           >
-            <Bluetooth className="w-3.5 h-3.5 text-cyan-600" />
-            <span>{gnss.source === 'simulation' ? '가상' : gnss.connected ? 'GNSS' : '미연결'}</span>
+            {gnss.source === 'usb' || gnss.source === 'serial' ? (
+              <Usb className="w-3.5 h-3.5 text-emerald-600" />
+            ) : (
+              <Bluetooth className="w-3.5 h-3.5 text-cyan-600" />
+            )}
+            <span>{gnss.source === 'simulation' ? '가상' : gnss.connected ? (gnss.source === 'usb' ? 'USB' : 'GNSS') : '미연결'}</span>
           </button>
 
           {/* NTRIP Caster 상태 */}

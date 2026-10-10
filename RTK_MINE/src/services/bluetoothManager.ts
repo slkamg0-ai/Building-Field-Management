@@ -1,6 +1,7 @@
 import { parseNmeaSentence } from './nmeaParser';
 import { GnssState, GnssFixQuality } from '../types/gnss';
 import { wgs84ToKoreanTm, calculateGeoidHeightKN18, calculateOrthometricHeight } from './coordTransform';
+import { webUsbSerial } from './webUsbSerial';
 
 type GnssUpdateCallback = (state: GnssState) => void;
 type NmeaSentenceCallback = (sentence: string) => void;
@@ -232,6 +233,31 @@ export class GnssConnectionManager {
     }
   }
 
+  /**
+   * 2-1. WebUSB 모바일 유선 직결 (Android 스마트폰 브라우저 완벽 대응)
+   */
+  public async connectWebUsb(baudRate = 115200): Promise<boolean> {
+    this.disconnect();
+    try {
+      const devName = await webUsbSerial.connect({ baudRate });
+      
+      this.currentState.connected = true;
+      this.currentState.source = 'usb';
+      this.currentState.deviceName = devName || 'UM982 USB-C GNSS';
+      this.emitState();
+
+      // NMEA 라인 콜백 등록
+      webUsbSerial.onData((line) => {
+        this.handleRawNmea(line);
+      });
+
+      return true;
+    } catch (err: any) {
+      console.error('WebUSB 연결 실패:', err);
+      throw err;
+    }
+  }
+
   private async readSerialLoop(port: any) {
     const textDecoder = new TextDecoderStream();
     const readableStreamClosed = port.readable.pipeTo(textDecoder.writable);
@@ -316,6 +342,12 @@ export class GnssConnectionManager {
       } catch (err) {
         console.warn('BLE RTCM 전송 실패:', err);
       }
+    } else if (this.currentState.source === 'usb') {
+      try {
+        await webUsbSerial.write(data);
+      } catch (err) {
+        console.warn('WebUSB RTCM 전송 실패:', err);
+      }
     } else if (this.serialWriter) {
       try {
         await this.serialWriter.write(data);
@@ -338,6 +370,8 @@ export class GnssConnectionManager {
     }
     this.bleDevice = null;
     this.bleRxChar = null;
+
+    webUsbSerial.disconnect();
 
     if (this.serialWriter) {
       this.serialWriter.releaseLock();

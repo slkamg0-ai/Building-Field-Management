@@ -120,6 +120,27 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </div>
 
           <div className="grid grid-cols-1 gap-2.5 pt-1">
+            {/* 1. WebUSB 모바일 유선 직결 (Android 스마트폰 공식 지원) */}
+            <button
+              onClick={() => gnssManager.connectWebUsb().catch(e => alert(e.message))}
+              className="w-full flex items-center justify-between p-3.5 rounded-2xl neu-btn text-slate-800 font-bold text-xs border border-emerald-500/30 bg-emerald-50/30"
+            >
+              <div className="flex items-center gap-3">
+                <div className="neu-inset-sm p-2 rounded-xl text-emerald-600 bg-emerald-100/50">
+                  <Usb className="w-5 h-5" />
+                </div>
+                <div className="text-left">
+                  <div className="font-black text-slate-800 flex items-center gap-1.5">
+                    <span>USB-C (WebUSB) 모바일 직결</span>
+                    <span className="text-[9px] bg-emerald-600 text-white px-1.5 py-0.2 rounded-full font-bold">안드로이드 추천</span>
+                  </div>
+                  <div className="text-[10px] text-slate-400 font-normal">스마트폰 C타입 케이블 직결 (UM982/CH340/CP2102)</div>
+                </div>
+              </div>
+              <span className="text-emerald-700 text-xs font-black">연결 ➔</span>
+            </button>
+
+            {/* 2. Web Bluetooth 무선 연결 */}
             <button
               onClick={() => gnssManager.connectBle().catch(e => alert(e.message))}
               className="w-full flex items-center justify-between p-3.5 rounded-2xl neu-btn text-slate-800 font-bold text-xs"
@@ -136,22 +157,24 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <span className="text-cyan-700 text-xs font-black">탐색 ➔</span>
             </button>
 
+            {/* 3. Web Serial 시리얼 포트 연결 (PC 크롬용) */}
             <button
               onClick={() => gnssManager.connectSerial().catch(e => alert(e.message))}
-              className="w-full flex items-center justify-between p-3.5 rounded-2xl neu-btn text-slate-800 font-bold text-xs"
+              className="w-full flex items-center justify-between p-3.5 rounded-2xl neu-btn text-slate-700 font-bold text-xs opacity-90"
             >
               <div className="flex items-center gap-3">
-                <div className="neu-inset-sm p-2 rounded-xl text-emerald-600">
-                  <Usb className="w-5 h-5" />
+                <div className="neu-inset-sm p-2 rounded-xl text-slate-600">
+                  <Sliders className="w-5 h-5" />
                 </div>
                 <div className="text-left">
-                  <div className="font-black text-slate-800">USB OTG (시리얼) 유선 직결</div>
-                  <div className="text-[10px] text-slate-400 font-normal">스마트폰 C타입 케이블 직결 (115200bps)</div>
+                  <div className="font-black text-slate-800">USB (Web Serial) 포트 연결</div>
+                  <div className="text-[10px] text-slate-400 font-normal">PC/노트북 크롬 또는 가상 COM 포트 (115200bps)</div>
                 </div>
               </div>
-              <span className="text-emerald-700 text-xs font-black">열기 ➔</span>
+              <span className="text-slate-600 text-xs font-black">열기 ➔</span>
             </button>
 
+            {/* 4. 현장 가상 시뮬레이션 모드 */}
             <button
               onClick={() => gnssManager.startSimulation()}
               className="w-full flex items-center justify-between p-3.5 rounded-2xl neu-btn text-cyan-800 font-bold text-xs bg-cyan-50/40"

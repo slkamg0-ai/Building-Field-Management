@@ -10,7 +10,7 @@ export type GnssFixQuality =
 
 export interface GnssState {
   connected: boolean;
-  source: 'bluetooth' | 'serial' | 'simulation' | 'disconnected';
+  source: 'bluetooth' | 'serial' | 'usb' | 'simulation' | 'disconnected';
   deviceName?: string;
   fixQuality: GnssFixQuality;
   fixQualityLabel: 'RTK FIX' | 'RTK FLOAT' | 'DGPS' | 'SINGLE' | 'NO FIX';
