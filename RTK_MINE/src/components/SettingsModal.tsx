@@ -119,6 +119,42 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             )}
           </div>
 
+          {/* 실시간 하드웨어 통신 검증 모니터 (진짜 연결되었는지 한눈에 100% 확인!) */}
+          {gnss.connected && (
+            <div className="neu-dark rounded-2xl p-3 space-y-2 border border-white/10 text-xs font-mono">
+              <div className="flex items-center justify-between text-[11px]">
+                <div className="flex items-center gap-1.5">
+                  <span className={`w-2.5 h-2.5 rounded-full ${
+                    gnss.isReceivingData 
+                      ? 'bg-emerald-400 animate-pulse' 
+                      : 'bg-rose-500 animate-ping'
+                  }`}></span>
+                  <span className="font-bold text-slate-200 font-sans">
+                    {gnss.isReceivingData ? '데이터 수신 중 (정상)' : 'NMEA 데이터 대기 중...'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 text-slate-400">
+                  <span className="text-emerald-400 font-bold font-mono">
+                    {gnss.packetHz ? `${gnss.packetHz} Hz` : '0 Hz'}
+                  </span>
+                  <span>|</span>
+                  <span>{gnss.packetCount ? `${gnss.packetCount} pkts` : '0 pkts'}</span>
+                </div>
+              </div>
+
+              {/* 최근 수신된 NMEA 원문 프리뷰 */}
+              <div className="bg-slate-950/80 rounded-xl p-2 border border-white/5 text-[10px] text-cyan-300 break-all select-all font-mono leading-relaxed">
+                {gnss.lastNmeaSentence ? (
+                  gnss.lastNmeaSentence
+                ) : (
+                  <span className="text-amber-400 font-sans">
+                    ⏳ 보드로부터 데이터 수신을 기다리고 있습니다. (보드 전원 및 안테나 연결 확인)
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 gap-2.5 pt-1">
             {/* 1. WebUSB 모바일 유선 직결 (Android 스마트폰 공식 지원) */}
             <button

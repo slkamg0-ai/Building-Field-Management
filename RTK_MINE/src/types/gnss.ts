@@ -31,6 +31,10 @@ export interface GnssState {
   stdDevY: number;        // 수평 표준편차 (m)
   stdDevZ: number;        // 수직 표준편차 (m)
   timestamp: number;
+  isReceivingData?: boolean;   // 최근 실시간 NMEA 데이터 수신 활성 여부
+  packetCount?: number;        // 누적 수신 NMEA 패킷 수
+  packetHz?: number;           // 초당 수신 빈도 (Hz)
+  lastNmeaSentence?: string;   // 최근 수신된 NMEA 원문 프리뷰
 }
 
 export interface SurveyPoint {

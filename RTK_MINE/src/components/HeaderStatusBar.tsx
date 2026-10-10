@@ -47,37 +47,59 @@ export const HeaderStatusBar: React.FC<HeaderStatusBarProps> = ({
   const dateStr = `${currentTime.getFullYear()}.${(currentTime.getMonth() + 1).toString().padStart(2, '0')}.${currentTime.getDate().toString().padStart(2, '0')}`;
 
   const getFixBadge = () => {
+    if (!gnss.connected) {
+      return (
+        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-200 text-slate-500 text-xs font-bold">
+          <span className="w-2 h-2 rounded-full bg-slate-400"></span>
+          미연결
+        </div>
+      );
+    }
+
+    // 연결되었으나 NMEA 데이터 유입 대기 중 (붉은색/주황색 깜빡임 제스처)
+    if (!gnss.isReceivingData) {
+      return (
+        <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/15 text-rose-700 border border-rose-500/40 text-xs font-black animate-pulse shadow-sm">
+          <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping"></span>
+          수신 대기중...
+        </div>
+      );
+    }
+
     switch (gnss.fixQuality) {
       case 4:
         return (
-          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-700 border border-emerald-500/30 text-xs font-black tracking-wider shadow-sm">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500 text-white border border-emerald-400 text-xs font-black tracking-wider shadow-md shadow-emerald-500/30">
+            <span className="w-2.5 h-2.5 rounded-full bg-white animate-pulse"></span>
             RTK FIX
           </div>
         );
       case 5:
         return (
-          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 text-amber-700 border border-amber-500/30 text-xs font-black tracking-wider">
+          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/20 text-amber-800 border border-amber-500/40 text-xs font-black tracking-wider">
             <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-ping"></span>
-            FLOAT
+            FLOAT (부동해)
           </div>
         );
       case 2:
         return (
-          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/10 text-blue-700 border border-blue-500/30 text-xs font-bold">
+          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/15 text-blue-700 border border-blue-500/30 text-xs font-bold">
+            <span className="w-2 h-2 rounded-full bg-blue-500"></span>
             DGPS
           </div>
         );
       case 1:
         return (
-          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/10 text-rose-700 border border-rose-500/30 text-xs font-bold">
-            SINGLE
+          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-500/15 text-sky-700 border border-sky-500/30 text-xs font-bold">
+            <span className="w-2 h-2 rounded-full bg-sky-500 animate-pulse"></span>
+            SINGLE (단독)
           </div>
         );
       default:
         return (
-          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-300 text-slate-600 text-xs font-bold">
-            NO FIX
+          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/15 text-rose-700 border border-rose-500/30 text-xs font-bold animate-pulse">
+            <span className="w-2 h-2 rounded-full bg-rose-500"></span>
+            위성 탐색중
           </div>
         );
     }
@@ -94,7 +116,7 @@ export const HeaderStatusBar: React.FC<HeaderStatusBarProps> = ({
           <span className="text-[10px] font-mono text-slate-400 hidden xs:inline">{dateStr}</span>
         </div>
 
-        {/* 상태 배지들 (NTRIP, BT, 음성) */}
+        {/* 상태 배지들 (NTRIP, BT/USB, 음성) */}
         <div className="flex items-center gap-1.5">
           {/* 하드웨어 연결 상태 */}
           <button 
@@ -142,7 +164,7 @@ export const HeaderStatusBar: React.FC<HeaderStatusBarProps> = ({
         </div>
       </div>
 
-      {/* 2. GNSS 퀄리티 뉴모피즘 상태 바 */}
+      {/* 2. GNSS 퀄리티 뉴모피즘 상태 바 (실시간 Rx Hz & 위성수) */}
       <div className="neu-flat rounded-2xl p-2 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <button onClick={onOpenSettings} className="hover:opacity-80 transition-opacity">
@@ -150,12 +172,29 @@ export const HeaderStatusBar: React.FC<HeaderStatusBarProps> = ({
           </button>
 
           <div className="flex items-center gap-1.5 text-xs font-mono">
+            {/* 수신 위성수 */}
             <div className="neu-inset-sm px-2 py-0.5 rounded-lg flex items-center gap-1 text-slate-700">
               <Satellite className="w-3.5 h-3.5 text-cyan-600" />
               <span className="font-black">{gnss.satellites}</span>
             </div>
 
+            {/* 실시간 Rx 수신 빈도 (Hz) 인디케이터 (진짜 수신 여부 확인!) */}
             <div className="neu-inset-sm px-2 py-0.5 rounded-lg flex items-center gap-1 text-slate-700">
+              <span className={`w-2 h-2 rounded-full ${
+                gnss.isReceivingData 
+                  ? 'bg-emerald-500 animate-pulse' 
+                  : gnss.connected 
+                  ? 'bg-rose-500 animate-ping' 
+                  : 'bg-slate-400'
+              }`}></span>
+              <span className="text-[10px] text-slate-400 font-sans">Rx</span>
+              <span className={`font-black ${gnss.isReceivingData ? 'text-emerald-700' : 'text-slate-400'}`}>
+                {gnss.packetHz !== undefined ? `${gnss.packetHz}Hz` : '0Hz'}
+              </span>
+            </div>
+
+            {/* HDOP */}
+            <div className="neu-inset-sm px-2 py-0.5 rounded-lg flex items-center gap-1 text-slate-700 hidden xs:flex">
               <span className="text-[10px] text-slate-400">HDOP</span>
               <span className={`font-black ${gnss.hdop < 1.0 ? 'text-emerald-600' : 'text-amber-600'}`}>
                 {gnss.hdop.toFixed(2)}
@@ -166,7 +205,7 @@ export const HeaderStatusBar: React.FC<HeaderStatusBarProps> = ({
 
         {/* 오차 및 시차 (Age) */}
         <div className="flex items-center gap-2 text-xs font-mono text-slate-600 pr-1">
-          <span className="font-bold text-emerald-700">
+          <span className={`font-bold ${gnss.fixQuality === 4 ? 'text-emerald-700 font-black' : 'text-slate-600'}`}>
             ±{(Math.max(gnss.stdDevX, gnss.stdDevY) * 100).toFixed(1)}cm
           </span>
           <span className="text-[11px] text-slate-400">

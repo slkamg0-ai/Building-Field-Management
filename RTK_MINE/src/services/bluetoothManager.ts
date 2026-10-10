@@ -2,6 +2,7 @@ import { parseNmeaSentence } from './nmeaParser';
 import { GnssState, GnssFixQuality } from '../types/gnss';
 import { wgs84ToKoreanTm, calculateGeoidHeightKN18, calculateOrthometricHeight } from './coordTransform';
 import { webUsbSerial } from './webUsbSerial';
+import { voiceController } from './voiceController';
 
 type GnssUpdateCallback = (state: GnssState) => void;
 type NmeaSentenceCallback = (sentence: string) => void;
@@ -20,12 +21,23 @@ export class GnssConnectionManager {
   private serialPort: any = null;
   private serialWriter: any = null;
   private simInterval: any = null;
+  private monitorTimer: any = null;
 
   private poleHeight: number = 2.0; // 기본 폴대고 2.0m
+
+  // 실시간 패킷 통계
+  private packetCount = 0;
+  private packetsInLastSec = 0;
+  private lastPacketTime = 0;
+  private lastAnnouncedFix = -1; // 중복 음성 알림 방지용
 
   private currentState: GnssState = {
     connected: false,
     source: 'disconnected',
+    isReceivingData: false,
+    packetCount: 0,
+    packetHz: 0,
+    lastNmeaSentence: '',
     fixQuality: 0,
     fixQualityLabel: 'NO FIX',
     latitude: 36.3504,
@@ -79,11 +91,60 @@ export class GnssConnectionManager {
     this.updateCallbacks.forEach(cb => cb(state));
   }
 
+  constructor() {
+    this.startMonitorTimer();
+  }
+
+  private startMonitorTimer() {
+    if (this.monitorTimer) clearInterval(this.monitorTimer);
+    this.monitorTimer = setInterval(() => {
+      this.currentState.packetHz = this.packetsInLastSec;
+      this.packetsInLastSec = 0;
+
+      // 2.5초 이상 데이터 없으면 수신 비활성화로 판정
+      if (this.currentState.connected && this.lastPacketTime > 0) {
+        const elapsed = Date.now() - this.lastPacketTime;
+        const receiving = elapsed < 2500;
+        if (this.currentState.isReceivingData !== receiving) {
+          this.currentState.isReceivingData = receiving;
+          this.emitState();
+        }
+      }
+    }, 1000);
+  }
+
+  private announceFixQuality(fix: number, sats: number) {
+    switch (fix) {
+      case 4:
+        voiceController.speak('RTK 고정 완료. 정밀 측량이 가능합니다.');
+        break;
+      case 5:
+        voiceController.speak('RTK 부동해 수렴 중입니다.');
+        break;
+      case 1:
+        voiceController.speak(`단독 측위 수신. 위성 ${sats || 12}개 감지.`);
+        break;
+      case 0:
+        voiceController.speak('위성 신호 수색 중입니다.');
+        break;
+    }
+  }
+
   private handleRawNmea(sentence: string) {
+    this.packetCount++;
+    this.packetsInLastSec++;
+    this.lastPacketTime = Date.now();
+    this.currentState.isReceivingData = true;
+    this.currentState.lastNmeaSentence = sentence;
+    this.currentState.packetCount = this.packetCount;
+
     this.nmeaCallbacks.forEach(cb => cb(sentence));
 
     const parsed = parseNmeaSentence(sentence);
-    if (!parsed) return;
+    if (!parsed) {
+      this.emitState();
+      return;
+    }
 
     let updated = false;
 
@@ -111,6 +172,11 @@ export class GnssConnectionManager {
     }
 
     if (parsed.fixQuality !== undefined) {
+      if (this.currentState.fixQuality !== parsed.fixQuality && parsed.fixQuality !== this.lastAnnouncedFix) {
+        this.announceFixQuality(parsed.fixQuality, parsed.satellites || this.currentState.satellites);
+        this.lastAnnouncedFix = parsed.fixQuality;
+      }
+
       this.currentState.fixQuality = parsed.fixQuality;
       switch (parsed.fixQuality) {
         case 4: this.currentState.fixQualityLabel = 'RTK FIX'; break;
@@ -149,10 +215,8 @@ export class GnssConnectionManager {
       updated = true;
     }
 
-    if (updated) {
-      this.currentState.timestamp = Date.now();
-      this.emitState();
-    }
+    this.currentState.timestamp = Date.now();
+    this.emitState();
   }
 
   /**
@@ -244,12 +308,34 @@ export class GnssConnectionManager {
       this.currentState.connected = true;
       this.currentState.source = 'usb';
       this.currentState.deviceName = devName || 'UM982 USB-C GNSS';
+      this.currentState.isReceivingData = false;
+      this.packetCount = 0;
+      this.lastPacketTime = 0;
+      this.lastAnnouncedFix = -1;
       this.emitState();
+
+      voiceController.speak('USB 수신기 연결되었습니다. 위성 신호를 수색합니다.');
 
       // NMEA 라인 콜백 등록
       webUsbSerial.onData((line) => {
         this.handleRawNmea(line);
       });
+
+      // UM982 / UM980 출력 활성화 커맨드 자동 전송 (혹시 보드가 대기 상태인 경우 기동)
+      setTimeout(async () => {
+        try {
+          await webUsbSerial.write("mode rover\r\n");
+          await webUsbSerial.write("gpgga com1 0.2\r\n");
+          await webUsbSerial.write("gprmc com1 0.2\r\n");
+          await webUsbSerial.write("gpgst com1 0.2\r\n");
+          await webUsbSerial.write("gphdt com1 0.2\r\n");
+          await webUsbSerial.write("gpgga usb 0.2\r\n");
+          await webUsbSerial.write("gprmc usb 0.2\r\n");
+          await webUsbSerial.write("gpgst usb 0.2\r\n");
+        } catch (e) {
+          console.warn('Auto config commands optional write:', e);
+        }
+      }, 300);
 
       return true;
     } catch (err: any) {
